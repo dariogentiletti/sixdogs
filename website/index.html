@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- Made by tools/build.mjs from website-src/index.html and community.json. Edit those, not this file. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIXDOGS · WARDOGS community server with commanders</title>
+<meta name="description" content="A WARDOGS community server where every team gets a commander who calls the plan in voice. Hardcore settings. Join our Discord to play.">
+<meta property="og:title" content="SIXDOGS · Play WARDOGS as a team">
+<meta property="og:description" content="Every team gets a commander who calls the plan in voice. Hardcore settings. Join our Discord to play.">
+<meta property="og:image" content="https://sixdogs.gg/img/og.png">
+<meta property="og:url" content="https://sixdogs.gg/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#c9a227">
+<link rel="icon" href="img/icon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="img/icon-180.png">
+<style>
+@font-face{font-family:BC;font-weight:700;font-display:swap;src:url(fonts/barlow-condensed-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:BC;font-weight:800;font-display:swap;src:url(fonts/barlow-condensed-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:B;font-weight:400;font-display:swap;src:url(fonts/barlow-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:B;font-weight:500;font-display:swap;src:url(fonts/barlow-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:B;font-weight:600;font-display:swap;src:url(fonts/barlow-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:B;font-weight:700;font-display:swap;src:url(fonts/barlow-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:M;font-weight:500;font-display:swap;src:url(fonts/jetbrains-mono-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:M;font-weight:700;font-display:swap;src:url(fonts/jetbrains-mono-latin-700-normal.woff2) format("woff2")}
+:root{
+  --paper:#e2e4da; --paper-hi:#f1f1ea; --ink:#14160f; --ink-2:#3c4130; --olive:#4d5530; --rule:#9aa08a;
+  --gold:#c9a227; --gold-deep:#a8861a; --red:#a3261f; --blue:#3a7bd5; --redf:#d13b3b; --green:#3aa655;
+  --wrap:1180px; --pad:clamp(20px,5vw,56px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font:500 18px/1.55 B,system-ui,sans-serif;-webkit-font-smoothing:antialiased;position:relative}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.28;mix-blend-mode:multiply;z-index:0;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .37  0 0 0 0 .3  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+::selection{background:var(--gold);color:var(--ink)}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.wrap{position:relative;z-index:1;max-width:var(--wrap);margin:0 auto;padding:0 var(--pad)}
+.skip{position:absolute;left:-9999px}.skip:focus{left:16px;top:16px;z-index:9;background:var(--ink);color:var(--paper);padding:8px 12px}
+
+/* top strip */
+.strip{position:sticky;top:0;z-index:5;background:var(--gold);border-bottom:3px solid var(--ink)}
+.strip .wrap{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;font:800 24px/1 BC;letter-spacing:.12em}
+.brand .disc{width:38px;height:38px;border-radius:50%;background:var(--ink);display:grid;place-items:center}
+.brand .disc svg{width:15px;height:21px;margin-left:1px}
+nav{display:flex;align-items:center;gap:26px;font:700 16px/1 BC;letter-spacing:.14em;text-transform:uppercase}
+nav a{text-decoration:none}
+nav a:not(.btn):hover{text-decoration:underline;text-underline-offset:5px;text-decoration-thickness:2px}
+.btn{display:inline-flex;align-items:center;gap:10px;background:var(--ink);color:var(--paper);text-decoration:none;
+  font:800 17px/1 BC;letter-spacing:.12em;text-transform:uppercase;padding:13px 18px;border:3px solid var(--ink);transition:background .15s,color .15s}
+.btn:hover{background:var(--paper);color:var(--ink)}
+.btn svg{width:22px;height:22px;flex:none}
+.btn.big{font-size:clamp(20px,2.4vw,26px);padding:20px 28px}
+.btn.gold{background:var(--gold);color:var(--ink)}
+.btn.gold:hover{background:var(--ink);color:var(--gold)}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn.ghost:hover{background:var(--ink);color:var(--paper)}
+
+/* hero */
+.hero .wrap{display:grid;grid-template-columns:1.25fr .75fr;gap:clamp(24px,4vw,56px);align-items:center;padding-top:clamp(36px,7vw,84px);padding-bottom:clamp(40px,7vw,90px)}
+h1{font:800 clamp(60px,8.2vw,120px)/.86 BC;text-transform:uppercase;letter-spacing:-.005em}
+h1 span{display:block}
+.lede{font-size:clamp(19px,1.9vw,23px);color:var(--ink-2);max-width:34em;margin-top:26px}
+.lede b{color:var(--ink)}
+.ctas{display:flex;flex-wrap:wrap;gap:14px;margin-top:32px;align-items:center}
+.note{margin-top:18px;font:600 16px/1.4 B;color:var(--olive);display:flex;gap:10px;align-items:center}
+.note i{width:10px;height:10px;background:var(--gold);outline:2px solid var(--ink);flex:none}
+.mapcard{border:3px solid var(--ink);background:var(--paper-hi);box-shadow:10px 10px 0 -3px var(--gold), 10px 10px 0 0 var(--ink)}
+.mapcard .t{display:flex;justify-content:space-between;font:700 13px/1 M;letter-spacing:.08em;color:var(--olive);padding:12px 14px;border-bottom:3px solid var(--ink)}
+.mapcard svg{display:block;width:100%;height:auto}
+.mapcard .cap{border-top:3px solid var(--ink);padding:12px 14px;font:500 14px/1.4 M;display:flex;gap:10px;align-items:baseline}
+.mapcard .cap b{background:var(--gold);padding:0 6px}
+
+/* sections */
+section{position:relative;z-index:1}
+.sec{border-top:4px solid var(--ink)}
+.sec .wrap{padding-top:clamp(44px,6vw,76px);padding-bottom:clamp(44px,6vw,76px)}
+h2{font:800 clamp(40px,5.4vw,68px)/.95 BC;text-transform:uppercase}
+.sub{font-size:clamp(18px,1.6vw,20px);color:var(--ink-2);max-width:40em;margin-top:14px}
+
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0;margin-top:40px;border-top:3px solid var(--ink)}
+.item{padding:28px 30px 30px 0;border-bottom:2px dashed var(--rule);display:grid;grid-template-columns:72px 1fr;gap:6px 18px}
+.item:nth-child(2n){padding-left:30px;padding-right:0;border-left:3px solid var(--ink)}
+.item .n{font:800 64px/.8 BC}
+.item .ic{width:58px;height:58px;display:grid;place-items:center}
+.item .ic svg{width:48px;height:48px}
+.item h3{font:800 32px/1 BC;text-transform:uppercase;align-self:center}
+.item p{grid-column:2;color:var(--ink-2)}
+.item p b{color:var(--ink)}
+
+/* hardcore band: the one dark surface, in the HUD register (DESIGN.md hud-*). Gold carries the setting values. */
+.band{--field:#0c0e0a;--line:#2e3326;--text:#e9e8df;--dim:#a7ab98;--well:#1a1507;--gold-hi:#e3bc3c;
+  background:var(--field);color:var(--text);border-top:6px solid var(--gold);
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:96px 96px;background-position:-1px -1px}
+.band ::selection{background:var(--gold);color:var(--field)}
+.band .wrap{padding-top:clamp(48px,6vw,80px);padding-bottom:clamp(48px,6vw,80px)}
+.band h2{color:var(--gold)}
+.band .sub{color:var(--text);max-width:38em}
+.hc{display:grid;grid-template-columns:repeat(4,1fr);margin-top:40px;background:var(--field);border:1px solid var(--line)}
+.hc > div{padding:22px 24px 26px;display:flex;flex-direction:column}
+.hc > div + div{border-left:1px solid var(--line)}
+.hc dt{font:700 15px/1 BC;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.hc .val{font:800 clamp(34px,3.4vw,46px)/.95 BC;text-transform:uppercase;color:var(--gold-hi);margin-top:12px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.hc dd p{margin-top:14px;color:var(--text);font-size:17px;line-height:1.5}
+
+/* join steps */
+.steps{counter-reset:s;display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:40px;border-top:3px solid var(--ink)}
+.steps li{list-style:none;padding:26px 28px 6px 0}
+.steps li + li{padding-left:28px;border-left:3px solid var(--ink)}
+.steps .n{font:800 84px/.8 BC;display:block}
+.steps h3{font:800 32px/1 BC;text-transform:uppercase;margin-top:14px}
+.steps p{margin-top:10px;color:var(--ink-2)}
+.steps code{font:500 .92em M;background:var(--ink);color:var(--gold);padding:1px 7px}
+.steps .btn{margin-top:18px}
+.joinbar{margin-top:44px;display:flex;flex-wrap:wrap;gap:18px 28px;align-items:center;justify-content:space-between;background:var(--gold);border:3px solid var(--ink);padding:26px 28px}
+.joinbar p{font:800 clamp(26px,3vw,38px)/1 BC;text-transform:uppercase}
+
+/* live status (filled by the script at the bottom; hidden until the server reports in) */
+#live[hidden]{display:none}
+.board{margin-top:36px;border:3px solid var(--ink);background:var(--paper-hi)}
+.board-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 20px;padding:12px 16px;border-bottom:3px solid var(--ink);font:700 14px/1.2 M;letter-spacing:.06em;text-transform:uppercase}
+.board-top .on{display:inline-flex;align-items:center;gap:10px}
+.board-top .on i{width:12px;height:12px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(58,166,85,.25)}
+.board-top .on.off i{background:var(--red);box-shadow:0 0 0 3px rgba(163,38,31,.2)}
+.board-top .age{color:var(--olive)}
+.live-meta{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:3px solid var(--ink)}
+.live-meta > div{padding:16px 18px}
+.live-meta > div + div{border-left:2px dashed var(--rule)}
+.live-meta dt,.board .lab{display:block;font:700 14px/1 BC;letter-spacing:.16em;text-transform:uppercase;color:var(--olive)}
+.live-meta dd{font:800 clamp(26px,2.6vw,34px)/1.05 BC;text-transform:uppercase;margin-top:8px;font-variant-numeric:tabular-nums}
+.live-teams{display:grid;grid-template-columns:repeat(3,1fr)}
+.live-teams > div{padding:18px}
+.live-teams > div + div{border-left:2px dashed var(--rule)}
+.live-teams h3{display:flex;align-items:center;gap:10px;font:800 28px/1 BC;text-transform:uppercase}
+.live-teams h3 i{width:18px;height:18px;border:2px solid var(--ink);flex:none}
+.live-teams .score{font:800 44px/1 BC;margin-top:12px;font-variant-numeric:tabular-nums}
+.live-teams .score small{font:700 18px/1 BC;color:var(--olive);letter-spacing:.06em}
+.live-teams ul{list-style:none;margin-top:10px;font-size:16px;color:var(--ink-2)}
+.live-teams li + li{margin-top:4px}
+.live-teams li b{color:var(--ink)}
+.live-foot{display:grid;grid-template-columns:1fr 1fr;border-top:3px solid var(--ink)}
+.live-foot > div{padding:16px 18px}
+.live-foot > div + div{border-left:3px solid var(--ink)}
+.live-foot ol{margin-top:10px;padding-left:1.4em;font-size:17px}
+.live-foot ol li + li{margin-top:2px}
+.live-foot .id{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.live-foot code{font:700 20px/1 M;background:var(--ink);color:var(--gold);padding:8px 10px;user-select:all}
+.copy{font:700 14px/1 BC;letter-spacing:.14em;text-transform:uppercase;background:none;border:2px solid var(--ink);padding:8px 10px;cursor:pointer;color:var(--ink)}
+.copy:hover{background:var(--ink);color:var(--paper)}
+.live-foot p{margin-top:10px;font-size:17px;color:var(--ink-2)}
+.board-off{padding:22px 18px;font-size:18px;color:var(--ink-2)}
+
+/* support */
+.support .wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:clamp(24px,4vw,56px);align-items:start}
+.letter{margin-top:22px;color:var(--ink-2);font-size:19px;max-width:36em}
+.letter p + p{margin-top:12px}
+.letter .sig{display:inline-block;font:700 18px/1 M;color:var(--ink);margin-top:18px;padding-bottom:6px;border-bottom:4px solid var(--gold)}
+.side{border:3px solid var(--ink);background:var(--paper-hi);padding:24px}
+.side h3{font:800 28px/1 BC;text-transform:uppercase}
+.side p{margin-top:10px;color:var(--ink-2);font-size:17px}
+.side .btn{margin-top:18px}
+.side .soon{margin-top:18px;font:700 15px/1.3 BC;letter-spacing:.14em;text-transform:uppercase;color:var(--olive);border:2px dashed var(--rule);padding:12px 14px}
+
+footer{position:relative;z-index:1;border-top:4px solid var(--ink);background:var(--paper)}
+footer .wrap{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-between;align-items:center;padding-top:26px;padding-bottom:30px;font:500 15px/1.5 B;color:var(--ink-2)}
+footer b{font:800 18px/1 BC;letter-spacing:.12em;color:var(--ink)}
+
+/* mobile sticky call to action */
+.mobilecta{display:none}
+
+@media (max-width:900px){
+  nav a:not(.btn){display:none}
+  .hero .wrap{grid-template-columns:1fr}
+  .grid{grid-template-columns:1fr}
+  .item,.item:nth-child(2n){padding:24px 0;border-left:0}
+  .hc{grid-template-columns:1fr 1fr}
+  .hc > div:nth-child(3){border-left:0}
+  .hc > div:nth-child(n+3){border-top:1px solid var(--line)}
+  .live-teams{grid-template-columns:1fr}
+  .live-teams > div + div{border-left:0;border-top:2px dashed var(--rule)}
+  .live-meta{grid-template-columns:1fr 1fr}
+  .live-meta > div:nth-child(3){grid-column:1/-1;border-left:0;border-top:2px dashed var(--rule)}
+  .steps{grid-template-columns:1fr}
+  .steps li,.steps li + li{padding:24px 0 10px;border-left:0;border-bottom:2px dashed var(--rule)}
+  .support .wrap{grid-template-columns:1fr}
+  .live-foot{grid-template-columns:1fr}
+  .live-foot > div + div{border-left:0;border-top:3px solid var(--ink)}
+  .mobilecta{display:block;transform:translateY(110%);transition:transform .25s ease-out;position:sticky;bottom:0;z-index:6;padding:12px var(--pad) calc(12px + env(safe-area-inset-bottom));background:var(--paper);border-top:3px solid var(--ink)}
+  .mobilecta .btn{width:100%;justify-content:center}
+  .mobilecta.on{transform:none}
+}
+@media (max-width:520px){
+  .strip .btn span{display:none}
+  .ctas .btn.big{width:100%;justify-content:center;font-size:20px;padding:18px 16px;white-space:nowrap}
+  .hc{grid-template-columns:1fr}
+  .hc > div + div{border-left:0;border-top:1px solid var(--line)}
+  .item{grid-template-columns:56px 1fr}
+  .item .ic{width:48px;height:48px}.item .ic svg{width:40px;height:40px}
+}
+@media (prefers-reduced-motion:no-preference){
+  .route{stroke-dasharray:640;stroke-dashoffset:640;animation:draw 1.6s .3s cubic-bezier(.16,1,.3,1) forwards}
+  .head{opacity:0;animation:pop .4s 1.6s ease-out forwards}
+  .zone{animation:pulse 2.4s 1.9s ease-in-out infinite}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  @keyframes pop{to{opacity:1}}
+  @keyframes pulse{50%{fill:rgba(201,162,39,.4)}}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="discord" viewBox="0 0 24 24"><path fill="currentColor" d="M20.3 4.4A19.6 19.6 0 0 0 15.4 3l-.6 1.3a18 18 0 0 0-5.6 0L8.6 3a19.6 19.6 0 0 0-4.9 1.5C.6 9.1-.3 13.7.1 18.2a19.8 19.8 0 0 0 6 3l1.3-2.1a12.8 12.8 0 0 1-2-1l.5-.4a14.1 14.1 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1l1.3 2.1a19.7 19.7 0 0 0 6-3c.5-5.2-.9-9.7-3.6-13.8ZM8 15.4c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.6 8 10.6s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Z"/></symbol>
+</svg>
+
+<header class="strip">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="SIXDOGS home"><span class="disc"><svg viewBox="0 0 100 140" aria-hidden="true"><path fill="#c9a227" fill-rule="evenodd" d="M22 0H92L100 8V30H30V54H86Q100 54 100 68V126Q100 140 86 140H14Q0 140 0 126V22Q0 0 22 0ZM30 82V112H70V86Q70 82 66 82Z"/></svg></span>SIXDOGS</a>
+    <nav aria-label="Main">
+      <a href="#live" id="navlive" hidden>Live</a>
+      <a href="#how">How it works</a>
+      <a href="#hardcore">Hardcore</a>
+      <a href="#join">How to join</a>
+      <a class="btn" href="/discord"><svg aria-hidden="true"><use href="#discord"/></svg><span>Join Discord</span></a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+<section class="hero" id="top">
+  <div class="wrap">
+    <div>
+      <h1><span>Play WARDOGS</span><span>as a team.</span></h1>
+      <p class="lede">SIXDOGS runs a community server with <b>one commander per team</b>. They call the plan in voice, you move together, and after the match you rate how they led.</p>
+      <div class="ctas">
+        <a class="btn gold big" href="/discord"><svg aria-hidden="true"><use href="#discord"/></svg>Join our Discord to play</a>
+        <a class="btn ghost" href="#how">How it works</a>
+      </div>
+      <p class="note"><i></i>The server requires our Discord. You verify once, in a minute.</p>
+    </div>
+    <figure class="mapcard" aria-label="Illustration: a commander's plan drawn on the map">
+      <div class="t"><span>COMMANDER · BLUE</span><span>LIVE MAP</span></div>
+      <svg viewBox="0 0 520 330" fill="none" role="img" aria-label="A gold arrow leads the blue team into the zone; red marks show enemies.">
+        <g stroke="#9aa08a" stroke-width="2">
+          <path d="M0 250c70-40 110 20 180-10s115-90 200-60 110 40 140 20"/>
+          <path d="M0 200c85-50 120 10 190-20s110-80 195-50 95 30 135 10"/>
+          <path d="M0 110c55 30 120-40 185-10s105 60 180 30 115-50 155-40"/>
+          <path d="M0 60c65 20 130-30 195-5s90 40 170 20 110-40 155-30"/>
+        </g>
+        <g stroke="#c9d0b8" stroke-width="1.5"><path d="M0 110h520M0 220h520M130 0v330M260 0v330M390 0v330"/></g>
+        <circle class="zone" cx="340" cy="150" r="56" fill="rgba(201,162,39,.22)" stroke="#8a6f1a" stroke-width="4" stroke-dasharray="10 8"/>
+        <path class="route" d="M86 272C150 240 220 205 300 170" stroke="#c9a227" stroke-width="12" stroke-linecap="round"/>
+        <path class="head" d="M280 146l36 18-26 30" stroke="#c9a227" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+        <g stroke="#a3261f" stroke-width="8" stroke-linecap="round"><path d="M430 60l26 26M456 60l-26 26"/><path d="M450 222l22 22M472 222l-22 22"/></g>
+        <rect x="68" y="258" width="32" height="32" fill="#3a7bd5" stroke="#14160f" stroke-width="3"/>
+      </svg>
+      <figcaption class="cap"><b>TEAM CHAT</b> North tower: 3 on the roof</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="sec" id="live" hidden aria-live="polite">
+  <div class="wrap">
+    <h2>On the server now</h2>
+    <p class="sub">The same board our Discord shows in #server-info. It refreshes every couple of minutes.</p>
+    <div class="board" id="board" data-src="https://live.sixdogs.gg/status" data-search="SIXDOGS"></div>
+  </div>
+</section>
+
+<section class="sec" id="how">
+  <div class="wrap">
+    <h2>How it works</h2>
+    <p class="sub">Squads still fight their own fights. The commander keeps the whole team pushing for the same objective, and the zone scores on bodies inside it.</p>
+    <div class="grid">
+      <div class="item">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 52 52" fill="none" stroke="#14160f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14l16 9 16-9"/><path d="M10 24l16 9 16-9"/><path d="M10 34l16 9 16-9"/></svg></span>
+        <h3>A commander per team</h3>
+        <p>Want to lead? Pick Commander in Discord. Our bot offers the job to the best rated player in the pool, and to someone at random if the pool is empty.</p>
+      </div>
+      <div class="item">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 52 52" fill="none" stroke="#14160f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 30v-4a17 17 0 0 1 34 0v4"/><rect x="7" y="29" width="9" height="13" rx="3"/><rect x="36" y="29" width="9" height="13" rx="3"/><path d="M41 42c0 4-4 6-9 6h-3"/></svg></span>
+        <h3>One voice per team</h3>
+        <p>You join your team's voice channel and hear the calls. Only the commander talks there, so the plan stays clear.</p>
+      </div>
+      <div class="item">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 52 52" fill="none" stroke="#14160f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10h40v24H22l-10 8v-8H6z"/><path d="M14 19h24M14 26h14"/></svg></span>
+        <h3>You report, they decide</h3>
+        <p>Spot something? Say where and what in TEAM chat. Right-click the map to post exact coordinates.</p>
+      </div>
+      <div class="item">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 52 52" fill="none" stroke="#14160f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="36" height="36" rx="3"/><path d="M15 20l3 3 6-6M15 33l3 3 6-6M29 20h9M29 33h9"/></svg></span>
+        <h3>Rate your commander</h3>
+        <p>After each match you get a DM with three buttons: good calls, poor, or toxic. Good ratings put commanders at the front of the line.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="hardcore">
+  <div class="wrap">
+    <h2>Hardcore settings</h2>
+    <p class="sub">Our server runs WARDOGS Hardcore mode. When you die you get no kill cam, and the HUD shows less. Most of what you know about the enemy comes from what you see and what your team calls out.</p>
+    <dl class="hc">
+      <div><dt>Kill cam</dt><dd><div class="val">Off</div><p>When you die, the game doesn&#39;t show who shot you or from where. The shooter stays hidden until someone calls out the position.</p></dd></div>
+      <div><dt>HUD</dt><dd><div class="val">Reduced</div><p>The game puts less on your screen. You check the map and listen to the calls to know what&#39;s going on.</p></dd></div>
+      <div><dt>Vehicle view</dt><dd><div class="val">1st person</div><p>Drivers and gunners get no outside camera to look over cover. The players around a vehicle call what its crew can&#39;t see.</p></dd></div>
+      <div><dt>Destruction</dt><dd><div class="val">On</div><p>Explosives break walls and cover. The building you hold may not stand for long, so plan where to fall back.</p></dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="sec" id="join">
+  <div class="wrap">
+    <h2>How to join</h2>
+    <p class="sub">Three steps. You only do them once.</p>
+    <ol class="steps">
+      <li><span class="n">1</span><h3>Join our Discord</h3><p>Everything runs through it: voice, commanders, ratings.</p><a class="btn" href="/discord"><svg aria-hidden="true"><use href="#discord"/></svg>Join Discord</a></li>
+      <li><span class="n">2</span><h3>Join the server</h3><p>In WARDOGS, open <b>Community servers</b> and search <b>SIXDOGS</b>, or use Join by ID with the Server ID from #server-info. Stay in the match for step 3.</p></li>
+      <li><span class="n">3</span><h3>Verify</h3><p>While you're in the game, type <code>/verify</code> and your in-game name in #get-verified. A code arrives as a private message in game. Type <code>/confirm</code> with it.</p></li>
+    </ol>
+    <div class="joinbar">
+      <p>Ready to play?</p>
+      <a class="btn big" href="/discord"><svg aria-hidden="true"><use href="#discord"/></svg>Join our Discord</a>
+    </div>
+  </div>
+</section>
+
+<section class="sec support" id="support">
+  <div class="wrap">
+    <div>
+      <h2>Who runs this</h2>
+      <div class="letter">
+        <p>Hello 6ers. I am fortyone, the founder of SIXDOGS, and I am writing this message personally to you (yes, without any AI tool, believe it or not).</p>
+        <p>I built SIXDOGS to create a way to play WARDOGS as a team, because I believe it makes the game more fun for everyone. I do not want to make any money out of this. The only reason I am adding a way for you to support our community is to cover the monthly costs, which are quickly becoming more expensive.</p>
+        <p>There is not, and there will never be, any advantage in game. As a thank you, we will give you one of the six reserved slots on our server.</p>
+        <p class="sig">fortyone</p>
+      </div>
+    </div>
+    <aside class="side">
+      <h3>Support the server</h3>
+      <p>Donations pay the monthly server bills. It takes cards, PayPal, Apple Pay and Google Pay from any country, and you don&#39;t need an account. Give once or monthly, any amount.</p>
+      <p>Donors get one of the six reserved slots on the server. Nobody gets an advantage in game.</p>
+      <p class="soon">Ko-fi link coming soon</p>
+    </aside>
+  </div>
+</section>
+</main>
+
+<div class="mobilecta"><a class="btn gold" href="/discord"><svg aria-hidden="true"><use href="#discord"/></svg>Join our Discord to play</a></div>
+
+<footer>
+  <div class="wrap">
+    <b>SIXDOGS.GG</b>
+    <span>A fan community for WARDOGS. Not affiliated with Bulkhead.</span>
+  </div>
+</footer>
+<script>
+// Show the bottom "Join" bar on phones once the hero button has scrolled out of view.
+(function(){var bar=document.querySelector('.mobilecta'),hero=document.querySelector('.ctas');if(!bar||!hero||!('IntersectionObserver' in window)){bar&&bar.classList.add('on');return}
+new IntersectionObserver(function(e){bar.classList.toggle('on',!e[0].isIntersecting&&e[0].boundingClientRect.top<0)}).observe(hero)})();
+</script>
+<script>
+// Live status: reads the summary the bot sends to live.sixdogs.gg. The section stays hidden
+// until there is fresh data, so visitors never see an empty board.
+(function(){
+var sec=document.getElementById('live'),box=document.getElementById('board'),nav=document.getElementById('navlive');
+var src=box&&box.getAttribute('data-src'),search=box&&box.getAttribute('data-search');
+if(!src||!window.fetch)return;
+var COL={blue:'#3a7bd5',red:'#d13b3b',green:'#3aa655'},STALE=10*60000,data=null;
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function ago(ms){var m=Math.round(ms/60000);return m<1?'just now':m===1?'1 min ago':m<60?m+' min ago':Math.round(m/60)+' h ago'}
+function clock(ms){var t=Math.max(0,Math.floor(ms/1000)),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s).padStart(2,'0')}
+function show(on){sec.hidden=!on;nav.hidden=!on}
+function timeText(){if(!data)return'';var now=Date.now();
+  if(data.endsAt)return'Ends in '+clock(Date.parse(data.endsAt)-now);
+  if(data.startedAt)return'Running '+clock(now-Date.parse(data.startedAt));return'–'}
+function draw(){
+  var d=data,now=Date.now();
+  if(!d||!d.updatedAt||now-Date.parse(d.updatedAt)>STALE||(d.state!=='live'&&d.state!=='offline')){show(false);return}
+  var name=esc(d.serverName||'SIXDOGS'),upd='Updated '+ago(now-Date.parse(d.updatedAt));
+  if(d.state==='offline'){
+    box.innerHTML='<div class="board-top"><span class="on off"><i></i>Offline · '+name+'</span><span class="age">'+upd+'</span></div>'+
+      '<p class="board-off">The game server isn\'t answering right now'+(d.lastSeenAt?' (last seen '+ago(now-Date.parse(d.lastSeenAt))+')':'')+'. Our Discord posts news in #announcements.</p>';
+    show(true);return}
+  var p=d.players||{},cap=d.scoreCap,lead=d.lead||{};
+  var teams=(d.teams||[]).map(function(t){
+    var score=t.score==null?'':'<div class="score">'+esc(t.score)+' <small>'+(cap?'/ '+esc(cap)+' ':'')+'points</small></div>';
+    return'<div><h3><i style="background:'+(COL[t.key]||'#999')+'"></i>'+esc(t.label)+'</h3>'+score+
+      '<ul><li><b>'+esc(t.players)+'</b> '+(t.players===1?'player':'players')+'</li>'+
+      '<li>Commander: <b>'+(t.commander?esc(t.commander):'none yet')+'</b></li>'+
+      (lead.key===t.key?'<li>Leads by <b>'+esc(lead.by)+'</b></li>':'')+'</ul></div>'}).join('');
+  var top=(d.top||[]).length?'<ol>'+d.top.map(function(x){return'<li>'+esc(x.name)+' · <b>'+esc(x.kills)+'</b> '+(x.kills===1?'kill':'kills')+'</li>'}).join('')+'</ol>':'<p>No kills yet this match.</p>';
+  var join=d.serverId?'<div class="id"><code>'+esc(d.serverId)+'</code><button class="copy" type="button" data-copy="'+esc(d.serverId)+'">Copy</button></div><p>In WARDOGS: Community servers, then Join by ID.</p>'
+    :'<p>In WARDOGS: Community servers, search <b>'+esc(search||'SIXDOGS')+'</b>.</p>';
+  box.innerHTML='<div class="board-top"><span class="on"><i></i>Live · '+name+'</span><span class="age">'+upd+'</span></div>'+
+    '<dl class="live-meta"><div><dt>Map</dt><dd>'+esc(d.map||'–')+'</dd></div><div><dt>Time</dt><dd id="lt">'+timeText()+'</dd></div>'+
+    '<div><dt>Players</dt><dd>'+esc(p.current==null?'–':p.current)+(p.max?' / '+esc(p.max):'')+'</dd></div></dl>'+
+    '<div class="live-teams">'+teams+'</div>'+
+    '<div class="live-foot"><div><span class="lab">Top this match</span>'+top+'</div><div><span class="lab">Join</span>'+join+'</div></div>';
+  show(true)}
+box.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(!b||!navigator.clipboard)return;
+  navigator.clipboard.writeText(b.getAttribute('data-copy')).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1500)})});
+function load(){fetch(src,{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(d){data=d;draw()}).catch(function(){data=null;draw()})}
+load();setInterval(load,60000);
+setInterval(function(){var el=document.getElementById('lt');if(el)el.textContent=timeText()},1000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "sixdogs-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SIXDOGS core: owns the WARDOGS RCON token, polls the game server, writes to Postgres, serves the bot.",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "pg": "^8.13.0"
+  }
+}

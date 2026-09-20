@@ -1,0 +1,66 @@
+{
+  "_about": "The one place for SIXDOGS facts. The Discord posts (content/*.md), the website (website-src/ -> website/), the guide panels and the live board all read this file. After a change: restart the bot, run `node tools/build.mjs` and re-upload the website folder. Claude also re-renders the guide panels if hardcore or join facts changed.",
+  "name": "SIXDOGS",
+  "domain": "sixdogs.gg",
+  "discordInvite": "https://discord.gg/YOURCODE",
+  "steamStore": "https://store.steampowered.com/app/1867240/WARDOGS/",
+  "liveStatusUrl": "https://live.sixdogs.gg/status",
+  "server": {
+    "search": "SIXDOGS",
+    "reservedSlots": 6
+  },
+  "founder": {
+    "name": "fortyone",
+    "letter": [
+      "Hello 6ers. I am fortyone, the founder of SIXDOGS, and I am writing this message personally to you (yes, without any AI tool, believe it or not).",
+      "I built SIXDOGS to create a way to play WARDOGS as a team, because I believe it makes the game more fun for everyone. I do not want to make any money out of this. The only reason I am adding a way for you to support our community is to cover the monthly costs, which are quickly becoming more expensive.",
+      "There is not, and there will never be, any advantage in game. As a thank you, we will give you one of the six reserved slots on our server."
+    ]
+  },
+  "donate": {
+    "platform": "Ko-fi",
+    "url": "",
+    "button": "Donate on Ko-fi",
+    "how": "It takes cards, PayPal, Apple Pay and Google Pay from any country, and you don't need an account. Give once or monthly, any amount.",
+    "perk": "Donors get one of the six reserved slots on the server. Nobody gets an advantage in game."
+  },
+  "costs": {
+    "items": [
+      {
+        "item": "Game server",
+        "monthly": "TBD"
+      },
+      {
+        "item": "Bot hosting",
+        "monthly": "TBD"
+      }
+    ],
+    "total": "TBD",
+    "leftover": "Only the running costs above. Anything left over stays in the pot for the next month."
+  },
+  "hardcore": {
+    "intro": "Our server runs WARDOGS Hardcore mode. When you die you get no kill cam, and the HUD shows less. Most of what you know about the enemy comes from what you see and what your team calls out.",
+    "settings": [
+      {
+        "name": "Kill cam",
+        "value": "Off",
+        "text": "When you die, the game doesn't show who shot you or from where. The shooter stays hidden until someone calls out the position."
+      },
+      {
+        "name": "HUD",
+        "value": "Reduced",
+        "text": "The game puts less on your screen. You check the map and listen to the calls to know what's going on."
+      },
+      {
+        "name": "Vehicle view",
+        "value": "1st person",
+        "text": "Drivers and gunners get no outside camera to look over cover. The players around a vehicle call what its crew can't see."
+      },
+      {
+        "name": "Destruction",
+        "value": "On",
+        "text": "Explosives break walls and cover. The building you hold may not stand for long, so plan where to fall back."
+      }
+    ]
+  }
+}

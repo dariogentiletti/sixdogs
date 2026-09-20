@@ -1,0 +1,16 @@
+{
+  "name": "sixdogs-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SIXDOGS Discord bot: verification, faction role sync, commander selection. Talks only to core.",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "discord.js": "^14.23.0"
+  }
+}
