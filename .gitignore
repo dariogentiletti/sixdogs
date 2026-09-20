@@ -1,0 +1,18 @@
+.env
+node_modules/
+*.log
+data/
+data-practice/
+bot/assets/.avatar-applied
+__pycache__/
+*.pyc
+.DS_Store
+# Vendored design tooling and its screenshots (installed per machine, not part of the project)
+.claude/skills/impeccable/
+.claude/agents/impeccable-*
+.impeccable/review/
+design/verify-guide/how-to-play.png
+design/verify-guide/how-to-play-[12].png
+design/verify-guide/hud.png
+design/verify-guide/briefing.png
+upload-to-github/
