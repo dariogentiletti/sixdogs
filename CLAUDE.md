@@ -115,6 +115,9 @@ When the owner says something broad like "update the website and Discord with th
 information", that means: re-read `stack.json`, work out what changed since those pages were
 written, and update the facts before touching wording. Do not wait to be told which facts.
 
+`verified[]` records things checked against the live server, with the date. Trust it over
+guessing, and add to it whenever something is confirmed rather than assumed.
+
 NEVER put a password, token or account credential in it. The repo is public, and a test checks.
 
 ## Community facts (community.json)

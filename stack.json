@@ -17,11 +17,11 @@
       "name": "Bot hosting",
       "what": "Runs the Discord bot, core and the Postgres database",
       "provider": "Railway",
-      "plan": "Hobby",
+      "plan": "Hobby, with a Postgres database attached",
       "monthlyUsd": 5,
       "confirmed": false,
       "onBill": true,
-      "notes": "Hobby is $5/month and includes $5 of usage. Metered at $10/GB RAM and $20/vCPU after that, so the real figure depends on how much the bot and Postgres use. Check the Usage page after a full month and set monthlyUsd to what it actually bills."
+      "notes": "Hobby is $5/month and includes $5 of usage. Metered at $10/GB RAM and $20/vCPU after that, and the Postgres service counts toward it, so the real figure depends on usage. Check the Usage page after a full month and set monthlyUsd to what it actually bills. CONFIRMED 2026-09-21 via /server: DATABASE_URL is set and core is on Railway Postgres, so links, ratings and match history survive restarts and deploys. 1 player linked."
     },
     {
       "id": "domain",
@@ -66,5 +66,10 @@
     "Cloudflare Pages over Railway for the website: free, purpose-built for static files, and the _redirects file and the live-status worker were already written for it.",
     "Postgres on Railway rather than the embedded PGlite: PGlite measured about 500 MB resident, which is most of a small box.",
     "Push straight to main, no pull requests: solo project, and main is what deploys."
+  ],
+  "verified": [
+    "2026-09-21: /verify works end to end on the live server. A player links and the row persists.",
+    "2026-09-21: the database is Railway Postgres, not the built-in one. /server reports it green, so a deploy does not wipe verified players.",
+    "2026-09-21: RCON serves all five actions (message, broadcast, kick, move, end match) plus config, bans, map, lighting, rotation, catalogs and audit."
   ]
 }
