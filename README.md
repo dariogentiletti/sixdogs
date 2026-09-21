@@ -145,6 +145,13 @@ against your real server. The bot recognises factions by the colour the server r
 
 ## Commands
 
+> **"This command is outdated, please try again in a few minutes"?** That's Discord's client
+> cache, not a broken bot. It shows up when a command gains or loses options and your Discord
+> is still holding the old version. Press **Ctrl+R** (Cmd+R on Mac) to reload Discord, or
+> force-close the mobile app. It also clears by itself after a few minutes. Seeing it is
+> actually a sign the new code deployed.
+
+
 | Who | Command | What |
 |---|---|---|
 | Everyone | `/verify <in-game name>` | Sends a code to you in-game (you must be on the server). Same name as someone else? Use your Steam profile link instead |

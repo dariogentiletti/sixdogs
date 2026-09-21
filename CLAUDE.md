@@ -337,6 +337,15 @@ A commander keeps it until /standdown, COMMANDER_AWAY_SEC (300s) off the server,
 sides, or match end. Never a
 one-off pick at match start. Cooldowns in `COOLDOWN_MS`. Never bump a sitting commander.
 
+## Slash commands change under people
+
+`guild.commands.set(commandDefinitions)` runs on every start, so adding or changing a command's
+OPTIONS re-registers it. Discord clients cache the old definition and answer "This command is
+outdated, please try again in a few minutes" until they refresh (Ctrl+R, or force-close on
+mobile). It is not a bug and not worth debugging: it is the expected result of a deploy that
+changed a command's shape, and it clears itself. Tell the owner to reload rather than going
+looking for a cause.
+
 ## Conventions
 
 - Scope each session to one runnable thing and stop there.
