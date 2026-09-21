@@ -45,6 +45,12 @@ export class CoreClient {
   unlink(discordId) { return this.request('DELETE', `/internal/links/${discordId}`); }
   adminLink(discordId, steamId) { return this.request('POST', '/internal/links', { discordId, steamId }); }
   message(steamId, message) { return this.request('POST', '/internal/message', { steamId, message }); }
+  broadcast(message) { return this.request('POST', '/internal/broadcast', { message }); }
+  kick(steamId, reason) { return this.request('POST', `/internal/players/${steamId}/kick`, { reason }); }
+  /** `faction` is the game's own name for it, not a colour key. */
+  setFaction(steamId, faction) { return this.request('POST', `/internal/players/${steamId}/faction`, { faction }); }
+  endMatch() { return this.request('POST', '/internal/match/end', {}); }
+  diagnostics() { return this.request('GET', '/internal/diagnostics'); }
   matchCommanders(matchId) { return this.request('GET', `/internal/matches/${matchId}/commanders`); }
   matchParticipants(matchId) { return this.request('GET', `/internal/matches/${matchId}/participants`); }
   ratingPlan(matchId, body) { return this.request('POST', `/internal/matches/${matchId}/rating-plan`, body); }

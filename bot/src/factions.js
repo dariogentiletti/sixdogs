@@ -68,3 +68,23 @@ export function factionKeyFor(gameFaction, aliases = {}, factionScores = []) {
   }
   return null;
 }
+
+/**
+ * The reverse of factionKeyFor: given 'blue', what does THIS server call that
+ * faction? The RCON move endpoint wants the game's own string, and the game has
+ * never heard of our colours.
+ *
+ * Rather than guess, this reads the names the server itself reported in
+ * /v1/status factionScores[] and maps each one back through factionKeyFor, so
+ * the answer is always a string the server just used. Returns null when no
+ * reported faction maps to this colour, which is the signal to refuse the move
+ * instead of sending something made up.
+ */
+export function gameFactionFor(key, aliases = {}, factionScores = []) {
+  for (const row of Array.isArray(factionScores) ? factionScores : []) {
+    const name = String(row?.name ?? '').trim();
+    if (!name) continue;
+    if (factionKeyFor(name, aliases, factionScores) === key) return name;
+  }
+  return null;
+}

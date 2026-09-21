@@ -48,7 +48,7 @@ project, add a Postgres database, paste in the two Discord settings above, and i
 There is nothing to install and no server to log into. Once it is running it stays running, and
 every change pushed to GitHub `main` redeploys it by itself.
 
-You want `registered 13 slash commands` in the Railway deployment log.
+You want `registered 19 slash commands` in the Railway deployment log.
 
 ## 3. Set up your Discord
 
@@ -160,6 +160,16 @@ against your real server. The bot recognises factions by the colour the server r
 | Admin | `/reroll <faction>` | Replace the current commander |
 | | `/link @member <steamid>` / `/unlink-member @member` | Manual link fixes |
 | | `/setup-server [reapply-permissions]` | Build (or repair) the server layout |
+| | `/say <message>` | Announce something to everyone in-game |
+| | `/tell <player> <message>` | Private in-game message to one player |
+| | `/kick <player> [reason]` | Kick someone off the game server |
+| | `/move <player> <faction>` | Move someone to another team |
+| | `/endmatch confirm:True` | End the match now |
+| | `/server` | What the game server reports, and what it lets the bot do |
+
+The last six need a game server. Each one is checked against what your server
+build actually supports first, so an action it can't do comes back as a
+sentence saying so rather than a failure. `/server` lists which are available.
 
 Everything the bot does is logged to `#admin-log`.
 

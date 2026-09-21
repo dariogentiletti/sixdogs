@@ -128,6 +128,29 @@ has no direct-join URL and Discord link buttons can't use steam://, so the board
 Server ID (RCON /v1/server-id, override GAME_SERVER_ID) for "Join by ID". Tone: plain, warm,
 short; no long dashes or stock AI phrasing (a test checks).
 
+## Acting on the game server
+
+`core/src/rcon.js` has the write actions: `message`, `broadcast`, `kick`, `setFaction`,
+`endMatch`. Every one is gated on `has(METHOD, path)` from /v1/capabilities and throws
+`RconError{code:'unsupported'}` with a readable sentence instead of calling out. Add new ones
+the same way; never catch a 404 to feature-detect. `supportedActions()` is the summary.
+
+Core routes: `POST /internal/broadcast`, `POST /internal/players/:steamId/kick`,
+`POST /internal/players/:steamId/faction`, `POST /internal/match/end`,
+`GET /internal/diagnostics`. An RconError with a 4xx status passes its real message through
+(useful: "unknown faction X"); 5xx is replaced with a generic line.
+
+Bot: `/say`, `/tell`, `/kick`, `/move`, `/endmatch` (needs `confirm:True`), `/server`.
+`findPlayer` in `commands.js` resolves a name or SteamID and REFUSES ambiguous matches rather
+than picking. `gameFactionFor` in `factions.js` turns blue/red/green into the server's own
+faction string by reading `factionScores[]` back through `factionKeyFor`; it returns null when
+nothing maps, and the command refuses. Never send a colour key to the game.
+
+`/server` prints the raw numbers behind the three "Unverified" items above. Ask the owner to
+run it and paste the output before tightening any of them.
+
+The mock serves all of these; `MOCK_NO_ACTIONS=1` makes it pretend to be a read-only build.
+
 ## Post-match ratings
 
 Core: `rating_rounds` / `rating_voters` / `rating_votes`, scoring in `core/src/ratings.js`

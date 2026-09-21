@@ -40,10 +40,27 @@ const json = (res, status, body) => {
   res.end(JSON.stringify(body));
 };
 
+// Set MOCK_NO_ACTIONS=1 to pretend to be an older build that only reads, so the
+// capability gating in core can be exercised.
 const ROUTES = [
   'GET /v1/capabilities', 'GET /v1/status', 'GET /v1/players', 'GET /v1/health', 'GET /v1/server-id',
   'POST /v1/players/{steamId}/message', 'POST /v1/broadcast',
+  ...(process.env.MOCK_NO_ACTIONS === '1' ? [] : [
+    'POST /v1/players/{steamId}/kick',
+    'PATCH /v1/players/{steamId}',
+    'POST /v1/match/end',
+  ]),
 ];
+
+// Resets the clock, moves the rotation on and reshuffles everyone. Used by the
+// control page and by RCON's POST /v1/match/end.
+function newMatch() {
+  matchStart = Date.now();
+  rotationIndex++;
+  const list = [...players.values()].sort(() => Math.random() - 0.5);
+  list.forEach((pl, i) => { pl.faction = FACTIONS[i % 3]; pl.kills = 0; pl.deaths = 0; });
+  console.log('[mock] new match started, factions reshuffled');
+}
 
 async function body(req) {
   const chunks = [];
@@ -80,11 +97,7 @@ http.createServer(async (req, res) => {
     if (p === '/mock/leave') { players.delete(String(b.steamId)); return json(res, 200, { ok: true }); }
     if (p === '/mock/faction') { const pl = players.get(String(b.steamId)); if (pl) pl.faction = b.faction; return json(res, 200, { ok: !!pl }); }
     if (p === '/mock/new-match') {
-      matchStart = Date.now();
-      rotationIndex++;
-      const list = [...players.values()].sort(() => Math.random() - 0.5);
-      list.forEach((pl, i) => { pl.faction = FACTIONS[i % 3]; pl.kills = 0; pl.deaths = 0; });
-      console.log('[mock] new match started, factions reshuffled');
+      newMatch();
       if ((req.headers['content-type'] ?? '').includes('form')) { res.writeHead(303, { Location: '/' }); return res.end(); }
       return json(res, 200, { ok: true });
     }
@@ -132,6 +145,35 @@ http.createServer(async (req, res) => {
     const b = await body(req);
     console.log(`[mock] broadcast: ${b.message}`);
     return json(res, 200, { ok: true, message: 'sent' });
+  }
+  const mk = /^\/v1\/players\/([^/]+)\/kick$/.exec(p);
+  if (req.method === 'POST' && mk) {
+    if (!ROUTES.includes('POST /v1/players/{steamId}/kick')) return json(res, 404, { error: { code: 'not_found', message: 'no such route' } });
+    const b = await body(req);
+    const pl = players.get(mk[1]);
+    if (!pl) return json(res, 404, { error: { code: 'player_not_found', message: 'not online' } });
+    players.delete(mk[1]);
+    console.log(`[mock] kicked ${pl.name}: ${b.reason}`);
+    return json(res, 200, { ok: true, kicked: pl.name });
+  }
+  const mf = /^\/v1\/players\/([^/]+)$/.exec(p);
+  if (req.method === 'PATCH' && mf) {
+    if (!ROUTES.includes('PATCH /v1/players/{steamId}')) return json(res, 404, { error: { code: 'not_found', message: 'no such route' } });
+    const b = await body(req);
+    const pl = players.get(mf[1]);
+    if (!pl) return json(res, 404, { error: { code: 'player_not_found', message: 'not online' } });
+    if (!FACTIONS.includes(b.faction)) {
+      return json(res, 422, { error: { code: 'bad_faction', message: `unknown faction "${b.faction}"` } });
+    }
+    pl.faction = b.faction;
+    console.log(`[mock] moved ${pl.name} to ${b.faction}`);
+    return json(res, 200, { ok: true, faction: pl.faction });
+  }
+  if (req.method === 'POST' && p === '/v1/match/end') {
+    if (!ROUTES.includes('POST /v1/match/end')) return json(res, 404, { error: { code: 'not_found', message: 'no such route' } });
+    newMatch();
+    console.log('[mock] match ended by RCON');
+    return json(res, 200, { ok: true });
   }
   json(res, 404, { error: { code: 'not_found', message: `${req.method} ${p}` } });
 }).listen(PORT, () => console.log(`[mock] fake WARDOGS server running — open http://localhost:${PORT} in your browser`));

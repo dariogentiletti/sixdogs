@@ -134,6 +134,65 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
     return { ok: true, result: r };
   });
 
+  // ---- actions on the game server ----
+  // All capability-gated in rcon.js: an unsupported build comes back as a 502
+  // with a readable sentence, which the bot shows the admin as-is.
+
+  route('POST', '/internal/broadcast', async (_p, body) => {
+    if (typeof body.message !== 'string' || !body.message.trim()) {
+      return [400, { error: { code: 'bad_request', message: 'message required' } }];
+    }
+    return { ok: true, result: await rcon.broadcast(body.message.slice(0, 500)) };
+  });
+
+  route('POST', '/internal/players/:steamId/kick', async ({ steamId }, body) => {
+    if (!isSteamId(steamId)) {
+      return [400, { error: { code: 'bad_request', message: 'steamId required' } }];
+    }
+    const reason = String(body.reason ?? '').trim().slice(0, 200) || 'Kicked by an admin';
+    return { ok: true, result: await rcon.kick(steamId, reason) };
+  });
+
+  // `faction` is the server's own faction string, resolved by the bot from a
+  // colour. Core never guesses one: an empty or unknown value is rejected here
+  // rather than sent to the game.
+  route('POST', '/internal/players/:steamId/faction', async ({ steamId }, body) => {
+    if (!isSteamId(steamId)) {
+      return [400, { error: { code: 'bad_request', message: 'steamId required' } }];
+    }
+    const faction = String(body.faction ?? '').trim();
+    if (!faction) {
+      return [400, { error: { code: 'bad_request', message: 'faction required (the game server\'s own name for it)' } }];
+    }
+    return { ok: true, result: await rcon.setFaction(steamId, faction) };
+  });
+
+  route('POST', '/internal/match/end', async () => ({ ok: true, result: await rcon.endMatch() }));
+
+  // What this particular server build can do, plus the raw numbers behind the
+  // three things CLAUDE.md lists as unverified (clock direction, the score
+  // field inside factionScores[], the real player.faction strings). Lets an
+  // admin read them off a live server without shell access.
+  route('GET', '/internal/diagnostics', async () => {
+    const s = poller.state;
+    const factions = [...new Set((s.players ?? []).map((p) => p.faction).filter((f) => typeof f === 'string' && f))];
+    return {
+      ok: true,
+      rconOk: s.ok,
+      lastError: s.lastError,
+      apiVersion: rcon.capabilities?.apiVersion ?? null,
+      build: rcon.capabilities?.build ?? null,
+      serverId: s.serverId,
+      actions: rcon.supportedActions(),
+      routes: [...(rcon.routes ?? [])].sort(),
+      clockDirection: s.clockDirection,
+      matchSeconds: s.status?.matchSeconds ?? null,
+      factionScores: s.status?.factionScores ?? [],
+      factionStrings: factions,
+      playerCount: (s.players ?? []).length,
+    };
+  });
+
   route('POST', '/internal/commander-log', async (_p, body) => {
     await pool.query(
       'INSERT INTO commander_log (match_id, faction, discord_id, event) VALUES ($1, $2, $3, $4)',
@@ -313,7 +372,13 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
         if (err instanceof VerifyError) return fail(res, 400, err.code, err.message);
         if (err instanceof RconError) {
           log.warn(`[api] ${req.method} ${url.pathname}: ${err.message}`);
-          const msg = err.code === 'unsupported' ? err.message : "The game server didn't accept that request. Try again shortly.";
+          // A 4xx means we asked for something the game refused (unknown
+          // faction, player not online). That reason is useful to whoever
+          // typed the command, and carries no secret: the password travels in
+          // a header, never in the path or the reply. Anything else is the
+          // server being unwell, where the detail helps nobody.
+          const useful = err.code === 'unsupported' || (err.status >= 400 && err.status < 500);
+          const msg = useful ? err.message : "The game server didn't accept that request. Try again shortly.";
           return fail(res, 502, `rcon_${err.code}`, msg);
         }
         if (err.http) return fail(res, err.http, 'bad_request', err.message);

@@ -1,11 +1,14 @@
 import { SlashCommandBuilder, PermissionFlagsBits as P, MessageFlags } from 'discord.js';
-import { FACTIONS, byKey } from './factions.js';
+import { FACTIONS, byKey, gameFactionFor } from './factions.js';
 import { runSetup } from './setup.js';
 import { syncPosts } from './posts.js';
 import { isMenuMessage } from './rolemenu.js';
 
 const factionChoice = (o) => o.setName('faction').setDescription('Which faction').setRequired(true)
   .addChoices(...FACTIONS.map((f) => ({ name: f.label, value: f.key })));
+
+const playerChoice = (o) => o.setName('player').setDescription('In-game name, or their SteamID64')
+  .setRequired(true).setMaxLength(100);
 
 export const commandDefinitions = [
   new SlashCommandBuilder().setName('verify').setDescription('Link your Discord to your WARDOGS character (be in-game first)')
@@ -35,7 +38,53 @@ export const commandDefinitions = [
   new SlashCommandBuilder().setName('setup-server').setDescription('ADMIN: create the SIXDOGS roles and channels')
     .addBooleanOption((o) => o.setName('reapply-permissions').setDescription('Also reset permissions on channels that already exist'))
     .setDefaultMemberPermissions(P.Administrator),
+
+  // ---- acting on the game server ----
+  new SlashCommandBuilder().setName('say').setDescription('ADMIN: announce something to everyone in-game')
+    .addStringOption((o) => o.setName('message').setDescription('What to say').setRequired(true).setMaxLength(300))
+    .setDefaultMemberPermissions(P.ManageRoles),
+  new SlashCommandBuilder().setName('tell').setDescription('ADMIN: send one player a private in-game message')
+    .addStringOption(playerChoice)
+    .addStringOption((o) => o.setName('message').setDescription('What to say').setRequired(true).setMaxLength(300))
+    .setDefaultMemberPermissions(P.ManageRoles),
+  new SlashCommandBuilder().setName('kick').setDescription('ADMIN: kick a player off the game server')
+    .addStringOption(playerChoice)
+    .addStringOption((o) => o.setName('reason').setDescription('Shown to them in-game').setMaxLength(150))
+    .setDefaultMemberPermissions(P.ManageRoles),
+  new SlashCommandBuilder().setName('move').setDescription('ADMIN: move a player to another team')
+    .addStringOption(playerChoice)
+    .addStringOption(factionChoice)
+    .setDefaultMemberPermissions(P.ManageRoles),
+  new SlashCommandBuilder().setName('endmatch').setDescription('ADMIN: end the match now')
+    .addBooleanOption((o) => o.setName('confirm').setDescription('Yes, end it for everyone playing').setRequired(true))
+    .setDefaultMemberPermissions(P.Administrator),
+  new SlashCommandBuilder().setName('server').setDescription('ADMIN: what the game server reports and what it lets the bot do')
+    .setDefaultMemberPermissions(P.ManageRoles),
 ].map((c) => c.toJSON());
+
+/**
+ * Find one online player by in-game name or SteamID64. Returns { player } or
+ * { error } with a sentence to show. Never picks for you when it is ambiguous:
+ * kicking or moving the wrong person is worse than asking again.
+ */
+export function findPlayer(players, needle) {
+  const q = String(needle ?? '').trim();
+  if (!q) return { error: 'Give me a name or a SteamID.' };
+  if (/^\d{15,25}$/.test(q)) {
+    const byId = players.find((p) => p.steamId === q);
+    return byId ? { player: byId } : { error: `Nobody with SteamID \`${q}\` is on the server.` };
+  }
+  const low = q.toLowerCase();
+  const exact = players.filter((p) => String(p.name ?? '').toLowerCase() === low);
+  if (exact.length === 1) return { player: exact[0] };
+  if (exact.length > 1) return { error: `More than one player is called **${q}**. Use their SteamID instead.` };
+  const part = players.filter((p) => String(p.name ?? '').toLowerCase().includes(low));
+  if (part.length === 1) return { player: part[0] };
+  if (part.length > 1) {
+    return { error: `**${q}** matches ${part.length} players (${part.slice(0, 5).map((p) => p.name).join(', ')}). Be more exact, or use a SteamID.` };
+  }
+  return { error: `Nobody called **${q}** is on the server right now.` };
+}
 
 const ephemeral = (content) => ({ content, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
 
@@ -92,6 +141,92 @@ export function makeHandlers({ core, commanders, ratings, config, log, verified 
     async claim(i) {
       await i.deferReply({ flags: MessageFlags.Ephemeral });
       await i.editReply((await commanders.claim(i.user.id)).message);
+    },
+
+    // ---- acting on the game server ----
+    // All of these go through core, which owns the RCON password and refuses
+    // anything this server build cannot do. An unsupported action comes back
+    // as a plain sentence, which is shown as-is.
+
+    async say(i) {
+      const message = i.options.getString('message', true);
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      await core.broadcast(message);
+      await i.editReply(`📢 Sent to everyone in-game: "${message}"`);
+      await log(`📢 <@${i.user.id}> announced in-game: "${message}"`);
+    },
+
+    async tell(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const message = i.options.getString('message', true);
+      const { player, error } = findPlayer((await core.state()).players ?? [], i.options.getString('player', true));
+      if (error) return i.editReply(error);
+      await core.message(player.steamId, message);
+      await i.editReply(`💬 Sent to **${player.name}** in-game: "${message}"`);
+      await log(`💬 <@${i.user.id}> messaged **${player.name}** in-game: "${message}"`);
+    },
+
+    async kick(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const reason = i.options.getString('reason') || 'Kicked by an admin';
+      const { player, error } = findPlayer((await core.state()).players ?? [], i.options.getString('player', true));
+      if (error) return i.editReply(error);
+      await core.kick(player.steamId, reason);
+      await i.editReply(`👢 Kicked **${player.name}**. Reason: ${reason}`);
+      await log(`👢 <@${i.user.id}> kicked **${player.name}** (${player.steamId}). Reason: ${reason}`);
+    },
+
+    async move(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const key = i.options.getString('faction', true);
+      const state = await core.state();
+      const { player, error } = findPlayer(state.players ?? [], i.options.getString('player', true));
+      if (error) return i.editReply(error);
+      // The game wants its own name for the faction. If the server hasn't
+      // reported one that maps to this colour, refuse rather than invent it.
+      const gameFaction = gameFactionFor(key, config.factionAliases, state.status?.factionScores ?? []);
+      if (!gameFaction) {
+        return i.editReply(`I don't know what this server calls the ${byKey(key).label} team yet. Run \`/server\` and send me what it says.`);
+      }
+      await core.setFaction(player.steamId, gameFaction);
+      await i.editReply(`🔀 Moved **${player.name}** to **${byKey(key).label}** (${gameFaction}). Their Discord role follows within a few seconds.`);
+      await log(`🔀 <@${i.user.id}> moved **${player.name}** to ${byKey(key).label}.`);
+    },
+
+    async endmatch(i) {
+      if (!i.options.getBoolean('confirm', true)) {
+        return i.reply(ephemeral('Nothing done. Run it again with **confirm: True** if you really want to end the match for everyone playing.'));
+      }
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      await core.endMatch();
+      await i.editReply('🏁 Match ended.');
+      await log(`🏁 <@${i.user.id}> ended the match from Discord.`);
+    },
+
+    async server(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const d = await core.diagnostics();
+      const yn = (b) => (b ? '✅' : '❌');
+      const lines = [
+        `**Game server**: ${d.rconOk ? '🟢 connected' : '🔴 not reachable'}${d.lastError ? ` (${d.lastError})` : ''}`,
+        `API ${d.apiVersion ?? '?'}, build \`${d.build ?? '?'}\`, server ID \`${d.serverId ?? '?'}\``,
+        '',
+        '**What it lets the bot do**',
+        `${yn(d.actions?.message)} private messages  ${yn(d.actions?.broadcast)} announcements  ${yn(d.actions?.kick)} kick`,
+        `${yn(d.actions?.move)} move between teams  ${yn(d.actions?.endMatch)} end the match`,
+        '',
+        '**What it reports** (send this to Claude)',
+        '```json',
+        JSON.stringify({
+          clockDirection: d.clockDirection,
+          matchSeconds: d.matchSeconds,
+          factionScores: d.factionScores,
+          factionStrings: d.factionStrings,
+          playerCount: d.playerCount,
+        }, null, 1).slice(0, 1200),
+        '```',
+      ];
+      await i.editReply(lines.join('\n').slice(0, 1990));
     },
 
     async reroll(i) {

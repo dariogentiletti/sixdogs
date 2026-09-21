@@ -84,4 +84,50 @@ export class RconClient {
     }
     return this.request('POST', '/v1/broadcast', { message });
   }
+
+  // ---- actions that change the game ----
+  // Each one is gated on /v1/capabilities rather than on catching a 404, so an
+  // older build fails with a sentence we can show an admin instead of a stack
+  // trace. See CLAUDE.md.
+
+  kick(steamId, reason) {
+    if (!this.has('POST', '/v1/players/{steamId}/kick')) {
+      throw new RconError('This server build cannot kick players.', { code: 'unsupported' });
+    }
+    return this.request('POST', `/v1/players/${encodeURIComponent(steamId)}/kick`, { reason });
+  }
+
+  /**
+   * Move a player to another faction.
+   *
+   * `faction` is the server's OWN faction string, exactly as it appears in
+   * /v1/players and in /v1/status factionScores[].name. It is NOT a SIXDOGS
+   * colour key: the game has never heard of blue/red/green. The bot resolves
+   * the colour to the server's own name before calling this, so that nothing
+   * here has to invent a faction string.
+   */
+  setFaction(steamId, faction) {
+    if (!this.has('PATCH', '/v1/players/{steamId}')) {
+      throw new RconError('This server build cannot move players between factions.', { code: 'unsupported' });
+    }
+    return this.request('PATCH', `/v1/players/${encodeURIComponent(steamId)}`, { faction });
+  }
+
+  endMatch() {
+    if (!this.has('POST', '/v1/match/end')) {
+      throw new RconError('This server build cannot end the match.', { code: 'unsupported' });
+    }
+    return this.request('POST', '/v1/match/end');
+  }
+
+  /** Which of the things SIXDOGS knows how to do this build actually serves. */
+  supportedActions() {
+    return {
+      message: this.has('POST', '/v1/players/{steamId}/message'),
+      broadcast: this.has('POST', '/v1/broadcast'),
+      kick: this.has('POST', '/v1/players/{steamId}/kick'),
+      move: this.has('PATCH', '/v1/players/{steamId}'),
+      endMatch: this.has('POST', '/v1/match/end'),
+    };
+  }
 }
