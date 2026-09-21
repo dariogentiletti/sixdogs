@@ -19,13 +19,26 @@ const FULL = [
   'POST /v1/players/{steamId}/kick',
   'PATCH /v1/players/{steamId}',
   'POST /v1/match/end',
+  'POST /v1/players/{steamId}/kill',
+  'POST /v1/match/restart',
+  'POST /v1/match/map',
+  'PUT /v1/world/lighting',
+  'POST /v1/bans',
+  'GET /v1/audit',
 ];
+
+const ALL_OFF = {
+  message: false, broadcast: false, kick: false, move: false, endMatch: false,
+  kill: false, restart: false, changeMap: false, lighting: false, ban: false, audit: false,
+};
+const allOn = (...on) => ({ ...ALL_OFF, ...Object.fromEntries(on.map((k) => [k, true])) });
 
 test('a full build reports every action and calls the right route', async () => {
   const c = clientWith(FULL);
-  assert.deepEqual(c.supportedActions(), {
-    message: true, broadcast: true, kick: true, move: true, endMatch: true,
-  });
+  assert.deepEqual(c.supportedActions(), allOn(
+    'message', 'broadcast', 'kick', 'move', 'endMatch',
+    'kill', 'restart', 'changeMap', 'lighting', 'ban', 'audit',
+  ));
   assert.equal((await c.kick('76561198000000001', 'why')).called, 'POST /v1/players/76561198000000001/kick');
   assert.equal((await c.setFaction('76561198000000001', 'Valkyra')).called, 'PATCH /v1/players/76561198000000001');
   assert.equal((await c.endMatch()).called, 'POST /v1/match/end');
@@ -33,9 +46,7 @@ test('a full build reports every action and calls the right route', async () => 
 
 test('a read-only build refuses each action without calling out', async () => {
   const c = clientWith(['GET /v1/status', 'GET /v1/players']);
-  assert.deepEqual(c.supportedActions(), {
-    message: false, broadcast: false, kick: false, move: false, endMatch: false,
-  });
+  assert.deepEqual(c.supportedActions(), ALL_OFF);
   let reached = false;
   c.request = async () => { reached = true; };
 
@@ -57,9 +68,7 @@ test('a read-only build refuses each action without calling out', async () => {
 
 test('a build with some actions but not others gates them one by one', () => {
   const c = clientWith(['POST /v1/broadcast', 'POST /v1/match/end']);
-  assert.deepEqual(c.supportedActions(), {
-    message: false, broadcast: true, kick: false, move: false, endMatch: true,
-  });
+  assert.deepEqual(c.supportedActions(), allOn('broadcast', 'endMatch'));
 });
 
 test('the password is not an enumerable property', () => {
@@ -96,7 +105,5 @@ test('loose matching does not blur different routes', () => {
   assert.equal(c.has('GET', '/v1/players/{steamId}/message'), false);
   // A parameter must not swallow a fixed segment.
   assert.equal(c.has('GET', '/v1/health'), false);
-  assert.deepEqual(c.supportedActions(), {
-    message: true, broadcast: false, kick: false, move: false, endMatch: false,
-  });
+  assert.deepEqual(c.supportedActions(), allOn('message'));
 });
