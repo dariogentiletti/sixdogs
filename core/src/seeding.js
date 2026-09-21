@@ -1,32 +1,32 @@
-// Seeding: getting a server up to a playable number without anyone having to
-// sit in it waiting.
+// Seeding: a standing list of who wants to play, and two pings built on it.
 //
-// The problem it solves: a 100 slot server at zero players stays at zero,
-// because nobody wants to be the first one on an empty map. The old fix is to
-// sit there AFK until others arrive, which is miserable, so most people never
-// do it. A server stuck at twelve has the same problem in a milder form: twelve
-// people rattling around a map built for a hundred is not the match anyone
-// turned up for.
+// The list is the whole idea, and it is deliberately dumb: you click once, your
+// name goes on it, and it stays there. It does NOT come off because you went
+// and waited in the server. Wanting to play and being in the server are the
+// same intention, not opposites, and an earlier version that quietly removed
+// people the moment they joined made the list lie about who was up for a match.
 //
-// So people say in Discord "I want to play". When the people already on the
-// server PLUS the people who said that add up to a playable match, the bot
-// pings the opt-in role once and everyone goes in together.
+// Two different messages come out of it, and they are not the same thing:
 //
-// Counting the players already on is the whole point. Seeding is not only for a
-// dead server: topping a half-full one up to a real match is the case that
-// happens most, and a rule that switched itself off the moment a match started
-// would miss it every time.
+//   nudge  at SEED_NUDGE_AT. "10 people want to play, click the button if you
+//          do too (10/45)." Its job is to recruit the other 35, so it fires
+//          once per round, early, while there is still something to recruit.
+//   call   at SEED_TARGET. "45 want to play, get in." Its job is to start the
+//          match, so nothing is allowed to get in its way.
+//
+// A nudge must never block a call: they keep separate cooldowns, or the recruiting
+// message would stop the very match it recruited for.
 //
 // Everything here is pure so the rules can be tested without a database, a
 // Discord connection or a clock.
 
-/** How many bodies make a match worth joining. Counts players on + people ready. */
-export const DEFAULT_TARGET = 20;
-/** Never spend a ping on fewer people than this, however close the target is. */
-export const DEFAULT_MIN_PLEDGES = 5;
-/** A pledge older than this is stale: they said yes an hour ago and have gone out. */
-export const DEFAULT_PLEDGE_MINUTES = 45;
-/** Least time between pings, so the role never gets spammed. */
+/** How many have to want in before a match can actually start. */
+export const DEFAULT_TARGET = 45;
+/** The list crossing this is worth telling the role about, to recruit the rest. */
+export const DEFAULT_NUDGE_AT = 10;
+/** How long a name stays on the list. Long, because 45 clicks take a while to collect. */
+export const DEFAULT_PLEDGE_MINUTES = 180;
+/** Least time between two pings of the same kind. */
 export const DEFAULT_COOLDOWN_MINUTES = 45;
 
 export const isFresh = (pledgedAt, now, pledgeMs) => now - new Date(pledgedAt).getTime() < pledgeMs;
@@ -38,66 +38,63 @@ export function livePledges(pledges, { now = Date.now(), pledgeMinutes = DEFAULT
 }
 
 /**
- * Should the bot call everyone in right now?
+ * What, if anything, should the bot post right now?
  *
- * Every no is given a reason, because the reasons are the feature: an admin
- * asking "why has it not pinged?" gets an answer instead of a shrug.
+ * Every "nothing" is given a reason, because the reasons are the feature: an
+ * admin asking "why has it not pinged?" gets an answer instead of a shrug.
  *
- * `heading` is what the server would hold if everyone who said yes turned up:
- * the people on it now plus the live pledges. That, not the pledge count on its
- * own, is what gets compared to the target.
- *
- * @returns {{fire, reason, ready, playersOn, heading, needed, target}}
+ * @returns {{action: 'call'|'nudge'|null, reason, ready, needed, target, nudgeAt}}
  */
-export function shouldPing({
+export function seedDecision({
   pledges = [],
   playersOn = 0,
   serverOk = true,
   target = DEFAULT_TARGET,
-  minPledges = DEFAULT_MIN_PLEDGES,
-  lastPingAt = null,
+  nudgeAt = DEFAULT_NUDGE_AT,
+  lastCallAt = null,
+  lastNudgeAt = null,
   now = Date.now(),
   pledgeMinutes = DEFAULT_PLEDGE_MINUTES,
   cooldownMinutes = DEFAULT_COOLDOWN_MINUTES,
 } = {}) {
   const live = livePledges(pledges, { now, pledgeMinutes });
   const ready = live.length;
-  const heading = playersOn + ready;
-  const needed = Math.max(0, target - heading);
-  const out = (fire, reason) => ({ fire, reason, ready, playersOn, heading, needed, target });
+  const needed = Math.max(0, target - ready);
+  const bar = Math.min(nudgeAt, target); // a nudge above the target could never fire
+  const out = (action, reason) => ({ action, reason, ready, needed, target, nudgeAt: bar, playersOn });
 
   // Calling people to a server that isn't answering sends them to a black
   // screen, and they don't come back a second time.
-  if (!serverOk) return out(false, "the game server isn't answering, so nobody is being called in");
+  if (!serverOk) return out(null, "the game server isn't answering, so nobody is being called in");
 
-  // There are already enough people in there. Whoever wants to play can just
-  // join, and a ping saying so is noise that makes the next one count less.
-  if (playersOn >= target) return out(false, `${playersOn} already playing, no need to call anyone`);
+  // The match everyone was waiting for is already happening. Whoever wants to
+  // play can just join, and a ping saying so makes the next one count less.
+  if (playersOn >= target) return out(null, `${playersOn} already playing, the match is on`);
 
-  // Close to the target on players alone? Then a ping would be fetching one or
-  // two people, which is not what the role signed up for. A call-in has to be
-  // worth being a call-in.
-  const floor = Math.min(minPledges, target);
-  if (ready < floor) {
-    return out(false, `only ${ready} ready, and a ping isn't worth it for fewer than ${floor}`);
-  }
+  const cooldownMs = cooldownMinutes * 60_000;
+  const since = (at) => (at ? now - new Date(at).getTime() : Infinity);
+  const left = (at) => Math.ceil((cooldownMs - since(at)) / 60_000);
 
-  if (heading < target) {
-    return out(false, playersOn
-      ? `${playersOn} playing and ${ready} ready, ${needed} short of ${target}`
-      : `${ready} of ${target} ready`);
-  }
-
-  // A ping is a lot of notifications at once. Even with the bar met, wait the
-  // cooldown out, so a burst of clicking can't fire twice in a row.
-  if (lastPingAt) {
-    const since = now - new Date(lastPingAt).getTime();
-    const cooldownMs = cooldownMinutes * 60_000;
-    if (since < cooldownMs) {
-      const mins = Math.ceil((cooldownMs - since) / 60_000);
-      return out(false, `everyone was called in recently, ${mins} min before the next one`);
+  if (ready >= target) {
+    if (since(lastCallAt) < cooldownMs) {
+      return out(null, `everyone was called in recently, ${left(lastCallAt)} min before the next one`);
     }
+    return out('call', `${ready} want to play`);
   }
 
-  return out(true, playersOn ? `${playersOn} playing and ${ready} ready` : `${ready} ready`);
+  if (ready >= bar) {
+    // Once per round. The list is emptied by a call, so a nudge newer than the
+    // last call means this round has already been advertised.
+    const nudgedThisRound = lastNudgeAt
+      && (!lastCallAt || Date.parse(lastNudgeAt) > Date.parse(lastCallAt));
+    if (nudgedThisRound) {
+      return out(null, `${ready} of ${target} want to play, and the role has already been told about this one`);
+    }
+    if (since(lastNudgeAt) < cooldownMs) {
+      return out(null, `${ready} of ${target} want to play, ${left(lastNudgeAt)} min before the role can be told again`);
+    }
+    return out('nudge', `${ready} want to play, ${needed} to go`);
+  }
+
+  return out(null, `${ready} of ${target} want to play`);
 }

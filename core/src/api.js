@@ -8,7 +8,7 @@ import { VerifyError } from './verify.js';
 import { RconError } from './rcon.js';
 import { looksEphemeral } from './db.js';
 import { commanderTerms, ratedTerms, roundPoints } from './ratings.js';
-import { shouldPing } from './seeding.js';
+import { seedDecision } from './seeding.js';
 
 const MAX_BODY = 16 * 1024;
 
@@ -298,51 +298,54 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
     return { ok: true };
   });
 
-  // ---- seeding: getting a cold server started ----
+  // ---- seeding: a standing list of who wants to play ----
   //
-  // People pledge in Discord ("I'd play right now"). When enough have, the bot
-  // calls the opt-in role in. The rules are in seeding.js; this holds the list.
+  // People click a button in Discord. The list is what they clicked, and it
+  // stays what they clicked: a name is NOT removed because that person went and
+  // waited in the server. The rules are in seeding.js; this holds the list.
 
   /**
-   * The state of play, and whether it's time to call everyone in.
+   * The state of play, and whether there's a message to post.
    *
-   * Tidies up first, so the count is always honest: anyone already in game
-   * doesn't need calling, and a pledge from hours ago isn't a promise any more.
+   * The only tidying is stale names. Everything else about the list is exactly
+   * what people put on it.
    */
   async function seedSummary() {
     const s = poller.state;
-    const onNow = (s.players ?? []).map((p) => String(p.steamId));
-    if (onNow.length) {
-      await pool.query(
-        `DELETE FROM seed_pledges WHERE discord_id IN (
-           SELECT discord_id FROM links WHERE steam_id = ANY($1::text[]))`, [onNow]);
-    }
     await pool.query(
       'DELETE FROM seed_pledges WHERE pledged_at < now() - make_interval(mins => $1)',
       [config.seedPledgeMinutes]);
     const { rows } = await pool.query('SELECT discord_id, pledged_at FROM seed_pledges ORDER BY pledged_at');
-    const { rows: [last] } = await pool.query('SELECT pinged_at, ready FROM seed_pings ORDER BY id DESC LIMIT 1');
+    const { rows: pings } = await pool.query(
+      `SELECT kind, max(pinged_at) AS at FROM seed_pings GROUP BY kind`);
+    const at = (kind) => {
+      const r = pings.find((x) => x.kind === kind);
+      return r ? new Date(r.at).toISOString() : null;
+    };
     const pledges = rows.map((r) => ({ discordId: r.discord_id, at: new Date(r.pledged_at).toISOString() }));
-    const lastPingAt = last ? new Date(last.pinged_at).toISOString() : null;
+    const lastCallAt = at('call');
+    const lastNudgeAt = at('nudge');
     const playersOn = (s.players ?? []).length;
-    const decision = shouldPing({
+    const decision = seedDecision({
       pledges,
       playersOn,
       serverOk: s.ok,
       target: config.seedTarget,
-      minPledges: config.seedMinPledges,
-      lastPingAt,
+      nudgeAt: config.seedNudgeAt,
+      lastCallAt,
+      lastNudgeAt,
       pledgeMinutes: config.seedPledgeMinutes,
       cooldownMinutes: config.seedCooldownMinutes,
     });
     return {
       ok: true,
       pledges,
-      lastPingAt,
+      lastCallAt,
+      lastNudgeAt,
+      lastPingAt: lastCallAt,
       playersOn,
       serverOk: s.ok,
       target: config.seedTarget,
-      minPledges: config.seedMinPledges,
       pledgeMinutes: config.seedPledgeMinutes,
       cooldownMinutes: config.seedCooldownMinutes,
       ...decision,
@@ -351,8 +354,8 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
 
   route('GET', '/internal/seed', async () => seedSummary());
 
-  // on: true = "I'd play now", false = take my name off. Pledging twice is not
-  // an error; it just moves the clock on, which is what a second click means.
+  // on: true = "I want to play", false = take my name off. Clicking twice is
+  // not an error; it moves the clock on, which is what a second click means.
   route('POST', '/internal/seed/pledge', async (_p, body) => {
     if (!isSnowflake(body.discordId)) {
       return [400, { error: { code: 'bad_request', message: 'discordId required' } }];
@@ -369,9 +372,10 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
   });
 
   /**
-   * Record a ping and clear the list. Core decides, not the bot: two bot ticks
-   * (or two bots) landing at once must not ping twice, so the cooldown is
-   * enforced by the insert itself and the loser is told it already happened.
+   * Record a ping and, for a call, clear the list. Core decides, not the bot:
+   * two bot ticks (or two bots) landing at once must not ping twice, so the
+   * cooldown is enforced by the INSERT itself and the loser is told it already
+   * happened. Cooldowns are per kind, so a nudge can never hold back a call.
    *
    * `force` (an admin using /seed call-now) skips the target, but NOT the
    * cooldown: the promise made to everyone who took the ping role is that it
@@ -379,34 +383,32 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
    * that promise is for.
    */
   route('POST', '/internal/seed/ping', async (_p, body) => {
+    const kind = body.kind === 'nudge' ? 'nudge' : 'call';
     const summary = await seedSummary();
-    if (!body.force && !summary.fire) return { ok: true, fired: false, ...summary };
+    if (!body.force && summary.action !== kind) return { ok: true, fired: false, ...summary };
     const { rows } = await pool.query(
-      `INSERT INTO seed_pings (ready)
-       SELECT $1::int WHERE NOT EXISTS (
-         SELECT 1 FROM seed_pings WHERE pinged_at > now() - make_interval(mins => $2))
+      `INSERT INTO seed_pings (ready, kind)
+       SELECT $1::int, $2::text WHERE NOT EXISTS (
+         SELECT 1 FROM seed_pings WHERE kind = $2::text AND pinged_at > now() - make_interval(mins => $3))
        RETURNING id, pinged_at`,
-      [summary.ready, config.seedCooldownMinutes]);
+      [summary.ready, kind, config.seedCooldownMinutes]);
     if (!rows[0]) {
-      // Lost the race, or an admin forced one inside the cooldown. Either way,
-      // say how long is left rather than just "no".
-      const left = summary.lastPingAt
-        ? config.seedCooldownMinutes * 60_000 - (Date.now() - Date.parse(summary.lastPingAt)) : 0;
+      const prev = kind === 'call' ? summary.lastCallAt : summary.lastNudgeAt;
+      const over = prev ? config.seedCooldownMinutes * 60_000 - (Date.now() - Date.parse(prev)) : 0;
       return {
         ok: true, fired: false, ...summary,
-        reason: left > 0
-          ? `everyone was called in recently, ${Math.ceil(left / 60_000)} min before the next one`
-          : 'everyone was called in a moment ago',
+        reason: over > 0
+          ? `that message went out recently, ${Math.ceil(over / 60_000)} min before the next one`
+          : 'that message went out a moment ago',
       };
     }
-    // The list has done its job. Clearing it means the next ping needs a fresh
-    // set of people, rather than yesterday's names firing it again.
-    await pool.query('DELETE FROM seed_pledges');
+    // A call has done its job, so the list starts again: the next match needs
+    // people who want THAT one, not names left over from this one. A nudge
+    // changes nothing, since its whole point is to grow the same list.
+    if (kind === 'call') await pool.query('DELETE FROM seed_pledges');
     return {
-      // playersOn travels with it: the call-in says "12 are on and 8 more are
-      // ready", which is a different and much better message than "8 ready".
-      ok: true, fired: true, ready: summary.ready, playersOn: summary.playersOn,
-      heading: summary.heading, target: summary.target,
+      ok: true, fired: true, kind, ready: summary.ready, playersOn: summary.playersOn,
+      target: summary.target, needed: summary.needed, nudgeAt: summary.nudgeAt,
       pledges: summary.pledges, pingedAt: new Date(rows[0].pinged_at).toISOString(),
     };
   });

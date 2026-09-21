@@ -109,9 +109,13 @@ CREATE TABLE IF NOT EXISTS seed_pledges (
   pledged_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- One row per "everyone in" ping, so the cooldown survives a restart.
+-- One row per ping, so the cooldowns survive a restart. kind is 'call' (enough
+-- people, start the match) or 'nudge' (early, to recruit the rest). They keep
+-- separate cooldowns: a nudge must never hold back the call it recruited for.
 CREATE TABLE IF NOT EXISTS seed_pings (
   id        BIGSERIAL PRIMARY KEY,
   pinged_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  ready     INTEGER NOT NULL
+  ready     INTEGER NOT NULL,
+  kind      TEXT NOT NULL DEFAULT 'call'
 );
+ALTER TABLE seed_pings ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'call';

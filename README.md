@@ -201,42 +201,40 @@ Everything the bot does is logged to `#admin-log`.
 - The Commander Pool and class roles only change when someone reacts in `#roles` (or an admin
   changes them by hand).
 
-## Getting a cold server started
+## Getting a match going
 
 A 24/7 server with nobody on it stays that way: nobody wants to be the first one on an empty map,
 and sitting there AFK waiting for company is nobody's idea of an evening.
 
-It's the same problem at twelve players, just milder: a dozen people rattling around a map built
-for a hundred is not the match anyone turned up for.
+So in `#start-a-match` the bot keeps a board with an **I want to play** button. Click it and your
+name goes on the list. **It stays there**, whether you go and warm up in the server or go and do
+something else. Wanting to play and being in the server aren't opposites.
 
-So don't wait in the server, wait in Discord. In `#start-a-match` the bot keeps a board with an
-**I want to play** button. Press it, go and do something else, and when enough of us are on or
-ready, everyone gets called in at once.
+Two things come out of that list, and they're not the same:
 
-- **The target counts players already on the server**, not just people who pressed the button.
-  Twelve playing plus eight ready is twenty, and twenty is a match. This is what makes seeding
-  useful for topping a half-full server up, which happens far more often than waking a dead one.
-- **How many:** `SEED_TARGET`, 20 by default. Pick it for your Discord, not for the server's 100
-  slots: a target nobody can ever reach on a quiet evening is a feature that never fires.
+- **A heads-up at 10.** `@Match Alerts` gets one message: "10 people want to play! (10/45), click
+  the button if you do too." Its job is to recruit the other 35, so it fires once per round and
+  leaves the list alone.
+- **The call-in at 45.** "45 of us want to play, get in." That's three teams of fifteen, which is
+  a real match. This one empties the list, so the next round needs people who want *that* match.
+
+The two keep separate cooldowns, so the recruiting message can never hold back the match it
+recruited for.
+
 - **Who gets pinged:** only the **Match Alerts** role, which you take yourself with 📣 in `#roles`.
   The bot never uses `@everyone`.
-- **How often:** at most once every 45 minutes (`SEED_COOLDOWN_MINUTES`), and the list is emptied
-  when a ping goes out, so the next one needs a fresh set of people.
-- **Your name comes off** after 45 minutes (`SEED_PLEDGE_MINUTES`), or the moment the server sees
-  you playing. A promise from two hours ago isn't a promise.
-- **Never for one or two people.** Nineteen on and one ready would clear a target of twenty, but
-  a ping to fetch a single player is how a ping stops meaning anything (`SEED_MIN_PLEDGES`, 5).
-- **Nothing is sent** when there are already enough people playing, or when the game server isn't
-  answering. Calling people to a black screen is how you lose them.
-- **Once the server is at the target the buttons disappear** and the board shows the Server ID
-  instead. There's nothing left to organise at that point, so it stops asking and tells you how
-  to get in.
-- **Admins:** `/seed` says how many are ready and, if nothing has fired, exactly why.
-  `/seed call-now:True` calls everyone in without waiting for the target. It still respects the
-  cooldown: the promise to everyone holding the ping role is that it can't go off twice in a row.
+- **How often:** each kind of message at most once every 45 minutes (`SEED_COOLDOWN_MINUTES`).
+- **Your name comes off** by itself after 3 hours (`SEED_PLEDGE_MINUTES`). It's long on purpose:
+  collecting 45 clicks takes a while, and a short window means the target is never reached.
+- **Nothing is sent** once the match is running, or when the game server isn't answering. Calling
+  people to a black screen is how you lose them.
+- **Once the match is on the buttons disappear** and the board shows the Server ID instead.
+- **Admins:** `/seed` says how many want in and, if nothing has been sent, exactly why.
+  `/seed call-now:True` calls everyone in without waiting for 45. It still respects the cooldown:
+  the promise to everyone holding the ping role is that it can't go off twice in a row.
 
-Every number above is a setting (`SEED_*` in `.env.example`); they live in core, so the bot and
-the board can never disagree about them.
+`SEED_TARGET` has to agree with the game server's own minimum player count. Changing that is a
+server settings write, which isn't built yet.
 
 ## How commanders are chosen
 

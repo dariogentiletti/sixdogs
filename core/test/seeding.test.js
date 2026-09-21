@@ -1,86 +1,98 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { livePledges, shouldPing } from '../src/seeding.js';
+import { livePledges, seedDecision } from '../src/seeding.js';
 
 const NOW = Date.parse('2026-09-21T20:00:00Z');
 const minsAgo = (n) => new Date(NOW - n * 60_000).toISOString();
-const ready = (n, ago = 1) => Array.from({ length: n }, (_, i) => ({ discordId: String(i), at: minsAgo(ago) }));
-const ask = (over) => shouldPing({ target: 20, minPledges: 5, now: NOW, ...over });
+const want = (n, ago = 1) => Array.from({ length: n }, (_, i) => ({ discordId: String(i), at: minsAgo(ago) }));
+const ask = (over) => seedDecision({ target: 45, nudgeAt: 10, now: NOW, ...over });
 
-test('a pledge goes stale after the window', () => {
-  const pledges = [...ready(3, 5), ...ready(4, 120)];
-  assert.equal(livePledges(pledges, { now: NOW, pledgeMinutes: 45 }).length, 3);
+test('a name goes stale after the window', () => {
+  const pledges = [...want(3, 5), ...want(4, 400)];
+  assert.equal(livePledges(pledges, { now: NOW, pledgeMinutes: 180 }).length, 3);
 });
 
-test('not enough people: no ping, and it says how many short', () => {
-  const r = ask({ pledges: ready(8) });
-  assert.equal(r.fire, false);
-  assert.equal(r.ready, 8);
-  assert.equal(r.needed, 12);
-  assert.match(r.reason, /8 of 20 ready/);
+// The complaint that produced this: click, go and warm up in the server, and
+// your name used to vanish. Being in the server is not the opposite of wanting
+// to play, so nothing here looks at who is on it.
+test('being on the server does not take your name off the list', () => {
+  const r = ask({ pledges: want(12), playersOn: 12 });
+  assert.equal(r.ready, 12, 'all twelve still count');
 });
 
-test('stale pledges do not count toward the target', () => {
-  const r = ask({ pledges: [...ready(4, 2), ...ready(20, 300)] });
-  assert.equal(r.fire, false);
-  assert.equal(r.ready, 4);
+test('below the nudge bar, nothing is sent', () => {
+  const r = ask({ pledges: want(4) });
+  assert.equal(r.action, null);
+  assert.match(r.reason, /4 of 45 want to play/);
 });
 
-// The point of the whole rewrite: a match in progress is the normal case, not
-// a reason to switch off. Twelve on plus eight ready is a real match.
-test('players already on the server count toward the target', () => {
-  const r = ask({ pledges: ready(8), playersOn: 12 });
-  assert.equal(r.heading, 20);
-  assert.equal(r.fire, true);
-  assert.match(r.reason, /12 playing and 8 ready/);
+test('crossing the nudge bar tells the role, to recruit the rest', () => {
+  const r = ask({ pledges: want(10) });
+  assert.equal(r.action, 'nudge');
+  assert.equal(r.ready, 10);
+  assert.equal(r.needed, 35);
 });
 
-test('a match running but still short says so in both numbers', () => {
-  const r = ask({ pledges: ready(5), playersOn: 6 });
-  assert.equal(r.fire, false);
-  assert.equal(r.heading, 11);
-  assert.equal(r.needed, 9);
-  assert.match(r.reason, /6 playing and 5 ready, 9 short of 20/);
+test('the role is only told once per round', () => {
+  const r = ask({ pledges: want(20), lastNudgeAt: minsAgo(90) });
+  assert.equal(r.action, null);
+  assert.match(r.reason, /already been told/);
 });
 
-test('a ping is never spent on one or two people, however close the target', () => {
-  // 19 on, 1 ready: that would clear the bar, but calling the role in to fetch
-  // a single player is how a ping stops meaning anything.
-  const r = ask({ pledges: ready(1), playersOn: 19 });
-  assert.equal(r.fire, false);
-  assert.match(r.reason, /isn't worth it for fewer than 5/);
+test('after a call-in, the next round can be advertised again', () => {
+  const r = ask({ pledges: want(12), lastNudgeAt: minsAgo(300), lastCallAt: minsAgo(200) });
+  assert.equal(r.action, 'nudge', 'the nudge is older than the last call, so it was a previous round');
 });
 
-test('minPledges can never be higher than the target itself', () => {
-  const r = shouldPing({ pledges: ready(3), target: 3, minPledges: 10, now: NOW });
-  assert.equal(r.fire, true);
+test('reaching the target calls everyone in', () => {
+  const r = ask({ pledges: want(45) });
+  assert.equal(r.action, 'call');
+  assert.equal(r.needed, 0);
 });
 
-test('the server is already full enough: no ping', () => {
-  const r = ask({ pledges: ready(12), playersOn: 30 });
-  assert.equal(r.fire, false);
-  assert.match(r.reason, /already playing/);
+// The bug this guards against: the recruiting message blocking the very match
+// it recruited for. The two kinds keep separate cooldowns for exactly this.
+test('a recent nudge never holds back the call it recruited for', () => {
+  const r = ask({ pledges: want(45), lastNudgeAt: minsAgo(2) });
+  assert.equal(r.action, 'call');
 });
 
-test('cooldown blocks a second ping and says how long is left', () => {
-  const r = ask({ pledges: ready(20), lastPingAt: minsAgo(10), cooldownMinutes: 45 });
-  assert.equal(r.fire, false);
+test('cooldown blocks a second call and says how long is left', () => {
+  const r = ask({ pledges: want(45), lastCallAt: minsAgo(10), cooldownMinutes: 45 });
+  assert.equal(r.action, null);
   assert.match(r.reason, /35 min/);
 });
 
-test('once the cooldown is up, it can fire again', () => {
-  const r = ask({ pledges: ready(20), lastPingAt: minsAgo(60), cooldownMinutes: 45 });
-  assert.equal(r.fire, true);
+test('once the cooldown is up, it can call again', () => {
+  const r = ask({ pledges: want(45), lastCallAt: minsAgo(60), cooldownMinutes: 45 });
+  assert.equal(r.action, 'call');
+});
+
+test('stale names do not count toward the target', () => {
+  const r = ask({ pledges: [...want(5, 10), ...want(50, 600)] });
+  assert.equal(r.ready, 5);
+  assert.equal(r.action, null);
+});
+
+test('the match is already running: nothing is sent', () => {
+  const r = ask({ pledges: want(45), playersOn: 50 });
+  assert.equal(r.action, null);
+  assert.match(r.reason, /the match is on/);
 });
 
 test('a server nobody can reach never gets people called to it', () => {
-  const r = ask({ pledges: ready(40), serverOk: false });
-  assert.equal(r.fire, false);
+  const r = ask({ pledges: want(60), serverOk: false });
+  assert.equal(r.action, null);
   assert.match(r.reason, /isn't answering/);
 });
 
-test('no pledges at all is a safe no, not a crash', () => {
-  const r = shouldPing();
-  assert.equal(r.fire, false);
+test('a nudge bar above the target could never fire, so it is capped', () => {
+  const r = seedDecision({ pledges: want(5), target: 5, nudgeAt: 50, now: NOW });
+  assert.equal(r.action, 'call');
+});
+
+test('an empty list is a safe nothing, not a crash', () => {
+  const r = seedDecision();
+  assert.equal(r.action, null);
   assert.equal(r.ready, 0);
 });

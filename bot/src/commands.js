@@ -178,7 +178,7 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
     async seed(i) {
       await i.deferReply({ flags: MessageFlags.Ephemeral });
       if (i.options.getBoolean('call-now')) {
-        const r = await seeding.callEveryoneIn({ force: true });
+        const r = await seeding.post('call', { force: true });
         await i.editReply(r.fired
           ? `📣 Called everyone in. ${r.ready} ${r.ready === 1 ? 'person was' : 'people were'} on the list.`
           : `Nothing sent: ${r.reason}.`);

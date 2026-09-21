@@ -47,13 +47,13 @@ export const config = {
   verifyCodeDigits: num('VERIFY_CODE_DIGITS', 3), // shorter is friendlier to type; see MAX_ATTEMPTS in verify.js
   ratingWindowDays: num('RATING_WINDOW_DAYS', 60),
   // Seeding: pledges in Discord that add up to a "come and play" ping.
-  // How many bodies make a match worth joining: players already on PLUS people
-  // who said they'd play. Not a pledge count, so seeding tops up a half-full
-  // server as well as waking a dead one.
-  seedTarget: Math.max(2, num('SEED_TARGET', 20)),
-  // Never spend a ping on fewer than this many people, however close the target.
-  seedMinPledges: Math.max(1, num('SEED_MIN_PLEDGES', 5)),
-  seedPledgeMinutes: Math.max(5, num('SEED_PLEDGE_MINUTES', 45)),
+  // How many people have to want in before a match can actually start.
+  seedTarget: Math.max(2, num('SEED_TARGET', 45)),
+  // The list crossing this gets one message to the role, to recruit the rest.
+  seedNudgeAt: Math.max(1, num('SEED_NUDGE_AT', 10)),
+  // How long a name stays on the list. Long on purpose: collecting 45 clicks
+  // takes a while, and a short window means the target is never reached.
+  seedPledgeMinutes: Math.max(5, num('SEED_PLEDGE_MINUTES', 180)),
   seedCooldownMinutes: Math.max(3, num('SEED_COOLDOWN_MINUTES', 45)),
   ratingVoteMinutes: num('RATING_VOTE_MINUTES', 30),
   requestTimeoutMs: num('RCON_TIMEOUT_MS', 4000),

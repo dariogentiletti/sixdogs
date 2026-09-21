@@ -5,19 +5,17 @@ import { rolePlan, channelPlan } from '../src/setup.js';
 import { SEED_PING_ROLE_NAME, roleMenu } from '../src/rolemenu.js';
 
 const summary = (over = {}) => ({
-  ok: true, ready: 8, playersOn: 0, heading: 8, target: 20, needed: 12,
-  fire: false, reason: '8 of 20 ready', serverOk: true, minPledges: 5,
-  pledgeMinutes: 45, cooldownMinutes: 45, pledges: [], lastPingAt: null, ...over,
+  ok: true, ready: 12, playersOn: 0, target: 45, needed: 33, nudgeAt: 10,
+  action: null, reason: '12 of 45 want to play', serverOk: true,
+  pledgeMinutes: 180, cooldownMinutes: 45, pledges: [], lastCallAt: null, lastNudgeAt: null, ...over,
 });
-
+const names = (n) => Array.from({ length: n }, (_, i) => `Player${i}`);
 const text = (p) => JSON.stringify(p.embeds[0]);
-const buttons = (p) => (p.components[0]?.toJSON().components ?? []).map((c) => c.custom_id);
 
-test('the board counts up to the target and names who is in', () => {
+test('the board counts toward the target and is findable again after a restart', () => {
   const p = seedBoard(summary(), { names: ['Rook', 'Vex', 'Mako'] });
-  assert.match(text(p), /8 of 20 ready/);
-  assert.match(text(p), /Rook, Vex, Mako/);
-  assert.equal(p.embeds[0].footer.text.startsWith(SEED_FOOTER), true, 'findable again after a restart');
+  assert.match(text(p), /12 of 45 want to play/);
+  assert.equal(p.embeds[0].footer.text.startsWith(SEED_FOOTER), true);
 });
 
 test('the button says what it does', () => {
@@ -25,76 +23,74 @@ test('the button says what it does', () => {
   assert.deepEqual(labels, ['I want to play', 'Take me off']);
 });
 
-// A match in progress is the normal case. The board has to show both numbers,
-// because "8 of 20 ready" next to a match with 12 people in it is a lie.
-test('a match already running: players on and people ready are both counted', () => {
-  const p = seedBoard(summary({ playersOn: 12, ready: 5, heading: 17, needed: 3 }));
-  assert.match(text(p), /12 playing, 5 more ready/);
-  assert.match(text(p), /3 to go/);
-  assert.deepEqual(buttons(p), ['seed:in', 'seed:out'], 'you can still say you want in');
+// Seeing your own name on the board is the confirmation that the click worked,
+// so a list that shows a sample of itself can't do that job.
+test('EVERY name on the list is shown, not a sample', () => {
+  const p = seedBoard(summary({ ready: 40 }), { names: names(40) });
+  for (const n of names(40)) assert.match(text(p), new RegExp(n + '\\b'), `${n} is on the board`);
 });
 
-test('one more click would tip it over: the board says so instead of counting down to nothing', () => {
-  const p = seedBoard(summary({ playersOn: 12, ready: 8, heading: 20, needed: 0 }));
-  assert.match(text(p), /Calling everyone in/);
+test('an absurd list is still capped, so the embed can never be rejected', () => {
+  const p = seedBoard(summary({ ready: 400 }), { names: names(400) });
+  assert.ok(p.embeds[0].description.length < 4096, 'within Discord\'s limit');
+  assert.match(text(p), /more/);
 });
 
-// The case that was wrong before: clicking "I want to play" on a server that
-// already has a full match in it. There is nothing to organise, so the board
-// stops asking and tells you how to get in.
-test('enough people already playing: no buttons, just how to join', () => {
-  const p = seedBoard(summary({ playersOn: 34, heading: 34, needed: 0 }), { serverId: 'abc-123' });
-  assert.match(text(p), /34 playing right now/);
-  assert.deepEqual(p.components, [], 'no pledge button for a match that is already happening');
-  assert.match(JSON.stringify(p.embeds[0].fields), /abc-123/);
-});
-
-test('long lists are trimmed rather than overflowing the embed', () => {
-  const names = Array.from({ length: 30 }, (_, i) => `Player${i}`);
-  const p = seedBoard(summary({ ready: 30 }), { names });
-  assert.match(text(p), /and 18 more/);
+// The complaint that produced all this: click, then go and warm up in the
+// server, and your name used to disappear off the board.
+test('the board promises your name stays on while you wait in the server', () => {
+  assert.match(text(seedBoard(summary())), /stays on whether you wait in the server/);
 });
 
 test('an empty list invites the first person in rather than looking broken', () => {
-  assert.match(text(seedBoard(summary({ ready: 0, heading: 0 }))), /Nobody yet/);
+  assert.match(text(seedBoard(summary({ ready: 0, needed: 45 }))), /Nobody yet/);
+});
+
+test('the match is already running: no buttons, just how to join', () => {
+  const p = seedBoard(summary({ playersOn: 50 }), { serverId: 'abc-123' });
+  assert.match(text(p), /50 playing right now/);
+  assert.deepEqual(p.components, [], 'nothing to queue for, it is already happening');
+  assert.match(JSON.stringify(p.embeds[0].fields), /abc-123/);
 });
 
 test('a server that is down says so instead of collecting names for nothing', () => {
   assert.match(text(seedBoard(summary({ serverOk: false }))), /isn't answering/);
 });
 
-// The list is emptied when a ping fires, so without this the board drops back
-// to "0 ready" and reads as though nothing ever happened.
+// The list is emptied by a call-in, so without this the board drops back to
+// "0 of 45" and reads as though nothing ever happened.
 test('a recent call-in is still visible on the board afterwards', () => {
-  const p = seedBoard(summary({ ready: 0, lastPingAt: '2026-09-21T20:00:00Z' }));
+  const p = seedBoard(summary({ ready: 0, lastCallAt: '2026-09-21T20:00:00Z' }));
   assert.match(text(p), /last called in <t:\d+:R>/);
-});
-
-test('the board shows the Server ID, since WARDOGS has no join link', () => {
-  const p = seedBoard(summary(), { serverId: 'abc-123' });
-  assert.match(JSON.stringify(p.embeds[0].fields), /abc-123/);
-  assert.equal(seedBoard(summary()).embeds[0].fields, undefined, 'and nothing at all without one');
 });
 
 test('the board never mentions anyone', () => {
   assert.deepEqual(seedBoard(summary()).allowedMentions, { parse: [] });
 });
 
-test('the call-in pings only the opt-in role, nobody else', () => {
-  const m = callInMessage({ ready: 11, roleId: 'R-Alerts', serverId: 'abc-123' });
+test('the nudge recruits, shows the running count and points at the button', () => {
+  const m = callInMessage({ kind: 'nudge', ready: 10, target: 45, roleId: 'R-Alerts', channelId: 'C1' });
   assert.match(m.content, /<@&R-Alerts>/);
-  assert.match(m.content, /11 of us are ready/);
+  assert.match(m.content, /10 people want to play/);
+  assert.match(m.content, /\(10\/45\)/);
+  assert.match(m.content, /I want to play/);
+  assert.match(m.content, /<#C1>/);
+  assert.deepEqual(m.allowedMentions, { roles: ['R-Alerts'] });
+});
+
+test('one person is not "1 people"', () => {
+  assert.match(callInMessage({ kind: 'nudge', ready: 1, target: 45 }).content, /1 person wants/);
+});
+
+test('the call-in says the match is on and how to get in', () => {
+  const m = callInMessage({ kind: 'call', ready: 45, target: 45, roleId: 'R-Alerts', serverId: 'abc-123' });
+  assert.match(m.content, /45 of us want to play/);
   assert.match(m.content, /abc-123/);
   assert.deepEqual(m.allowedMentions, { roles: ['R-Alerts'] });
 });
 
-test('a call-in that tops up a running match says so', () => {
-  const m = callInMessage({ ready: 8, onServer: 12, roleId: 'R-Alerts', serverId: null });
-  assert.match(m.content, /12 are on the server and 8 more of us are ready/);
-});
-
-test('no ping role yet: the call still goes out, silently, rather than not at all', () => {
-  const m = callInMessage({ ready: 10, roleId: null, serverId: null });
+test('no ping role yet: the message still goes out, silently, rather than not at all', () => {
+  const m = callInMessage({ kind: 'call', ready: 45, target: 45, roleId: null, serverId: null });
   assert.doesNotMatch(m.content, /<@&/);
   assert.deepEqual(m.allowedMentions, { parse: [] });
 });

@@ -24,7 +24,7 @@ Every faction has one commander, the only voice in the faction's listen channel,
 ## Capabilities and Constraints
 - Verified players get their faction role automatically, which unlocks that faction's listen channel.
 - Commander Pool role via 🎖️ in #roles; the bot offers command to pool members first.
-- Seeding: a board in #start-a-match with an "I want to play" button. The target counts players already on the server plus people who pressed it, so it tops a half-full server up to a playable match as well as waking a dead one. At the target the bot pings the opt-in Match Alerts role once and everyone goes in together. Limits (a name lasts 45 minutes, a ping at most every 45 minutes, never for fewer than five people, nothing sent while the server is already full enough or unreachable) are in core, and the bot never uses @everyone.
+- Seeding: a standing list in #start-a-match of everyone who clicked "I want to play". A name stays on it whether that person waits in the server or not. At 10 the bot gives the opt-in Match Alerts role one heads-up with the running count, to recruit the rest; at 45 (three teams of 15) it calls everyone in and clears the list. Separate cooldowns per message kind, nothing sent while the match is running or the server is unreachable, and the bot never uses @everyone.
 - After each match, players who served under a commander 5+ minutes get a DM to rate them (good / poor / toxic).
 - Server policy (owner-stated): players who are not verified on Discord get kicked from the game server. OPEN: the bot does not enforce this yet (the RCON API has a kick endpoint).
 - Game server address is not public yet (TBD).

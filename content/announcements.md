@@ -21,11 +21,11 @@ color: gold
 A few things changed this week.
 
 ## Nobody has to sit in an empty server
-{#start-a-match} has an **I want to play** button on it. Press it, go and do something else, and when enough of us are on or ready, everyone gets called in at once and we all drop in together.
+{#start-a-match} has an **I want to play** button on it. Click it and your name goes on the list. It stays there whether you go and warm up in the server or go and do something else.
 
-It counts the people already playing too, so it works just as well for turning a quiet server into a proper match as it does for waking a dead one.
+At 10 people the list gets a shout so others can join in. At 45, which is three teams of 15, everyone gets called in and we play.
 
-Want the ping? Take **Match Alerts** with 📣 in {#roles}. It goes to nobody else, and never more than once every 45 minutes.
+Want those pings? Take **Match Alerts** with 📣 in {#roles}. It goes to nobody else.
 
 ## Verification is quicker
 The code you get in game is now three digits instead of six. Same steps, less typing. If you've already linked your account you don't need to do anything.

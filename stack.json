@@ -66,6 +66,13 @@
       "blocking": "The donation page promises \"$10 or more: a reserved slot for that month\" and nothing can deliver it. Right now a slot has to be granted by hand in the xREALM panel.",
       "cost": "None",
       "howTo": "Run /reserved and /settings on the live server to see how slots are stored, then build the config write path described in CLAUDE.md."
+    },
+    {
+      "id": "server-min-players",
+      "what": "Set the game server's own minimum player count to 45 (three teams of 15) so a match starts when the call-in says it will, and raise the AFK kick to 10 minutes so people waiting for a match to fill aren't thrown out of it.",
+      "blocking": "Both are settings inside the config document. SEED_TARGET is 45 on the Discord side, so until the server agrees, the call-in promises a match the server may not start. Waiting in the server is now something seeding actively encourages, which makes the AFK timeout worse than it was.",
+      "cost": "None",
+      "howTo": "Run /settings on the live server and paste the document. The key names are NOT in docs/wardogs-rcon.md and must not be guessed. Then build the PUT /v1/config write path described in CLAUDE.md: read, edit one key in the existing text, validate with POST /v1/config/validate, PUT with If-Match."
     }
   ],
   "decisions": [
@@ -73,8 +80,9 @@
     "Cloudflare Pages over Railway for the website: free, purpose-built for static files, and the _redirects file and the live-status worker were already written for it.",
     "Postgres on Railway rather than the embedded PGlite: PGlite measured about 500 MB resident, which is most of a small box.",
     "Push straight to main, no pull requests: solo project, and main is what deploys.",
-    "Seeding counts players ALREADY ON the server toward its target, not just Discord pledges. The owner pointed out that ten pledges mean nothing on a 100 slot server, and he was right: the first version switched itself off the moment a match started, which missed the commonest case (a server stuck at twelve that needs topping up). SEED_TARGET is therefore 'how many bodies make a match', default 20, and should be set for the size of the Discord rather than the 100 slots.",
-    "Seeding pings an opt-in role (Match Alerts), never @everyone, at most once every SEED_COOLDOWN_MINUTES, and never for fewer than SEED_MIN_PLEDGES people. The owner asked for a limit so people aren't pinged continuously; the default is 45 minutes rather than 3, because the list is emptied when a ping fires, so a second ping needs a fresh set of people anyway."
+    "Seeding pings an opt-in role (Match Alerts), never @everyone, at most once every SEED_COOLDOWN_MINUTES, and never for fewer than SEED_MIN_PLEDGES people. The owner asked for a limit so people aren't pinged continuously; the default is 45 minutes rather than 3, because the list is emptied when a ping fires, so a second ping needs a fresh set of people anyway.",
+    "Seeding is a standing list, and a name is never removed because that person went to wait in the server. The owner hit this within minutes of the first version: he clicked, went to warm up in game, and disappeared off his own list. Wanting to play and being in the server are the same intention. The board shows everyone on the list, not a sample, because seeing your own name is the confirmation that the click worked.",
+    "Two seeding messages, not one: a heads-up at SEED_NUDGE_AT (10) carrying the running count to recruit more people, and the call-in at SEED_TARGET (45). They keep separate cooldowns so the recruiting message can never block the match it recruited for."
   ],
   "verified": [
     "2026-09-21: /verify works end to end on the live server. A player links and the row persists.",

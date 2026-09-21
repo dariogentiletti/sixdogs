@@ -239,43 +239,43 @@ text rather than rebuilding it.
 
 ## Seeding ("I want to play")
 
-Getting the server up to a playable number without anyone sitting in it waiting. People put
-their name down in `#start-a-match` and get called in together once there are enough.
+A standing list of who wants a match, and two different messages built on it.
+`core/src/seeding.js` is pure and tested; core holds the settings so there is ONE copy of them
+and they survive a bot restart.
 
-THE TARGET COUNTS PLAYERS ALREADY ON THE SERVER, not just pledges: `heading = playersOn + ready`
-is what gets compared to `SEED_TARGET`. This is the whole design and it is easy to break by
-"simplifying" it back to a pledge count. A 100 slot server is short of a real match at twelve
-players far more often than it is at zero, so topping a half-full server up is the case that
-happens most; a rule that switched itself off the moment a match started would miss it every
-time. Do not re-add a "quiet above" style suppression: `playersOn >= target` already covers it.
+THE LIST IS DELIBERATELY DUMB. A name goes on when someone clicks and stays there. It is NOT
+removed because that person went and waited in the server. An earlier version did that and the
+owner hit it immediately: he clicked, went to warm up in game, and vanished off his own list.
+Wanting to play and being in the server are the same intention, not opposites. Do not re-add
+any rule that takes a name off because of where that person is.
 
-Rules live in `core/src/seeding.js` (pure, tested) and core's settings, so there is ONE copy and
-it survives a bot restart: `SEED_TARGET` (20), `SEED_MIN_PLEDGES` (5), `SEED_PLEDGE_MINUTES` (45),
-`SEED_COOLDOWN_MINUTES` (45). `shouldPing` gives every "no" a readable reason, which is the
-point: `/seed` shows it, so "why hasn't it pinged?" always has an answer.
+Two messages, and they are NOT the same thing:
+- **nudge** at `SEED_NUDGE_AT` (10). "10 people want to play! (10/45), click the button."
+  Recruits the rest, so it fires once per round, early. Does NOT clear the list.
+- **call** at `SEED_TARGET` (45). "45 of us want to play, get in." Clears the list, so the next
+  round needs people who want THAT match.
 
-It does NOT ping when: the game server isn't answering, `playersOn` already meets the target,
-fewer than `SEED_MIN_PLEDGES` are ready (never spend a ping fetching one player), `heading` is
-short of the target, or a ping went out inside the cooldown. A name drops off when it goes stale,
-when that player is seen in game (core matches by link), or when a ping fires and the list is
-emptied, so the next ping needs a fresh set of people.
+They keep SEPARATE cooldowns (`seed_pings.kind`), because a nudge blocking the call it recruited
+for is the obvious bug here and there is a test named after it. Nothing is sent when the server
+isn't answering or when `playersOn >= target` (the match is already on).
 
-The board hides its buttons once `playersOn >= target`: there is nothing left to organise, so it
-shows the Server ID instead of asking people to queue for a match that is already running. It
-also keeps showing the last call-in time, because the list is emptied when a ping fires and the
-board would otherwise read as though nothing had happened.
+`SEED_PLEDGE_MINUTES` is 180, not 45: collecting 45 clicks takes hours, and a short window means
+the target is never reached. If the target is raised, raise this too.
 
 Tables `seed_pledges` / `seed_pings`. Core routes `GET /internal/seed`,
-`POST /internal/seed/pledge`, `POST /internal/seed/ping`. Core, not the bot, decides whether a
-ping really happens: the cooldown is enforced by the INSERT itself, so two ticks landing together
-cannot ping twice.
+`POST /internal/seed/pledge`, `POST /internal/seed/ping` (`{kind, force}`). Core, not the bot,
+decides whether a message really goes out: the cooldown is enforced by the INSERT itself, so two
+ticks landing together cannot ping twice.
 
 Bot: `bot/src/seeding.js` keeps one board message in `#start-a-match` (found again by its
-"Seeding board" footer), refreshed on a 15s beat and on every click. The ping is a SEPARATE
-message, because editing a board notifies nobody; the board is then reposted below it. It mentions
-only `Match Alerts`, an opt-in role taken with 📣 in `#roles`, never `@everyone`. `/seed` is the
-admin view, with `call-now:True` to call people in without waiting for the target. `force` skips
-the TARGET, never the cooldown.
+"Seeding board" footer), refreshed on a 15s beat and on every click. It lists EVERYONE on the
+list, not a sample, because seeing your own name is the confirmation that the click worked; the
+only cap is a safety net against Discord's 4096 character embed limit. The board drops its buttons
+once `playersOn >= target` and shows the Server ID instead. `/seed` is the admin view, with
+`call-now:True`, which skips the TARGET but never the cooldown.
+
+**The game server's own minimum player count has to agree with `SEED_TARGET`.** That is a
+`PUT /v1/config` write, which is still not implemented; see "Server settings" above.
 
 ## Post-match ratings
 
