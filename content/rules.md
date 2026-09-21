@@ -20,4 +20,5 @@ Nothing NSFW, no spam, and no ads for other servers, in text or voice.
 ## 6. Admins have the final say.
 If you think a call was wrong, message one of us privately and we'll talk it through.
 
-footer: New here? Pick what you play in #roles.
+// Footers are plain text: Discord does not linkify {#channel} there.
+footer: New here? Read #how-to-play and then #get-verified.

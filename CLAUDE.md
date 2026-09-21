@@ -102,7 +102,6 @@ server search name, live status URL. Consumers:
   `website/_redirects` (/discord, /join, /donate). Never edit website/index.html directly.
 - Guide panel play-h2 (Hardcore): `design/verify-guide/build_panels.py` reads it; render with
   render_panels.py and export `panels/hc.png` to `content/play-h2.jpg` (JPEG q88).
-- Bot config: INVITE_DOMAIN defaults to `domain`.
 When the owner says "change X" (e.g. "change donation to PayPal"): edit community.json (and any
 wording that names the old thing, e.g. donate.how), `grep -ri` for the old name across content/,
 website-src/, design/verify-guide/, README.md and PRODUCT.md, run `node tools/build.mjs`, re-render

@@ -50,7 +50,7 @@ h = [
 panel('h1', H, 1, T, '''
   <h1><span>Play as</span><span>a team.</span></h1>
   <p class="lede" style="max-width:980px;font-size:40px">At SIXDOGS we want a game mode that rewards teamwork. When the whole team goes for the same objective, <b>the game is more fun for everyone.</b></p>
-  <p style="margin-top:auto;max-width:980px;font-size:34px">Every team has a commander. You follow the calls, report what you see, and push together.</p>'''),
+  <p style="margin-top:auto;max-width:980px;font-size:34px">Every team has a commander. The team calls out what it sees, the commander turns it into one plan, and everyone pushes together.</p>'''),
 panel('hc', H, 2, T, '''<h2>Hardcore settings</h2>
 <div class="grid4" style="grid-template-columns:1fr 1fr;row-gap:26px">'''
   + ''.join(f'''
@@ -66,7 +66,7 @@ panel('h2', H, 3, T, '''<h2>How a commander is picked</h2>
 </div>'''),
 panel('h3', H, 4, T, '''<h2>If you're the commander</h2>
 <div class="cols" style="margin-top:24px">
-  <div><h3 style="font-size:46px">Make the calls</h3><p style="margin-top:10px;font-size:31px">Where to push, when to take the zone, when to hold. You're the only voice, so keep it short.</p>
+  <div><h3 style="font-size:46px">Build the plan</h3><p style="margin-top:10px;font-size:31px">Take what your team is calling out and turn it into one plan: where to push, when to take the zone, when to hold. You're the only voice, so keep it short.</p>
     <div class="quote">"Everyone on the zone. Now."</div>
     <p style="margin-top:22px;font-size:28px"><b>Keep your head.</b> Your team rates you after every match.</p></div>
   <div><h3 style="font-size:46px">Draw the plan</h3><p style="margin-top:10px;font-size:31px">Optional: start <b>Wardogs Tech</b> from the Activities button in your team's voice channel.</p>
@@ -76,7 +76,7 @@ panel('h4', H, 5, T, '''<h2>Everyone else</h2>
 <div class="cols" style="margin-top:24px">
   <div><h3 style="font-size:46px">Listen in</h3><p style="margin-top:10px;font-size:31px">Join your team's <b>(listen)</b> voice channel.</p>
     <h3 style="font-size:46px;margin-top:30px">Move together</h3><p style="margin-top:10px;font-size:31px">Stick with your squad. When the call comes, go.</p></div>
-  <div><h3 style="font-size:46px">Report in TEAM chat</h3><p style="margin-top:10px;font-size:31px">Where, what, which way. For an exact spot, <b>right-click the map</b> to mark the coordinates and post them.</p>
+  <div><h3 style="font-size:46px">Call it out in TEAM chat</h3><p style="margin-top:10px;font-size:31px">Where, what, which way. For an exact spot, <b>right-click the map</b> to mark the coordinates and post them.</p>
     <div class="slip"><div class="t">TEAM CHAT</div><div class="m"><span class="k">x98.43, y110.38</span> 2 tanks north</div><div class="m"><span class="k">North tower</span> 3 on roof</div></div></div>
 </div>'''),
 ]

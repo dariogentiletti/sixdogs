@@ -12,10 +12,10 @@
   "founder": {
     "name": "fortyone",
     "letter": [
-      "Hello 6ers. I am fortyone, the founder of SIXDOGS, and I am writing this message personally to you (yes, without any AI tool, believe it or not).",
-      "I built SIXDOGS to create a way to play WARDOGS as a team, because I believe it makes the game more fun for everyone. I do not want to make any money out of this. The only reason I am adding a way for you to support our community is to cover the monthly costs, which are quickly becoming more expensive.",
-      "There is not, and there will never be, any advantage in game. As a thank you, we will give you one of the six reserved slots on our server."
-    ]
+      "The developers openly discussed that they are not going to add commanders anytime soon. We believe strategic planning and coordination can make the gaming experience exponentially more fun, if done well and with the support of all the teammates.",
+      "My goal is to create a gamemode and a community that can experience such tactical, memorable, and fun matches. I have so many ideas and features in the roadmap, and I am looking to build this community with you."
+    ],
+    "opening": "I built SIXDOGS to create a way to play WARDOGS as a team."
   },
   "donate": {
     "platform": "Ko-fi",
@@ -29,10 +29,22 @@
       {
         "item": "Game server",
         "monthly": "$115"
+      },
+      {
+        "item": "Bot hosting",
+        "monthly": "about $10"
+      },
+      {
+        "item": "Domain",
+        "monthly": "about $6"
+      },
+      {
+        "item": "Website hosting",
+        "monthly": "free"
       }
     ],
-    "total": "$115",
-    "leftover": "Only the running costs above. The bot also needs a small VPS to stay online around the clock. That isn't set up yet, so it isn't in the total, and it goes here once it is. Anything left over stays in the pot for the next month."
+    "total": "about $131",
+    "leftover": "The game server is the big one. The bot runs on a small host so it stays up around the clock, the domain is paid yearly and split out per month here, and the website costs nothing to serve. Anything left over stays in the pot for the next month."
   },
   "hardcore": {
     "intro": "Our server runs WARDOGS Hardcore mode. When you die you get no kill cam, and the HUD shows less. Most of what you know about the enemy comes from what you see and what your team calls out.",

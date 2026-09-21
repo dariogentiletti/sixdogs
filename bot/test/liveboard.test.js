@@ -35,7 +35,8 @@ test('summary: teams, lead, time, slots, top players', () => {
   assert.equal(s.lead.team.key, 'blue');
   assert.equal(s.lead.by, 12);
   assert.equal(s.endsAt, now + 600_000);
-  assert.deepEqual(s.top.map((p) => p.name), ['Mako', 'Rook', 'Vex']);
+  // Ranked by kills, and anyone on zero is left out.
+  assert.deepEqual(s.top.map((p) => p.name), ['Mako', 'Rook', 'Vex', 'Tally']);
 
   const b = buildBoard(s, { now, links: { play: 'https://example.com' } }).embeds[0];
   assert.match(b.description, /Ends <t:\d+:R>/);
@@ -50,7 +51,13 @@ test('board when offline or not connected', () => {
   assert.match(buildBoard(null, { notConnected: true }).embeds[0].description, /isn't connected/);
 });
 
-test('board shows the invite domain', () => {
-  const b = buildBoard(summarize(state), { inviteDomain: 'sixdogs.gg' }).embeds[0];
-  assert.match(b.fields.at(-1).value, /sixdogs\.gg/);
+test('the top list stops at five, best first', () => {
+  const many = {
+    ...state,
+    players: Array.from({ length: 9 }, (_, i) => ({ name: `P${i}`, faction: 'Lonestar', kills: i })),
+  };
+  const top = summarize(many, { now: 1_000_000_000_000 }).top;
+  assert.equal(top.length, 5, 'five at most');
+  assert.deepEqual(top.map((p) => p.name), ['P8', 'P7', 'P6', 'P5', 'P4']);
+  assert.ok(top.every((p) => p.kills > 0), 'nobody on zero kills is listed');
 });

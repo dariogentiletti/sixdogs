@@ -55,7 +55,6 @@ export function loadConfig() {
     // Live board in #server-info.
     liveBoardChannel: 'server-info',
     liveBoardMinutes: Math.max(1, num('LIVE_BOARD_MINUTES', 5)),
-    inviteDomain: str('INVITE_DOMAIN', f.domain || 'sixdogs.gg'), // short link to the Discord invite, shown on the live board
     joinUrl: str('JOIN_URL', ''),            // button link; default is the WARDOGS Steam page
     gameServerId: str('GAME_SERVER_ID', ''), // what players type in "Join by ID"; default: RCON /v1/server-id
     // Website live status (optional): the bot sends a public summary to a Cloudflare Worker.

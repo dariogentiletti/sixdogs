@@ -51,7 +51,7 @@ export function summarize(state, { now = Date.now(), commanderOf = () => null, a
   const top = players
     .filter((p) => typeof p.kills === 'number' && p.kills > 0)
     .sort((a, b) => b.kills - a.kills)
-    .slice(0, 3);
+    .slice(0, 5);
 
   const scored = teams.filter((t) => t.score !== null).sort((a, b) => b.score - a.score);
   const lead = scored.length >= 2 && scored[0].score > scored[1].score
@@ -81,7 +81,7 @@ function teamField(t, cap) {
 }
 
 /** The message payload. `links` holds URLs for the buttons; `serverIdOverride` wins over core's. */
-export function buildBoard(s, { now = Date.now(), links = {}, serverIdOverride = null, updateMinutes = 5, notConnected = false, inviteDomain = null } = {}) {
+export function buildBoard(s, { now = Date.now(), links = {}, serverIdOverride = null, updateMinutes = 5, notConnected = false } = {}) {
   const buttons = [];
   if (links.play) buttons.push(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Open WARDOGS on Steam').setURL(links.play));
   if (links.howToPlay) buttons.push(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('How we play').setURL(links.howToPlay));
@@ -139,7 +139,6 @@ export function buildBoard(s, { now = Date.now(), links = {}, serverIdOverride =
     fields.push({ name: 'Top this match', value: s.top.map((p, i) => `${i + 1}. ${p.name} · ${plural(p.kills, 'kill')}`).join('\n'), inline: false });
   }
   fields.push(joinField);
-  if (inviteDomain) fields.push({ name: 'Bring your friends', value: `Send them **${inviteDomain}**, it opens our Discord.` });
 
   return {
     content: '', components, allowedMentions: { parse: [] },
@@ -202,7 +201,7 @@ export class LiveBoard {
         howToPlay: this.channelUrl('how-to-play'),
         getVerified: this.channelUrl('get-verified'),
       };
-      const opts = { links, serverIdOverride: this.config.gameServerId, updateMinutes: this.config.liveBoardMinutes, inviteDomain: this.config.inviteDomain };
+      const opts = { links, serverIdOverride: this.config.gameServerId, updateMinutes: this.config.liveBoardMinutes };
       let payload;
       if (this.config.coreDisabled) {
         payload = buildBoard(null, { ...opts, notConnected: true });

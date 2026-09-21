@@ -9,11 +9,17 @@ import { CLASS_ROLE_NAMES, ensureRoleMenu } from './rolemenu.js';
 // Top to bottom. Discord puts each new role at the bottom, so creating them
 // in this order leaves them in this order.
 export const VERIFIED_COLOR = 0xc9a227;
+// Donors. Purely cosmetic and given out by hand: the bot creates the role and
+// never adds or removes anyone, unlike the faction roles it owns outright.
+export const SUPPORTER_ROLE_NAME = '\u2605 Supporter';
+export const SUPPORTER_COLOR = 0xe3bc3c;
 
 export function rolePlan(memberRoleName = 'Member', poolRoleName = 'Commander Pool', { operationsEnabled = false, verifiedRoleName = 'Verified' } = {}) {
   return [
     { name: 'Admin', permissions: [P.Administrator], hoist: true },
     { name: 'Moderator', permissions: [P.KickMembers, P.BanMembers, P.ManageMessages, P.MuteMembers, P.MoveMembers, P.ModerateMembers], hoist: true },
+    // Hoisted so donors show as their own group in the member list.
+    { name: SUPPORTER_ROLE_NAME, color: SUPPORTER_COLOR, hoist: true, permissions: [] },
     ...FACTIONS.map((f) => ({ name: f.commanderRoleName, color: f.color, hoist: true, permissions: [] })),
     ...FACTIONS.map((f) => ({ name: f.roleName, color: f.color, permissions: [] })),
     { name: poolRoleName, permissions: [] },
