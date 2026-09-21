@@ -154,7 +154,10 @@ There is no local machine in the loop. The owner is not a programmer and does no
 commands: everything happens by pushing to GitHub `main`.
 
 - `main` is production. A push to it deploys.
-- Website: Cloudflare Pages runs `node tools/build.mjs` and publishes `website/`.
+- Website: Cloudflare Pages runs `node tools/build.mjs` and publishes `website/`. Every page
+  carries `<meta name="sixdogs-build" content="<sha> <time>">` and the console prints it on load.
+  When the owner says a website change has not appeared, ASK FOR THAT FIRST: if the sha is not
+  the latest commit the deploy is stale and nothing in the code is worth debugging.
 - Bot + core: hosted on Railway, which redeploys on every push to `main` (`deploy/RAILWAY.md`).
   Root `package.json` holds the `start` script Railway uses.
 - Settings are Railway variables, NOT a file. `run.mjs` reads a `.env` file when there is one
