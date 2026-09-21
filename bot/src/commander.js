@@ -77,7 +77,33 @@ export class CommanderManager {
     return this.guild.voiceStates.cache.get(discordId)?.channelId ?? null;
   }
 
-  /** Remove every commander role from everyone (match end / bot restart). */
+  /**
+   * A bot restart is not a new match. The people holding commander roles are
+   * still commanding, so take them back over instead of clearing and re-picking:
+   * that would strip a sitting commander mid-match and hand the job to someone
+   * else. The normal rules still apply from the next tick, so an adopted
+   * commander who has left or switched sides is removed the usual way.
+   * @returns {string[]} labels of the factions whose commander was kept
+   */
+  async adoptExisting() {
+    const kept = [];
+    for (const f of FACTIONS) {
+      const role = this.role(f.key);
+      if (!role) continue;
+      const holders = [...role.members.keys()];
+      if (!holders.length) continue;
+      this.state[f.key].commanderId = holders[0];
+      kept.push(f.label);
+      // Two people holding one faction's role means something went wrong
+      // earlier. Keep one, take it off the rest.
+      for (const extra of holders.slice(1)) {
+        await role.members.get(extra)?.roles.remove(role, 'SIXDOGS: one commander per faction').catch(() => {});
+      }
+    }
+    return kept;
+  }
+
+  /** Remove every commander role from everyone (match end / outage). */
   async clearAllRoles() {
     for (const f of FACTIONS) {
       const role = this.role(f.key);
@@ -95,11 +121,19 @@ export class CommanderManager {
       clearTimeout(this.state[f.key].offer?.timer);
       this.state[f.key] = blank();
     }
-    await this.clearAllRoles();
+    let kept = [];
+    if (firstSeen) {
+      // The bot just started. Whatever match is running was already running,
+      // and its commanders are still in the chair.
+      kept = await this.adoptExisting();
+    } else {
+      await this.clearAllRoles();
+    }
     // Give people a moment to load in and get sorted onto factions before offering.
     const delaySec = firstSeen ? 15 : this.config.commanderDelaySec;
     this.settleUntil = now + delaySec * 1000;
     if (!firstSeen) await this.log(`🔁 New match #${matchId} (was #${prev}). Commander roles cleared; offering command from ${delaySec}s in.`);
+    else if (kept.length) await this.log(`↩️ Restarted mid-match. Kept the commander on ${kept.join(', ')}.`);
   }
 
   skipSet(faction, now = Date.now()) {

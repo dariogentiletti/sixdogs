@@ -164,3 +164,50 @@ test('claim works when vacant; new match clears everything', async () => {
   assert.equal(w.roles[1].members.size, 0);
   assert.equal(cm.state.red.commanderId, null);
 });
+
+test('a restart mid-match keeps the sitting commanders; a new match clears them', async () => {
+  const { w, cm, set, tick } = setup();
+  const t0 = 2_000_000;
+
+  // Blue and Red are commanding when the bot goes down.
+  const blueRole = w.roles[0];
+  const redRole = w.roles[1];
+  blueRole.members.set('A', w.mkMember('A'));
+  redRole.members.set('B', w.mkMember('B'));
+  set(P('A', 'blue'), P('B', 'red'), P('C', 'green'));
+
+  // Bot starts again and sees the same match still running.
+  await cm.onMatchChange(7, { firstSeen: true, now: t0 });
+
+  assert.equal(cm.state.blue.commanderId, 'A', 'blue commander kept');
+  assert.equal(cm.state.red.commanderId, 'B', 'red commander kept');
+  assert.ok(blueRole.members.has('A'), 'blue still holds the role');
+  assert.ok(redRole.members.has('B'), 'red still holds the role');
+  assert.equal(cm.state.green.commanderId, null, 'green was empty and stays empty');
+
+  // Nobody is offered a job that is already taken.
+  await tick(t0 + 20_000);
+  assert.equal(cm.state.blue.offer, null, 'no offer for a faction that has a commander');
+  assert.equal(cm.state.red.offer, null);
+
+  // A real match change still clears everyone.
+  await cm.onMatchChange(8, { now: t0 + 60_000 });
+  assert.equal(cm.state.blue.commanderId, null, 'new match clears blue');
+  assert.equal(cm.state.red.commanderId, null, 'new match clears red');
+  assert.equal(blueRole.members.size, 0, 'blue role removed on a new match');
+  assert.equal(redRole.members.size, 0, 'red role removed on a new match');
+});
+
+test('a restart with two holders of one commander role keeps exactly one', async () => {
+  const { w, cm, set } = setup();
+  const blueRole = w.roles[0];
+  blueRole.members.set('A', w.mkMember('A'));
+  blueRole.members.set('D', w.mkMember('D'));
+  set(P('A', 'blue'), P('D', 'blue'));
+
+  await cm.onMatchChange(9, { firstSeen: true, now: 3_000_000 });
+
+  assert.equal(blueRole.members.size, 1, 'one commander left on blue');
+  assert.equal(cm.state.blue.commanderId, 'A');
+  assert.ok(blueRole.members.has('A'));
+});
