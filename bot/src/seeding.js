@@ -10,10 +10,14 @@
 // allowed) live in core, so there is one copy of them and they survive a bot
 // restart. This file only shows them and presses the button.
 
+import { fileURLToPath } from 'node:url';
+import { stat } from 'node:fs/promises';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, MessageFlags } from 'discord.js';
 
 /** How the board message is recognised again after a restart. */
 export const SEED_FOOTER = 'Seeding board';
+/** The explainer picture that sits above the board (content/, built in design/verify-guide). */
+export const SEED_GUIDE = 'start-a-match.jpg';
 const GOLD = 0xc9a227;
 /** Embed descriptions cap at 4096 characters; leave room for everything else. */
 const NAMES_BUDGET = 2500;
@@ -47,11 +51,18 @@ export function seedBoard(s, { names = [], serverId = null } = {}) {
   } else if (playing) {
     lines.push(`**${onServer} playing right now.** The match is on, just join.`);
   } else {
-    lines.push('Say you want to play and your name goes on the list below. When '
-      + `**${target}** of us want in, everyone gets pinged and the match can start.`
+    // Say what this is FOR before saying what it does. Somebody arriving in the
+    // channel for the first time needs to recognise their own situation ("I
+    // want to play but there's nobody on") before a button means anything.
+    lines.push("**Not enough people on to play?** This is how you fix that without "
+      + 'sitting in an empty server waiting for company.'
+      + '\n\nClick **I want to play** and your name goes on the list below. '
       // The complaint that produced this line: people click, then go and warm up
       // in the server, and an earlier version took their name straight back off.
-      + '\n\nYour name stays on whether you wait in the server or go and do something else.');
+      + 'It stays there, so go and do something else. Play another game, make dinner, '
+      + "whatever. You are not holding a seat and you are not stuck here."
+      + `\n\nWhen **${target}** of us want a game, everyone gets pinged at once and we all `
+      + 'drop in together. That way the first person in walks into a full match instead of an empty map.');
   }
 
   if (!playing) {
@@ -178,9 +189,39 @@ export class Seeding {
     return this.message;
   }
 
+  /**
+   * The explainer picture, posted once, above the board.
+   *
+   * Not a channel post from content/: #start-a-match is skipped by syncPosts
+   * because the board lives here and syncPosts would delete it. So this puts the
+   * picture up itself and leaves it alone afterwards.
+   *
+   * @returns true if it was just posted, which means the board is now ABOVE it
+   *   and has to be moved.
+   */
+  async ensureGuide(channel) {
+    const recent = await channel.messages.fetch({ limit: 50 }).catch(() => null);
+    const mine = [...(recent?.values() ?? [])].filter((m) => m.author.id === this.guild.client.user.id);
+    if (mine.some((m) => [...m.attachments.values()].some((a) => a.name === SEED_GUIDE))) return false;
+    const path = fileURLToPath(new URL(`../../content/${SEED_GUIDE}`, import.meta.url));
+    if (!await stat(path).catch(() => null)) {
+      return this.warn('guide', `content/${SEED_GUIDE} is missing, so the board goes up without its picture`) ?? false;
+    }
+    await channel.send({ files: [{ attachment: path, name: SEED_GUIDE }], allowedMentions: { parse: [] } });
+    console.log(`[seed] posted the guide picture in #${channel.name}`);
+    return true;
+  }
+
   async render(summary) {
     const channel = this.channel();
     if (!channel) return this.warn('channel', `no #${this.config.seedChannel} channel yet — run /setup-server`);
+    // The picture belongs above the board, so if it has only just gone up, the
+    // board has to be posted again underneath it.
+    if (await this.ensureGuide(channel).catch(() => false)) {
+      await this.findBoard(channel).then((m) => m?.delete()).catch(() => {});
+      this.message = null;
+      this.lastSig = null;
+    }
     const payload = seedBoard(summary, { names: this.names(summary.pledges), serverId: this.serverId });
     const sig = signature(payload);
     const existing = await this.findBoard(channel);

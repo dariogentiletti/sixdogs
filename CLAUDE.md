@@ -188,7 +188,13 @@ https://...` adds link buttons; `//` lines are notes (ignored); `panel: x.jpg` p
 size; lines above the first card go before it). A post = all the bot's non-menu messages in the
 channel, oldest first; same count -> edit in place, fewer -> delete the extras at the end, more -> delete and repost.
 Guide panels are 1200x675 (2x) in the briefing style: design/verify-guide/build_panels.py +
-panels.css, rendered by render_panels.py.
+panels.css, rendered by render_panels.py, then saved as JPEG q88 into content/. The BODY is only
+about 535px tall once the gold strip and padding are off, and nothing warns you when content
+overflows: it is simply cut off the bottom of the picture. Always look at the rendered PNG before
+shipping one. A first draft of the start-a-match panel lost two of its four steps that way.
+`render_panels.py` finds the Chromium already on the machine (newest `/opt/pw-browsers/chromium-*`,
+or `PW_CHROME`): Playwright pins an exact revision and otherwise tells you to download a second
+copy of a browser that is already there.
 #server-info and #start-a-match are skipped: both are live boards the bot keeps itself
 (`skip` in `syncPosts`). #server-info is the live board (`bot/src/liveboard.js`, one message found by its
 "Live board" footer, edited every LIVE_BOARD_MINUTES and on match/commander change). WARDOGS
@@ -351,8 +357,17 @@ Tables `seed_pledges` / `seed_pings`. Core routes `GET /internal/seed`,
 decides whether a message really goes out: the cooldown is enforced by the INSERT itself, so two
 ticks landing together cannot ping twice.
 
-Bot: `bot/src/seeding.js` keeps one board message in `#start-a-match` (found again by its
-"Seeding board" footer), refreshed on a 15s beat and on every click. It lists EVERYONE on the
+Bot: `bot/src/seeding.js` keeps TWO messages in `#start-a-match`: the explainer picture
+(`content/start-a-match.jpg`, posted once by `ensureGuide`, recognised by its attachment name)
+and the board below it (found again by its "Seeding board" footer), refreshed on a 15s beat and
+on every click. The picture is posted by the seeding code rather than from `content/` as a normal
+channel post, because `syncPosts` skips this channel and would otherwise delete the board. If the
+picture has only just gone up, the board is reposted so it lands underneath it.
+
+The board leads with the SITUATION, not the mechanism: "Not enough people on to play?" Somebody
+seeing the channel for the first time has to recognise their own problem before a button means
+anything. There are tests on that wording, on the promise that a name stays on the list while you
+go and do something else, and on what happens when the target is met. It lists EVERYONE on the
 list, not a sample, because seeing your own name is the confirmation that the click worked; the
 only cap is a safety net against Discord's 4096 character embed limit. The board drops its buttons
 once `playersOn >= target` and shows the Server ID instead. `/seed` is the admin view, with

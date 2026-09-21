@@ -81,3 +81,29 @@ panel('h4', H, 5, T, '''<h2>Everyone else</h2>
 </div>'''),
 ]
 open('how-to-play-panels.html','w').write(page('SIXDOGS how we play', h))
+
+# ---------------------------------------------------------------------------
+# #start-a-match. One panel, because the live board sits right underneath it.
+#
+# Deliberately NO numbers in here. The target is whatever the game server's own
+# match-start setting says and it can change in one command, but a picture can
+# only change by being re-rendered and re-uploaded. The board below always shows
+# the real count, so the picture explains the idea and leaves the arithmetic to
+# the thing that can keep up.
+S = 'START A MATCH'
+# The body is only about 535px tall once the strip and padding are taken off, so
+# the hero type is dialled down and every step is a line or two. A first draft
+# with a full-size h1 and a three-line lede pushed steps 3 and 4 off the bottom.
+s = [
+panel('s1', S, 1, 1, '''
+  <h1 style="font-size:64px"><span>Server quiet?</span><span>Don\'t sit in it.</span></h1>
+  <p class="lede" style="font-size:30px;margin-top:10px;max-width:1010px">Nobody wants to be the first one on an empty map. <b>So don\'t wait in the server. Wait in Discord</b>, and we will all go in together.</p>
+  <div class="grid4" style="margin-top:12px;row-gap:12px">
+    <div><div class="n">1</div><div><h3 style="font-size:40px">Say you want to play</h3><p style="font-size:27px">One button in <b>#start-a-match</b>.</p></div></div>
+    <div><div class="n">2</div><div><h3 style="font-size:40px">Go and do something else</h3><p style="font-size:27px">Your name stays on the list. <b>You are not holding a seat.</b></p></div></div>
+    <div><div class="n">3</div><div><h3 style="font-size:40px">We call you back</h3><p style="font-size:27px">Enough people want a game and <span class="mention">@Match Alerts</span> gets pinged.</p></div></div>
+    <div><div class="n">4</div><div><h3 style="font-size:40px">You get a real match</h3><p style="font-size:27px">Full teams and commanders, not four of you on a huge map.</p></div></div>
+  </div>
+  <div class="foot" style="padding-top:12px"><span>Want the ping? Take <span class="mention">@Match Alerts</span> with 📣 in #roles</span></div>'''),
+]
+open('start-a-match-panels.html','w').write(page('SIXDOGS start a match', s))

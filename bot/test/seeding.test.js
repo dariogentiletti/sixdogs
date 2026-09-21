@@ -36,10 +36,26 @@ test('an absurd list is still capped, so the embed can never be rejected', () =>
   assert.match(text(p), /more/);
 });
 
+// Somebody arriving in the channel for the first time has to recognise their
+// own situation before a button means anything, so the board leads with the
+// problem rather than with the mechanism.
+test('the board names the situation it is for before explaining itself', () => {
+  const t = text(seedBoard(summary()));
+  assert.match(t, /Not enough people on to play/);
+  assert.match(t, /without sitting in an empty server/);
+});
+
 // The complaint that produced all this: click, then go and warm up in the
 // server, and your name used to disappear off the board.
-test('the board promises your name stays on while you wait in the server', () => {
-  assert.match(text(seedBoard(summary())), /stays on whether you wait in the server/);
+test('the board promises your name stays on while you go and do something else', () => {
+  const t = text(seedBoard(summary()));
+  assert.match(t, /It stays there, so go and do something else/);
+  assert.match(t, /not holding a seat/);
+});
+
+test('the board says what actually happens once enough people want in', () => {
+  assert.match(text(seedBoard(summary())), /of us want a game, everyone gets pinged at once/);
+  assert.match(text(seedBoard(summary())), /45/, 'with the real target in it');
 });
 
 test('an empty list invites the first person in rather than looking broken', () => {
