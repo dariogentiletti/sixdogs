@@ -177,7 +177,8 @@ against your real server. The bot recognises factions by the colour the server r
 | | `/server` | What the game server reports, and what it lets the bot do |
 | | `/settings [section]` | Read the game server's settings document |
 | | `/settings section: key: value: [confirm]` | Change one setting. Shows the before/after and saves nothing until `confirm:True` |
-| | `/reserved` | Who holds a reserved slot (donors at $10 or more are promised one) |
+| | `/reserved` | Who holds a reserved slot, by Discord member |
+| | `/reserved grant:@member` / `revoke:@member` | Give or take back a donor's reserved slot. Shows the change first; saves on `confirm:True` |
 
 The last eight need a game server. Each one is checked against what your server
 build actually supports first, so an action it can't do comes back as a
@@ -241,8 +242,13 @@ recruited for.
   `/seed call-now:True` calls everyone in without waiting for 45. It still respects the cooldown:
   the promise to everyone holding the ping role is that it can't go off twice in a row.
 
-`SEED_TARGET` has to agree with the game server's own minimum player count. Changing that is a
-server settings write, which isn't built yet.
+**The number comes from the game server itself**, not from a setting here. Seeding reads the
+server's own match-start threshold, so the two can never disagree. Change it with `/settings` and
+seeding follows, with no variable to remember. `SEED_TARGET` is only used if the server can't be
+asked, and `/seed` tells you which of the two the number came from.
+
+Pick that number for your Discord, not for the server's 100 slots: a threshold nobody can reach
+on a quiet evening means no matches start at all.
 
 ## How commanders are chosen
 
@@ -282,6 +288,21 @@ When a match ends, every commander who led for 5+ minutes gets rated by their ow
 
 It needs the game server (it knows who played where from the match data), so it's inactive in
 Discord-only mode.
+
+## Reserved slots for donors
+
+The donation page promises a reserved slot to anyone giving $10 or more. There are six, and they
+live inside the game server's settings rather than behind a switch, so the bot edits that
+document to grant one.
+
+- `/reserved` lists who holds one, **by Discord member** rather than by SteamID.
+- `/reserved grant:@member` gives one out. They have to have run `/verify` first, because the
+  slot is tied to their WARDOGS account and the link is what knows which account that is.
+- `/reserved revoke:@member` takes it back, freeing the slot for the next donor.
+
+Both show you the change and save nothing until you add `confirm:True`, and both refuse to go
+past the six the server allows. Nothing is ever granted by typing a SteamID: a mistyped one would
+hand a paid slot to a stranger.
 
 ## Settings
 

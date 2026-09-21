@@ -74,6 +74,14 @@ function newMatch() {
 }
 
 const CONFIG_TEXT = `; SIXDOGS mock server settings
+[/Script/WDGame.WDGameSession]
+MaxReservedSlots=6
+!DefaultReservedPlayerIds=ClearArray
+.DefaultReservedPlayerIds=00000000000000000
+
+[MatchState.PreMatch.WaitingForPlayers.PlayerCount]
+MinimumRequiredPlayers=20
+
 [/Script/Wardogs.ServerSettings]
 ServerName=SIXDOGS | Command net in Discord (MOCK)
 MaxPlayers=99
@@ -298,7 +306,8 @@ http.createServer(async (req, res) => {
       revision: String(configRevision),
       writable: true,
       text: configText,
-      sections: ['/Script/Wardogs.ServerSettings', '/Script/Wardogs.MapRotation'],
+      sections: ['/Script/WDGame.WDGameSession', 'MatchState.PreMatch.WaitingForPlayers.PlayerCount',
+        '/Script/Wardogs.ServerSettings', '/Script/Wardogs.MapRotation'],
       warnings: [],
     });
   }

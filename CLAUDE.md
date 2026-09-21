@@ -277,12 +277,38 @@ and a validation rule, so the whole path can be exercised without touching a liv
 `MOCK_BAD_CONFIG=1` seeds a document that is ALREADY invalid, which is the only way to rehearse
 the pre-existing-bad-value case.
 
-The real key names read so far are in docs/wardogs-rcon.md. The two that matter:
-`MinimumRequiredPlayers` in `[MatchState.PreMatch.WaitingForPlayers.PlayerCount]` is the
-match-start threshold (was 20, and has to agree with `SEED_TARGET`), and the reserved slots are a
-config ARRAY capped by `MaxReservedSlots`, not the writable route `/reserved` made it look like.
-Granting a donor a slot is therefore an append, which `setConfigValue` refuses by design; it needs
-its own list editor. No AFK or idle-kick setting exists in either section read so far.
+The real key names are in docs/wardogs-rcon.md. No AFK or idle-kick setting exists in either
+section read so far.
+
+## Reserved slots (the donation promise)
+
+Reserved slots are an ARRAY in the settings document, not the writable route that
+`GET /v1/reserved-slots` made them look like. That is why the donation page could promise a slot
+for a $10 donation and nothing could deliver one.
+
+`setConfigListMember(text, {section, key, value, action, max})` adds or removes ONE member of an
+Unreal list, byte for byte identical everywhere else. Separate from `setConfigValue` on purpose:
+an array is a `!Key=ClearArray` directive plus `.Key=value` members, so "the value of the list" is
+not a thing, and treating a plain `Key=Value` as a list would quietly turn a setting into an
+array (there is a `not_a_list` refusal and a test for it). It keeps the directive first, copies
+the spacing of the lines around it, refuses duplicates, refuses to pass `max`, and refuses to
+invent a list the server does not already have.
+
+Core: `GET /internal/reserved`, `POST /internal/reserved` `{steamId, apply}`,
+`DELETE /internal/reserved/:steamId` `{apply}`. Same validate-then-write-with-If-Match path as a
+value change, and `apply` still defaults to false.
+
+Bot: `/reserved` lists who holds one BY DISCORD MEMBER (resolved through the links), and
+`/reserved grant:@member` / `revoke:@member` gives or takes one. Never by SteamID: the link
+already knows which is which, and a mistyped SteamID would hand a paid slot to a stranger. The
+cap comes from `MaxReservedSlots` read from that same section, never from the first match
+anywhere in the document (`getConfigValue` is section-scoped, and there is a test using a
+document where two sections share the key name).
+
+A row of zeros is a placeholder, not a person: it is reported but not counted as granted.
+
+**`DELETE` carries a body in core's router.** It was added for `{apply}` on revoke; without it
+every revoke silently stayed a dry run, which is exactly how it was found.
 
 ## Seeding ("I want to play")
 
@@ -321,8 +347,13 @@ only cap is a safety net against Discord's 4096 character embed limit. The board
 once `playersOn >= target` and shows the Server ID instead. `/seed` is the admin view, with
 `call-now:True`, which skips the TARGET but never the cooldown.
 
-**The game server's own minimum player count has to agree with `SEED_TARGET`.** That is a
-`PUT /v1/config` write, which is still not implemented; see "Server settings" above.
+**`SEED_TARGET` is only a fallback.** The target is read from the GAME SERVER's own
+`MinimumRequiredPlayers` (`matchTarget` in api.js, cached 5 minutes), because the two numbers
+have to agree: a server that starts a match at 20 while seeding calls people in at 45 means the
+call-in announces something that already happened. Keeping a second copy guarantees they drift,
+so there is no second copy. Change it with `/settings` and seeding follows, with no Railway
+variable to remember. `SEED_TARGET` is used only when the server can't be asked, and `/seed` says
+which of the two the number came from.
 
 ## Post-match ratings
 

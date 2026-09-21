@@ -137,3 +137,123 @@ export function explainConfigErrors(errors, { section, key } = {}) {
   }
   return `${out.join('. ')}.`.replace(/\.\.+$/, '.');
 }
+
+/** One ordinary `Key=Value` from one section, or null. */
+export function getConfigValue(text, { section, key } = {}) {
+  let current = '';
+  for (const raw of String(text ?? '').split('\n')) {
+    const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
+    const sec = SECTION.exec(line);
+    if (sec) { current = sec[1].trim(); continue; }
+    if (isComment(line) || !same(current, section)) continue;
+    const m = ENTRY.exec(line);
+    if (m && m[2] === '' && same(m[3], key)) return m[5];
+  }
+  return null;
+}
+
+// ---- lists ----
+//
+// An Unreal array is not one line, it is a directive followed by members:
+//
+//   !DefaultReservedPlayerIds=ClearArray      empty it
+//   .DefaultReservedPlayerIds=76561198...     one member
+//   .DefaultReservedPlayerIds=76561198...     another
+//
+// So "change the value of the list" is not a thing, which is why
+// setConfigValue refuses these lines outright. Adding a member is an INSERT and
+// removing one is a DELETE, and both have to leave the rest of the document
+// alone just as carefully.
+
+/** Every member of one list, in document order. */
+export function listConfigMembers(text, { section, key } = {}) {
+  const out = [];
+  let current = '';
+  for (const raw of String(text ?? '').split('\n')) {
+    const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
+    const sec = SECTION.exec(line);
+    if (sec) { current = sec[1].trim(); continue; }
+    if (isComment(line) || !same(current, section)) continue;
+    const m = ENTRY.exec(line);
+    if (m && m[2] === '.' && same(m[3], key)) out.push(m[5]);
+  }
+  return out;
+}
+
+/**
+ * Add or remove one member of a list.
+ *
+ * @param {'add'|'remove'} action
+ * @param {{section, key, value, action, max}} opts  `max` caps how many members
+ *   the list may hold (MaxReservedSlots, say). Ignored when removing.
+ * @returns {{text, changed: boolean, members: string[]}}
+ * @throws {ConfigEditError}
+ */
+export function setConfigListMember(text, { section, key, value, action = 'add', max = null } = {}) {
+  if (typeof text !== 'string' || !text) {
+    throw new ConfigEditError('There is no settings document to edit.', 'no_document');
+  }
+  const wanted = String(value ?? '').trim();
+  if (!section || !key) throw new ConfigEditError('Both a section and a key are needed.', 'bad_request');
+  if (!wanted) throw new ConfigEditError('There is no value to add or remove.', 'bad_value');
+  if (/[\r\n=]/.test(wanted)) {
+    throw new ConfigEditError('A list entry cannot contain a line break or an equals sign.', 'bad_value');
+  }
+
+  const lines = text.split('\n');
+  let current = '';
+  let sectionSeen = false;
+  let lastMember = -1;   // last `.Key=` line
+  let directive = -1;    // the `!Key=ClearArray` line
+  const members = [];
+
+  lines.forEach((raw, i) => {
+    const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
+    const sec = SECTION.exec(line);
+    if (sec) { current = sec[1].trim(); if (same(current, section)) sectionSeen = true; return; }
+    if (isComment(line) || !same(current, section)) return;
+    const m = ENTRY.exec(line);
+    if (!m || !same(m[3], key)) return;
+    if (m[2] === '.') { lastMember = i; members.push({ i, value: m[5], m, cr: raw.endsWith('\r') ? '\r' : '' }); }
+    else if (m[2] === '!') directive = i;
+    else {
+      // A plain Key=Value with this name: it is a setting, not a list, and
+      // treating it as one would quietly turn a value into an array.
+      throw new ConfigEditError(
+        `[${section}] ${key} is an ordinary setting, not a list. Change it with a value instead.`, 'not_a_list');
+    }
+  });
+
+  if (!sectionSeen) throw new ConfigEditError(`This server's settings have no [${section}] section.`, 'no_section');
+  if (directive < 0 && lastMember < 0) {
+    throw new ConfigEditError(
+      `[${section}] has no ${key} list, so there is nothing to add to. `
+      + 'Creating one that this server does not already use is not something to do blind.', 'no_list');
+  }
+
+  const values = members.map((x) => x.value);
+  if (action === 'remove') {
+    const hit = members.filter((x) => same(x.value, wanted));
+    if (!hit.length) return { text, changed: false, members: values };
+    // Several identical lines would each be a member, so all of them go.
+    const drop = new Set(hit.map((x) => x.i));
+    return { text: lines.filter((_, i) => !drop.has(i)).join('\n'), changed: true, members: values.filter((v) => !same(v, wanted)) };
+  }
+
+  if (values.some((v) => same(v, wanted))) return { text, changed: false, members: values };
+  if (typeof max === 'number' && values.length >= max) {
+    throw new ConfigEditError(
+      `That list is full: ${values.length} of ${max} used. Remove one before adding another.`, 'full');
+  }
+
+  // Copy the style of a line that is already there, so the document keeps
+  // looking like itself rather than half one thing and half another.
+  const model = members[members.length - 1]?.m ?? (directive >= 0 ? ENTRY.exec(lines[directive].replace(/\r$/, '')) : null);
+  const indent = model?.[1] ?? '';
+  const eq = model?.[4] ?? '=';
+  const cr = (members[members.length - 1]?.cr) ?? (lines[directive]?.endsWith('\r') ? '\r' : '');
+  const at = lastMember >= 0 ? lastMember : directive;
+  const next = [...lines];
+  next.splice(at + 1, 0, `${indent}.${key}${eq}${wanted}${cr}`);
+  return { text: next.join('\n'), changed: true, members: [...values, wanted] };
+}

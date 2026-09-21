@@ -188,3 +188,144 @@ test('an error with no key named does not print "undefined"', () => {
   assert.doesNotMatch(msg, /undefined/);
   assert.match(msg, /no key named/);
 });
+
+// ---- lists (reserved slots) ----
+
+import { getConfigValue, listConfigMembers, setConfigListMember } from '../src/configedit.js';
+
+const RES = { section: '/Script/WDGame.WDGameSession', key: 'DefaultReservedPlayerIds' };
+const add = (text, value, max) => setConfigListMember(text, { ...RES, value, action: 'add', max });
+const drop = (text, value) => setConfigListMember(text, { ...RES, value, action: 'remove' });
+
+// Shaped like the live document: the directive, then members, CRLF throughout.
+const LIST_DOC = [
+  '[/Script/WDGame.WDGameSession]',
+  'MaxReservedSlots=6',
+  'ServerName=SIXDOGS.gg',
+  '!DefaultReservedPlayerIds=ClearArray',
+  '.DefaultReservedPlayerIds=76561198000000001',
+  '.DefaultReservedPlayerIds=76561198000000002',
+  '',
+  '[Other]',
+  'MaxReservedSlots=1',
+].join('\r\n');
+
+test('the members of a list read back in order', () => {
+  assert.deepEqual(listConfigMembers(LIST_DOC, RES), ['76561198000000001', '76561198000000002']);
+});
+
+test('the ClearArray directive is never a member', () => {
+  assert.equal(listConfigMembers(LIST_DOC, RES).includes('ClearArray'), false);
+});
+
+test('a new member goes in after the last one', () => {
+  const r = add(LIST_DOC, '76561198000000003');
+  assert.equal(r.changed, true);
+  assert.deepEqual(r.members, ['76561198000000001', '76561198000000002', '76561198000000003']);
+  const lines = r.text.split('\r\n');
+  assert.equal(lines[6], '.DefaultReservedPlayerIds=76561198000000003');
+  assert.equal(lines[3], '!DefaultReservedPlayerIds=ClearArray', 'the directive stays first');
+});
+
+test('adding one line changes nothing else in the document', () => {
+  const r = add(LIST_DOC, '76561198000000003');
+  const before = LIST_DOC.split('\r\n');
+  const after = r.text.split('\r\n');
+  assert.equal(after.length, before.length + 1);
+  assert.deepEqual(after.filter((l) => !l.includes('76561198000000003')), before);
+});
+
+test('somebody already on the list is not added twice', () => {
+  const r = add(LIST_DOC, '76561198000000001');
+  assert.equal(r.changed, false);
+  assert.equal(r.text, LIST_DOC, 'byte identical, so no pointless write');
+});
+
+// MaxReservedSlots is 6 and the owner's rule says there are six. Going over it
+// would promise a seventh donor something the server cannot give them.
+test('the cap is enforced', () => {
+  let doc = LIST_DOC;
+  for (let n = 3; n <= 6; n++) doc = add(doc, `7656119800000000${n}`, 6).text;
+  assert.equal(listConfigMembers(doc, RES).length, 6);
+  assert.throws(() => add(doc, '76561198000000007', 6), (e) => e.code === 'full' && /6 of 6/.test(e.message));
+});
+
+test('removing takes out that one line and leaves the rest', () => {
+  const r = drop(LIST_DOC, '76561198000000001');
+  assert.equal(r.changed, true);
+  assert.deepEqual(r.members, ['76561198000000002']);
+  assert.equal(r.text.includes('76561198000000001'), false);
+  assert.equal(r.text.includes('!DefaultReservedPlayerIds=ClearArray'), true);
+  assert.equal(r.text.includes('ServerName=SIXDOGS.gg'), true);
+});
+
+test('removing somebody who is not on the list is a no-op, not an error', () => {
+  const r = drop(LIST_DOC, '76561198000000099');
+  assert.equal(r.changed, false);
+  assert.equal(r.text, LIST_DOC);
+});
+
+test('a duplicated entry is removed completely', () => {
+  const doubled = LIST_DOC.replace('.DefaultReservedPlayerIds=76561198000000002',
+    '.DefaultReservedPlayerIds=76561198000000002\r\n.DefaultReservedPlayerIds=76561198000000002');
+  const r = drop(doubled, '76561198000000002');
+  assert.equal(r.text.includes('76561198000000002'), false);
+});
+
+test('an empty list still accepts its first member, after the directive', () => {
+  const empty = '[/Script/WDGame.WDGameSession]\r\n!DefaultReservedPlayerIds=ClearArray\r\n';
+  const r = add(empty, '76561198000000001');
+  assert.deepEqual(r.text.split('\r\n').slice(0, 3),
+    ['[/Script/WDGame.WDGameSession]', '!DefaultReservedPlayerIds=ClearArray', '.DefaultReservedPlayerIds=76561198000000001']);
+});
+
+test('the new line copies the spacing of the ones around it', () => {
+  const spaced = LIST_DOC.replace(/\.DefaultReservedPlayerIds=/g, '.DefaultReservedPlayerIds = ');
+  assert.match(add(spaced, '76561198000000003').text, /\.DefaultReservedPlayerIds = 76561198000000003/);
+});
+
+// The whole reason setConfigValue and this are separate functions.
+test('an ordinary setting is not quietly turned into a list', () => {
+  assert.throws(() => setConfigListMember(LIST_DOC, {
+    section: RES.section, key: 'ServerName', value: 'x', action: 'add',
+  }), (e) => e.code === 'not_a_list');
+});
+
+test('a list this server does not have is not invented', () => {
+  assert.throws(() => setConfigListMember(LIST_DOC, {
+    section: RES.section, key: 'SomeOtherList', value: 'x', action: 'add',
+  }), (e) => e.code === 'no_list');
+});
+
+test('an unknown section is refused', () => {
+  assert.throws(() => setConfigListMember(LIST_DOC, { section: 'Nope', key: 'X', value: 'y' }),
+    (e) => e.code === 'no_section');
+});
+
+test('a value with a line break or an equals sign is refused', () => {
+  for (const bad of ['1\n.DefaultReservedPlayerIds=2', 'a=b']) {
+    assert.throws(() => add(LIST_DOC, bad), (e) => e.code === 'bad_value');
+  }
+});
+
+test('a same-named list in another section is not touched', () => {
+  const two = `${LIST_DOC}\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=999`;
+  const r = drop(two, '999');
+  assert.deepEqual(listConfigMembers(r.text, RES), ['76561198000000001', '76561198000000002'],
+    'the first section is untouched');
+});
+
+test('a plain LF document stays plain LF', () => {
+  const lf = LIST_DOC.replace(/\r\n/g, '\n');
+  assert.equal(add(lf, '76561198000000003').text.includes('\r'), false);
+});
+
+test('a value is read from the section asked for, not the first match anywhere', () => {
+  // MaxReservedSlots is 6 here and 1 in [Other]; reading the wrong one would
+  // cap the reserved slots at one donor.
+  assert.equal(getConfigValue(LIST_DOC, { section: '/Script/WDGame.WDGameSession', key: 'MaxReservedSlots' }), '6');
+  assert.equal(getConfigValue(LIST_DOC, { section: 'Other', key: 'MaxReservedSlots' }), '1');
+  assert.equal(getConfigValue(LIST_DOC, { section: 'Other', key: 'Nope' }), null);
+  assert.equal(getConfigValue(LIST_DOC, { section: '/Script/WDGame.WDGameSession', key: 'DefaultReservedPlayerIds' }),
+    null, 'a list is not an ordinary value');
+});

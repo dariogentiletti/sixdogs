@@ -65,7 +65,10 @@ export const commandDefinitions = [
     .setDefaultMemberPermissions(P.Administrator),
   new SlashCommandBuilder().setName('server').setDescription('ADMIN: what the game server reports and what it lets the bot do')
     .setDefaultMemberPermissions(P.ManageRoles),
-  new SlashCommandBuilder().setName('reserved').setDescription('ADMIN: who holds a reserved slot on the game server')
+  new SlashCommandBuilder().setName('reserved').setDescription('ADMIN: who holds a reserved slot, and give or take one')
+    .addUserOption((o) => o.setName('grant').setDescription('Give this member a reserved slot (they must be verified)'))
+    .addUserOption((o) => o.setName('revoke').setDescription('Take this member\'s reserved slot back'))
+    .addBooleanOption((o) => o.setName('confirm').setDescription('Yes, save it to the live server'))
     .setDefaultMemberPermissions(P.ManageRoles),
   new SlashCommandBuilder().setName('settings').setDescription("ADMIN: read, and change, the game server's settings")
     .addStringOption((o) => o.setName('section').setDescription('Show one section in full').setMaxLength(200).setAutocomplete(true))
@@ -481,17 +484,74 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
     // Donors at $10 or more are promised a reserved slot, so an admin needs to
     // see who currently has one. Read only: the build offers no route to grant
     // a slot, so that lives in the settings document.
+    // Reserved slots are an array in the settings document, not a writable
+    // route, so giving one out is a careful edit to that document. Granting is
+    // by @member, never by SteamID: the link already knows which is which, and
+    // a mistyped SteamID would hand a paid slot to a stranger.
     async reserved(i) {
       await i.deferReply({ flags: MessageFlags.Ephemeral });
-      const r = await core.reservedSlots();
-      const slots = r.slots ?? [];
-      const row = (x) => (typeof x === 'string' ? x : [x.steamId ?? x.id, x.name, x.note].filter(Boolean).join('  '));
+      const grant = i.options.getUser('grant');
+      const revoke = i.options.getUser('revoke');
+      if (grant && revoke) return i.editReply('One at a time: either `grant` or `revoke`, not both.');
+
+      if (grant || revoke) {
+        const member = grant ?? revoke;
+        let link;
+        try {
+          link = await core.getLink(member.id);
+        } catch {
+          return i.editReply(`<@${member.id}> hasn't linked a WARDOGS account yet, so there's no one to reserve a slot for. `
+            + 'They need to run `/verify` first.');
+        }
+        const steamId = link.link?.steam_id ?? link.link?.steamId;
+        const who = link.link?.last_name ? `**${link.link.last_name}**` : `\`${steamId}\``;
+        const apply = i.options.getBoolean('confirm') === true;
+        const r = grant
+          ? await core.grantReserved(steamId, apply)
+          : await core.revokeReserved(steamId, apply);
+        const used = `${r.members.length}${r.max ? ` of ${r.max}` : ''} slot${r.members.length === 1 ? '' : 's'} in use`;
+        if (!r.changed) return i.editReply(`${r.message} (${used})`);
+        if (!r.applied) {
+          return i.editReply(`${grant ? 'Would give' : 'Would take back'} a reserved slot for <@${member.id}> (${who}).\n`
+            + `That would leave **${used}**. The game server says it would accept it. **Nothing has been saved yet.**\n`
+            + 'Run the same command again with `confirm:True` to save it.');
+        }
+        await log(`🎟️ <@${i.user.id}> ${grant ? 'gave' : 'took back'} a reserved slot: <@${member.id}> (${used}).`);
+        return i.editReply(`✅ ${grant ? 'Reserved slot given to' : 'Reserved slot taken back from'} <@${member.id}> (${who}). ${used}.`);
+      }
+
+      const [live, cfg] = await Promise.all([
+        core.reservedSlots().catch(() => null),
+        core.reserved(),
+      ]);
+      const linked = await core.linkedIds().catch(() => []);
+      const byId = new Map();
+      for (const id of linked) {
+        const l = await core.getLink(id).catch(() => null);
+        const sid = l?.link?.steam_id ?? l?.link?.steamId;
+        if (sid) byId.set(String(sid), { discordId: id, name: l.link.last_name });
+      }
+      const name = (sid) => {
+        const m = byId.get(String(sid));
+        return m ? `<@${m.discordId}>${m.name ? ` (${m.name})` : ''}` : `\`${sid}\``;
+      };
       const lines = [
-        `**Reserved slots**: ${slots.length} in use`,
-        slots.length ? '```\n' + slots.map(row).join('\n').slice(0, 1400) + '\n```' : '_Nobody holds one right now._',
+        `**Reserved slots**: ${cfg.granted.length}${cfg.max ? ` of ${cfg.max}` : ''} given out`
+          + (cfg.free !== null ? `, ${cfg.free} free` : ''),
+        '',
+        cfg.granted.length ? cfg.granted.map((sid) => `• ${name(sid)}`).join('\n') : '_Nobody holds one right now._',
       ];
-      // Until we know the shape on a live server, show the raw reply too.
-      if (!slots.length && r.raw) lines.push('What the server sent back:', '```json', JSON.stringify(r.raw).slice(0, 400), '```');
+      if (cfg.placeholders.length) {
+        lines.push('', `_${cfg.placeholders.length} empty placeholder row${cfg.placeholders.length === 1 ? '' : 's'} `
+          + 'in the settings. They take up room in the list but belong to nobody._');
+      }
+      if (!cfg.writable) lines.push('', '⚠️ This server build will not let its settings be changed, so slots can only be given out by hand.');
+      else lines.push('', 'Give one with `/reserved grant:@member`, take one back with `/reserved revoke:@member`.');
+      // The game server's own view, in case it disagrees with the settings document.
+      const slots = live?.slots ?? [];
+      if (slots.length !== cfg.members.length) {
+        lines.push('', `_The game server itself reports ${slots.length}. If that disagrees with the list above, it may not have reloaded its settings yet._`);
+      }
       await i.editReply(lines.join('\n').slice(0, 1990));
     },
 

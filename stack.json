@@ -61,18 +61,11 @@
   ],
   "pending": [
     {
-      "id": "reserved-slot-grant",
-      "what": "A way to actually give a donor their reserved slot. /reserved can read the list, but the live build offers no route to write it, so a slot has to be added in the settings document via PUT /v1/config, which is not implemented.",
-      "blocking": "The donation page promises \"$10 or more: a reserved slot for that month\". The mechanism is now known and written up in docs/wardogs-rcon.md: the slots are an array in the game session section of the settings, capped at 6. What is missing is a list editor. setConfigValue changes one Key=Value and refuses list lines on purpose, so appending a SteamID needs its own equally careful function and its own tests.",
-      "cost": "None",
-      "howTo": "See docs/wardogs-rcon.md for the exact key. Write a list editor beside setConfigValue: append or remove one member, keep the ClearArray directive first, refuse duplicates and refuse to go past the cap. Then the same read/validate/If-Match write path the single-value change already uses. Check the result with /reserved."
-    },
-    {
       "id": "server-min-players",
-      "what": "Decide and set MinimumRequiredPlayers (currently 20) so the game server and SEED_TARGET agree, and find out whether an AFK kick timeout exists at all.",
-      "blocking": "SEED_TARGET is 45 and the server starts a match at 20, so the two disagree: the server starts matches long before seeding would call anyone in, which makes the call-in pointless. They have to be the same number. Which number is the owner's call and depends on how big the Discord is, since a threshold nobody can reach means no matches at all.",
+      "what": "Decide MinimumRequiredPlayers on the game server (currently 20; the owner wants 45, three teams of 15), and find out whether an AFK kick timeout exists at all.",
+      "blocking": "Nothing technical any more: /settings can change it and seeding now reads it, so the two can no longer disagree. It is a judgement call. A threshold nobody can reach means no matches start at all, and the Discord is small today.",
       "cost": "None",
-      "howTo": "Set it with /settings section:MatchState.PreMatch.WaitingForPlayers.PlayerCount key:MinimumRequiredPlayers value:<n> confirm:True, and set SEED_TARGET to the same number in Railway. For the AFK timeout, read the four sections nobody has looked at yet; it may not be a server setting on this build."
+      "howTo": "/settings section:MatchState.PreMatch.WaitingForPlayers.PlayerCount key:MinimumRequiredPlayers value:45 confirm:True. Seeding follows by itself. For the AFK timeout, read the four sections nobody has looked at yet; it may not be a server setting on this build."
     }
   ],
   "decisions": [
@@ -82,7 +75,8 @@
     "Push straight to main, no pull requests: solo project, and main is what deploys.",
     "Seeding pings an opt-in role (Match Alerts), never @everyone, at most once every SEED_COOLDOWN_MINUTES, and never for fewer than SEED_MIN_PLEDGES people. The owner asked for a limit so people aren't pinged continuously; the default is 45 minutes rather than 3, because the list is emptied when a ping fires, so a second ping needs a fresh set of people anyway.",
     "Seeding is a standing list, and a name is never removed because that person went to wait in the server. The owner hit this within minutes of the first version: he clicked, went to warm up in game, and disappeared off his own list. Wanting to play and being in the server are the same intention. The board shows everyone on the list, not a sample, because seeing your own name is the confirmation that the click worked.",
-    "Two seeding messages, not one: a heads-up at SEED_NUDGE_AT (10) carrying the running count to recruit more people, and the call-in at SEED_TARGET (45). They keep separate cooldowns so the recruiting message can never block the match it recruited for."
+    "Two seeding messages, not one: a heads-up at SEED_NUDGE_AT (10) carrying the running count to recruit more people, and the call-in at SEED_TARGET (45). They keep separate cooldowns so the recruiting message can never block the match it recruited for.",
+    "Seeding reads the game server's own match-start setting instead of keeping its own copy. The two numbers have to agree, and a second copy of a number is a guarantee that they will eventually differ. SEED_TARGET is now only the fallback for when the server cannot be asked."
   ],
   "verified": [
     "2026-09-21: /verify works end to end on the live server. A player links and the row persists.",
@@ -99,7 +93,8 @@
     "2026-09-21: matchSeconds and scoreCap are absent WITH PLAYERS ON, not just on an idle server. statusKeys from /server with 2 connected: alternator, experiences, factionScores, lighting, map, players, rotation, scoreTick, serverName. So there is no match clock on this build at all and clockDirection stays null by design.",
     "2026-09-21: the live build advertises 29 routes including GET/PUT /v1/config and POST /v1/config/validate, so the server settings CAN be written. What is missing is the document itself: the key names for minimum players and the AFK timeout are not in the docs and must be read with /settings before anything is written.",
     "2026-09-21: /settings reads the live settings document and the build reports it as writable, so the server settings CAN be changed from Discord once the write path is built. The six section names are listed in docs/wardogs-rcon.md, not here, so there is one copy of them.",
-    "2026-09-21: read the real settings keys off the live server. The match-start setting is MinimumRequiredPlayers in the MatchState.PreMatch section and it was 20. The reserved slots turned out to be a config array capped at 6, not a writable route, which is what had the donor-slot promise blocked. Key names and values: docs/wardogs-rcon.md. No AFK or idle-kick setting appears in either section read so far."
+    "2026-09-21: read the real settings keys off the live server. The match-start setting is MinimumRequiredPlayers in the MatchState.PreMatch section and it was 20. The reserved slots turned out to be a config array capped at 6, not a writable route, which is what had the donor-slot promise blocked. Key names and values: docs/wardogs-rcon.md. No AFK or idle-kick setting appears in either section read so far.",
+    "2026-09-21: reserved slots can now be given out from Discord. They are an array in the settings document capped by a MaxReservedSlots key in the same section, which is why the read-only route could never deliver the donation page's promise. /reserved grant:@member and revoke:@member do it, dry run first."
   ],
   "rules": [
     "Never move players between teams automatically during a match. The owner has ruled this out: /move stays an admin command only, and no balancing rule may ever call it on its own.",

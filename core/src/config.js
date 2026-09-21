@@ -11,6 +11,8 @@ function required(name) {
   return v;
 }
 
+const str = (name, fallback) => process.env[name] || fallback;
+
 function num(name, fallback) {
   const v = process.env[name];
   if (v === undefined || v === '') return fallback;
@@ -55,6 +57,17 @@ export const config = {
   // takes a while, and a short window means the target is never reached.
   seedPledgeMinutes: Math.max(5, num('SEED_PLEDGE_MINUTES', 180)),
   seedCooldownMinutes: Math.max(3, num('SEED_COOLDOWN_MINUTES', 45)),
+  // Where the game server keeps its own match-start threshold. Seeding reads
+  // this rather than keeping a second copy, so the two can never disagree.
+  // Read off the live server; see docs/wardogs-rcon.md.
+  matchStartSection: str('MATCH_START_SECTION', 'MatchState.PreMatch.WaitingForPlayers.PlayerCount'),
+  matchStartKey: str('MATCH_START_KEY', 'MinimumRequiredPlayers'),
+  // Reserved slots live in the settings document, not behind a writable route.
+  // These names were read off the live server (docs/wardogs-rcon.md); they are
+  // settings so a different build can be pointed at the right place.
+  reservedSection: str('RESERVED_SECTION', '/Script/WDGame.WDGameSession'),
+  reservedKey: str('RESERVED_KEY', 'DefaultReservedPlayerIds'),
+  reservedCapKey: str('RESERVED_CAP_KEY', 'MaxReservedSlots'),
   ratingVoteMinutes: num('RATING_VOTE_MINUTES', 30),
   requestTimeoutMs: num('RCON_TIMEOUT_MS', 4000),
 };

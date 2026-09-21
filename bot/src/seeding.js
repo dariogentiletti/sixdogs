@@ -289,6 +289,9 @@ export class Seeding {
     const doing = { call: '**Calling everyone in.**', nudge: `**Telling ${this.config.seedPingRoleName} about it.**` };
     return [
       `**${s.ready} of ${s.target} want to play**, and ${s.playersOn} ${s.playersOn === 1 ? 'is' : 'are'} on the server.`,
+      s.targetFromServer
+        ? `The ${s.target} comes from the game server's own match-start setting, so the two always agree.`
+        : `Using SEED_TARGET (${s.target}): the game server's own setting couldn't be read, so check they agree.`,
       doing[s.action] ?? `Nothing being sent: ${s.reason}.`,
       `Last call-in ${when(s.lastCallAt)}, last heads-up ${when(s.lastNudgeAt)}. `
         + `A name lasts ${Math.round(s.pledgeMinutes / 60)} h; each message at most once every ${s.cooldownMinutes} min.`,

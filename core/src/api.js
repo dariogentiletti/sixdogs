@@ -9,7 +9,7 @@ import { RconError } from './rcon.js';
 import { looksEphemeral } from './db.js';
 import { commanderTerms, ratedTerms, roundPoints } from './ratings.js';
 import { seedDecision } from './seeding.js';
-import { ConfigEditError, explainConfigErrors, setConfigValue } from './configedit.js';
+import { ConfigEditError, explainConfigErrors, getConfigValue, listConfigMembers, setConfigListMember, setConfigValue } from './configedit.js';
 
 const MAX_BODY = 16 * 1024;
 
@@ -327,6 +327,103 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
     return { ...base, changed: true, applied: true, validated: true };
   });
 
+  /**
+   * Reserved slots: read, grant, revoke.
+   *
+   * These are an array in the settings document, not the writable route that
+   * GET /v1/reserved-slots makes them look like, so granting one is an edit to
+   * that document. Same care as any other: validate, then write with the
+   * revision the text was read at. See configedit.js.
+   */
+  async function reservedState() {
+    const doc = await rcon.getConfig();
+    const members = listConfigMembers(doc.text, { section: config.reservedSection, key: config.reservedKey });
+    // The cap is an ordinary setting in the same section. Read it from THAT
+    // section: the same key name turns up elsewhere in the document.
+    const cap = getConfigValue(doc.text, { section: config.reservedSection, key: config.reservedCapKey });
+    const max = Number(cap);
+    return { doc, members, max: Number.isFinite(max) && max > 0 ? max : null };
+  }
+
+  // A placeholder row of zeros is not a person. It still occupies a line, so it
+  // is reported rather than hidden, but it is not counted as a granted slot.
+  const isPlaceholder = (id) => /^0+$/.test(String(id ?? ''));
+
+  route('GET', '/internal/reserved', async () => {
+    const { members, max, doc } = await reservedState();
+    const granted = members.filter((m) => !isPlaceholder(m));
+    return {
+      ok: true,
+      section: config.reservedSection,
+      key: config.reservedKey,
+      members,
+      granted,
+      placeholders: members.filter(isPlaceholder),
+      max,
+      free: typeof max === 'number' ? Math.max(0, max - members.length) : null,
+      writable: rcon.configInfo().writable,
+      revision: doc.revision,
+    };
+  });
+
+  async function changeReserved({ steamId, action, apply }) {
+    const { doc, members, max } = await reservedState();
+    if (!rcon.configInfo().writable) {
+      return [400, { error: { code: 'not_writable', message: 'This server build does not allow its settings to be changed.' } }];
+    }
+    let edit;
+    try {
+      edit = setConfigListMember(doc.text, {
+        section: config.reservedSection, key: config.reservedKey, value: steamId, action, max,
+      });
+    } catch (err) {
+      if (err instanceof ConfigEditError) return [400, { error: { code: err.code, message: err.message } }];
+      throw err;
+    }
+    const base = { ok: true, steamId, action, members: edit.members, max, before: members };
+    if (!edit.changed) {
+      return { ...base, changed: false, applied: false,
+        message: action === 'add' ? 'They already have a reserved slot.' : "They don't have a reserved slot." };
+    }
+    try {
+      const v = await rcon.validateConfig(edit.text);
+      if (v && v.ok === false) {
+        return [400, { error: { code: 'invalid', message: explainConfigErrors(v.errors, { section: config.reservedSection, key: config.reservedKey }) } }];
+      }
+    } catch (err) {
+      if (err instanceof RconError && err.errors) {
+        return [400, { error: { code: 'invalid', message: explainConfigErrors(err.errors, { section: config.reservedSection, key: config.reservedKey }) } }];
+      }
+      throw err;
+    }
+    if (!apply) return { ...base, changed: true, applied: false, validated: true };
+    try {
+      await rcon.writeConfig(edit.text, doc.revision);
+    } catch (err) {
+      if (err instanceof RconError && err.status === 412) {
+        return [409, { error: { code: 'stale', message: 'The settings changed while this was being prepared, so nothing was saved. Try again.' } }];
+      }
+      if (err instanceof RconError && err.errors) {
+        return [400, { error: { code: 'invalid', message: explainConfigErrors(err.errors, { section: config.reservedSection, key: config.reservedKey }) } }];
+      }
+      throw err;
+    }
+    log.log(`[config] reserved slot ${action}: ${steamId} (${edit.members.length}${max ? `/${max}` : ''})`);
+    return { ...base, changed: true, applied: true, validated: true };
+  }
+
+  route('POST', '/internal/reserved', async (_p, body) => {
+    if (!isSteamId(String(body.steamId ?? ''))) {
+      return [400, { error: { code: 'bad_request', message: 'numeric steamId required' } }];
+    }
+    return changeReserved({ steamId: String(body.steamId), action: 'add', apply: body.apply === true });
+  });
+
+  route('DELETE', '/internal/reserved/:steamId', async ({ steamId }, body) => {
+    if (!isSteamId(steamId)) return [400, { error: { code: 'bad_request', message: 'numeric steamId required' } }];
+    return changeReserved({ steamId, action: 'remove', apply: body?.apply === true });
+  });
+
   // What this particular server build can do, plus the raw numbers behind the
   // three things CLAUDE.md lists as unverified (clock direction, the score
   // field inside factionScores[], the real player.faction strings). Lets an
@@ -379,6 +476,35 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
    * The only tidying is stale names. Everything else about the list is exactly
    * what people put on it.
    */
+  /**
+   * The match-start threshold, taken from the GAME SERVER rather than from a
+   * setting of ours.
+   *
+   * These two numbers have to agree: if the server starts a match at 20 and
+   * seeding calls people in at 45, the call-in is announcing something that
+   * already happened. Keeping our own copy guarantees they drift apart, so
+   * there is no copy. Change it on the server with /settings and seeding
+   * follows. SEED_TARGET is only the fallback for when the server can't be
+   * asked, or doesn't have the setting.
+   *
+   * Cached: this is read on the seeding beat, and the settings document is a
+   * much heavier call than a status poll.
+   */
+  let targetCache = { at: 0, value: null };
+  async function matchTarget() {
+    if (Date.now() - targetCache.at < 5 * 60_000) return targetCache.value ?? config.seedTarget;
+    targetCache = { at: Date.now(), value: targetCache.value };
+    try {
+      const doc = await rcon.getConfig();
+      const raw = getConfigValue(doc.text, { section: config.matchStartSection, key: config.matchStartKey });
+      const n = Number(raw);
+      targetCache.value = Number.isFinite(n) && n > 1 ? n : null;
+    } catch {
+      // Unreachable or unsupported: keep whatever we last knew, else the setting.
+    }
+    return targetCache.value ?? config.seedTarget;
+  }
+
   async function seedSummary() {
     const s = poller.state;
     await pool.query(
@@ -395,11 +521,12 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
     const lastCallAt = at('call');
     const lastNudgeAt = at('nudge');
     const playersOn = (s.players ?? []).length;
+    const target = await matchTarget();
     const decision = seedDecision({
       pledges,
       playersOn,
       serverOk: s.ok,
-      target: config.seedTarget,
+      target,
       nudgeAt: config.seedNudgeAt,
       lastCallAt,
       lastNudgeAt,
@@ -414,7 +541,8 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       lastPingAt: lastCallAt,
       playersOn,
       serverOk: s.ok,
-      target: config.seedTarget,
+      target,
+      targetFromServer: targetCache.value !== null,
       pledgeMinutes: config.seedPledgeMinutes,
       cooldownMinutes: config.seedCooldownMinutes,
       ...decision,
@@ -645,7 +773,10 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       if (!m) continue;
       const params = Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
       try {
-        const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readJson(req) : {};
+        // DELETE included: /internal/reserved/:steamId carries {apply}, and
+        // without it every revoke would quietly stay a dry run. An empty body
+        // reads as {}, so the routes that send nothing are unaffected.
+        const body = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) ? await readJson(req) : {};
         const out = await r.handler(params, body);
         if (Array.isArray(out)) return send(res, out[0], out[1]);
         return send(res, 200, out);
