@@ -397,7 +397,8 @@ new IntersectionObserver(function(e){bar.classList.toggle('on',!e[0].isIntersect
 (function(){
 var sec=document.getElementById('live'),box=document.getElementById('board'),nav=document.getElementById('navlive');
 var src=box&&box.getAttribute('data-src'),search=box&&box.getAttribute('data-search');
-if(!src||!window.fetch)return;
+if(!src||!window.fetch){console.warn('[SIXDOGS] live board off: '+(src?'this browser has no fetch':'no status URL is set (liveStatusUrl in community.json)'));return}
+console.log('[SIXDOGS] live board build 2 reading '+src);
 var COL={blue:'#3a7bd5',red:'#d13b3b',green:'#3aa655'},STALE=10*60000,data=null;
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function ago(ms){var m=Math.round(ms/60000);return m<1?'just now':m===1?'1 min ago':m<60?m+' min ago':Math.round(m/60)+' h ago'}
