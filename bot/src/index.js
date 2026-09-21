@@ -8,7 +8,7 @@ import { LiveBoard } from './liveboard.js';
 import { WebStatus } from './webstatus.js';
 import { checkVoice, tidyGetVerified } from './guard.js';
 import { CommanderManager } from './commander.js';
-import { commandDefinitions, makeHandlers } from './commands.js';
+import { commandDefinitions, makeAutocomplete, makeHandlers } from './commands.js';
 import { ensureRoleMenu, entryForEmoji, isMenuMessage, reconcileRoleMenu } from './rolemenu.js';
 import { applyOperationsVisibility, enforceLayout } from './setup.js';
 import { syncPosts } from './posts.js';
@@ -53,6 +53,7 @@ const verified = new VerifiedRole({ roleName: config.verifiedRoleName });
 const board = new LiveBoard({ core, commanders, config });
 const web = new WebStatus({ core, commanders, config });
 const handlers = makeHandlers({ core, commanders, ratings, seeding, config, log, verified });
+const autocomplete = makeAutocomplete({ core });
 
 // ---------------------------------------------------------------------------
 // Faction role sync
@@ -351,6 +352,14 @@ client.on(Events.ChannelCreate, (ch) => {
 
 client.on(Events.InteractionCreate, async (i) => {
   try {
+    // Fires on every keystroke and must answer within 3 seconds, so it never
+    // falls through to the error handling below: an empty list is a fine
+    // answer, an exception would leave the box spinning.
+    if (i.isAutocomplete()) {
+      const fill = autocomplete[i.commandName];
+      if (!fill) return i.respond([]);
+      return fill(i).catch(() => i.respond([]).catch(() => {}));
+    }
     if (i.isButton() && i.customId.startsWith('rate:')) return ratings.onButton(i);
     if (i.isButton() && i.customId.startsWith('seed:')) return seeding.onButton(i);
     if (i.isButton() && i.customId.startsWith('cmd:')) {

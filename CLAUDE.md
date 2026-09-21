@@ -261,7 +261,15 @@ and the admin looks in the wrong place, so an error outside the edit is named AN
 pre-existing.
 
 Bot: `/settings section:X key:Y value:Z` shows the before/after and saves nothing;
-`confirm:True` saves it and writes the change to `#admin-log`. `rcon.request` sends a string body
+`confirm:True` saves it and writes the change to `#admin-log`. Both `section` and `key`
+AUTOCOMPLETE off the live document (`makeAutocomplete` in `commands.js`), because nobody should
+be hand-typing `MatchState.PreMatch.WaitingForPlayers.PlayerCount` and a near miss is the whole
+class of mistake worth removing. It fires on every keystroke, so the document is cached 30s, and
+it must answer within 3 seconds: index.js routes autocomplete BEFORE anything that could throw,
+and an empty list is always a valid answer. Discord caps a choice's value at 100 characters as
+well as its label, and a truncated section name matches nothing, so an over-long name is left out
+of the dropdown rather than offered broken. Only `kind: 'set'` keys are offered: a `!Key`/`.Key`
+list line has no single value to set and `setConfigValue` refuses it. `rcon.request` sends a string body
 as `text/plain`, since the document is text and not JSON wrapping text.
 
 The mock serves `PUT /v1/config` and `POST /v1/config/validate` too, including If-Match conflicts

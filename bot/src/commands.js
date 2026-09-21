@@ -68,8 +68,8 @@ export const commandDefinitions = [
   new SlashCommandBuilder().setName('reserved').setDescription('ADMIN: who holds a reserved slot on the game server')
     .setDefaultMemberPermissions(P.ManageRoles),
   new SlashCommandBuilder().setName('settings').setDescription("ADMIN: read, and change, the game server's settings")
-    .addStringOption((o) => o.setName('section').setDescription('Show one section in full').setMaxLength(100))
-    .addStringOption((o) => o.setName('key').setDescription('With value: the setting to change, inside that section').setMaxLength(100))
+    .addStringOption((o) => o.setName('section').setDescription('Show one section in full').setMaxLength(200).setAutocomplete(true))
+    .addStringOption((o) => o.setName('key').setDescription('With value: the setting to change, inside that section').setMaxLength(200).setAutocomplete(true))
     .addStringOption((o) => o.setName('value').setDescription('What to change it to. Shows you the change first; nothing is saved without confirm').setMaxLength(200))
     .addBooleanOption((o) => o.setName('confirm').setDescription('Yes, save it to the live server'))
     .setDefaultMemberPermissions(P.Administrator),
@@ -159,6 +159,53 @@ export function findPlayer(players, needle) {
 }
 
 const ephemeral = (content) => ({ content, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
+
+/**
+ * Autocomplete for /settings. The section and key names have to match the game
+ * server's document exactly, and they are things like
+ * "MatchState.PreMatch.WaitingForPlayers.PlayerCount". Nobody should be typing
+ * that, and getting it subtly wrong is the whole class of mistake this removes.
+ *
+ * Discord fires this on every keystroke, so the document is cached: hammering
+ * the game server for a dropdown would be a poor trade.
+ */
+export function makeAutocomplete({ core, ttlMs = 30_000 }) {
+  let cache = { at: 0, sections: [] };
+  const sections = async () => {
+    if (Date.now() - cache.at < ttlMs) return cache.sections;
+    const c = await core.serverConfig();
+    cache = { at: Date.now(), sections: parseConfigText(c.text) };
+    return cache.sections;
+  };
+  // Discord takes at most 25 choices, and caps BOTH the label and the value at
+  // 100 characters. A value cannot be shortened to fit: a truncated section
+  // name matches nothing. So anything that long is left out of the dropdown
+  // rather than offered broken; it can still be typed by hand, which is why
+  // the option itself allows more. Real names are around 50, so this is a
+  // guard rail, not a limitation anyone will meet.
+  const choices = (names, typed) => names
+    .filter((n) => n && n.length <= 100 && n.toLowerCase().includes(String(typed ?? '').toLowerCase()))
+    .slice(0, 25)
+    .map((n) => ({ name: n, value: n }));
+
+  return {
+    async settings(i) {
+      const focused = i.options.getFocused(true);
+      const all = await sections();
+      if (focused.name === 'section') {
+        return i.respond(choices(all.map((x) => x.name), focused.value));
+      }
+      if (focused.name === 'key') {
+        const sec = findSection(all, i.options.getString('section') ?? '');
+        if (!sec) return i.respond([]);
+        // Only ordinary settings: a !Key/.Key list line has no single value to set.
+        const keys = [...new Set(sec.entries.filter((e) => e.kind === 'set').map((e) => e.key))];
+        return i.respond(choices(keys, focused.value));
+      }
+      return i.respond([]);
+    },
+  };
+}
 
 export function makeHandlers({ core, commanders, ratings, seeding, config, log, verified }) {
   return {
@@ -480,6 +527,12 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
       if (wanted) {
         const sec = findSection(sections, wanted);
         if (!sec) {
+          // Two commands pasted into one box. Easy to do from a chat message,
+          // and the "no such section" answer on its own doesn't explain it.
+          if (/[\r\n]|\/settings\s/i.test(wanted)) {
+            return i.editReply('That looks like two commands pasted into one box. '
+              + 'Run them one at a time, and use the dropdown that appears when you start typing a section name.');
+          }
           const names = sections.map((x) => x.name).filter(Boolean);
           return i.editReply(`No section called **${wanted}**. There is: ${names.join(', ') || '(none)'}`);
         }
