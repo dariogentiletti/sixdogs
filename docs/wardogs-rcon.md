@@ -69,10 +69,47 @@ every write, so they are not worth recording; the section names should be stable
 | `/Script/WDGame.WDServerMapRotationSettings` | 2 settings and 1 list (the rotation) |
 | `/Script/WDRCON.WDRCONSettings` | 3 settings |
 
-**The KEY names inside these sections have not been read yet.** Run `/settings section:<name>` and
-read them off the real server. Do not guess them: `PUT /v1/config` replaces the entire document,
-so a wrong key name is a broken live server, and `core/src/configedit.js` deliberately refuses to
-invent a line that isn't already there.
+### Keys read off the live server, 2026-09-21
+
+`[MatchState.PreMatch.WaitingForPlayers.PlayerCount]` — one key:
+
+| Key | Was | What it does |
+|---|---|---|
+| `MinimumRequiredPlayers` | `20` | How many players the server waits for before starting a match. This is the one that has to agree with `SEED_TARGET`. |
+
+`[/Script/WDGame.WDGameSession]` — eight settings and one list:
+
+| Key | Was | Notes |
+|---|---|---|
+| `MaxReservedSlots` | `6` | Matches the owner's "there are six" rule in stack.json. |
+| `DefaultReservedPlayerIds` | list | `!` cleared then `.` appended, one SteamID per line. **This is how a donor's reserved slot gets granted** — see below. |
+| `ServerName` | | The name shown in the server browser. |
+| `ServerPassword` | empty | Empty means public. Never paste this one into the repo if it stops being empty. |
+| `ServerMinPlayerCash` / `ServerMaxPlayerCash` | `0` | `0` looks like "no limit". |
+| `ServerMinPlayerLevel` / `ServerMaxPlayerLevel` | `0` | Same. |
+| `ServerImageURL` | | Server browser picture. |
+
+**No AFK or idle-kick setting appears in either section.** If one exists it is in
+`MatchState.Playing.KOTH`, `/Script/WDGame.WDGameStateSession`,
+`/Script/WDGame.WDServerMapRotationSettings` or `/Script/WDRCON.WDRCONSettings`, none of which
+have been read yet. It may simply not be a server setting on this build.
+
+Keys in the four unread sections are still unknown. Read them with `/settings section:<name>`
+rather than guessing: `PUT /v1/config` replaces the entire document, so a wrong key name is a
+broken live server, and `core/src/configedit.js` deliberately refuses to invent a line that isn't
+already there.
+
+### Reserved slots are a config list, not a route
+
+`GET /v1/reserved-slots` reads them and there is no route to write them, which is why
+`stack.json` has carried "no way to grant a donor their promised slot" as a blocker. The answer is
+`DefaultReservedPlayerIds` in `[/Script/WDGame.WDGameSession]`: an Unreal array, cleared with
+`!DefaultReservedPlayerIds=ClearArray` and then built up with one `.DefaultReservedPlayerIds=<steamid>`
+per member. `MaxReservedSlots=6` is the cap, which is exactly the six the owner said there were.
+
+Granting a slot is therefore an APPEND, not a value change, so `setConfigValue` cannot do it: it
+refuses list lines on purpose, because "the value of a list" is not a thing. A separate,
+equally careful list editor is needed.
 
 ## Routes used by SIXDOGS
 

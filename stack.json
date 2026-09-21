@@ -63,16 +63,16 @@
     {
       "id": "reserved-slot-grant",
       "what": "A way to actually give a donor their reserved slot. /reserved can read the list, but the live build offers no route to write it, so a slot has to be added in the settings document via PUT /v1/config, which is not implemented.",
-      "blocking": "The donation page promises \"$10 or more: a reserved slot for that month\" and nothing can deliver it. Right now a slot has to be granted by hand in the xREALM panel.",
+      "blocking": "The donation page promises \"$10 or more: a reserved slot for that month\". The mechanism is now known and written up in docs/wardogs-rcon.md: the slots are an array in the game session section of the settings, capped at 6. What is missing is a list editor. setConfigValue changes one Key=Value and refuses list lines on purpose, so appending a SteamID needs its own equally careful function and its own tests.",
       "cost": "None",
-      "howTo": "Run /reserved and /settings on the live server to see how slots are stored, then build the config write path described in CLAUDE.md."
+      "howTo": "See docs/wardogs-rcon.md for the exact key. Write a list editor beside setConfigValue: append or remove one member, keep the ClearArray directive first, refuse duplicates and refuse to go past the cap. Then the same read/validate/If-Match write path the single-value change already uses. Check the result with /reserved."
     },
     {
       "id": "server-min-players",
-      "what": "Set the game server's own minimum player count to 45 (three teams of 15) so a match starts when the call-in says it will, and raise the AFK kick to 10 minutes so people waiting for a match to fill aren't thrown out of it.",
-      "blocking": "Both are settings inside the config document. SEED_TARGET is 45 on the Discord side, so until the server agrees, the call-in promises a match the server may not start. Waiting in the server is now something seeding actively encourages, which makes the AFK timeout worse than it was.",
+      "what": "Decide and set MinimumRequiredPlayers (currently 20) so the game server and SEED_TARGET agree, and find out whether an AFK kick timeout exists at all.",
+      "blocking": "SEED_TARGET is 45 and the server starts a match at 20, so the two disagree: the server starts matches long before seeding would call anyone in, which makes the call-in pointless. They have to be the same number. Which number is the owner's call and depends on how big the Discord is, since a threshold nobody can reach means no matches at all.",
       "cost": "None",
-      "howTo": "The section list is known (see verified[]): the match-start minimum is almost certainly in MatchState.PreMatch.WaitingForPlayers.PlayerCount and the AFK timeout in /Script/WDGame.WDGameSession. The KEY NAMES are still unread. Run /settings section:<name> on both and read them off; do not guess. The editing half is done and tested (core/src/configedit.js). What is left is the RCON write: POST /v1/config/validate first, then PUT /v1/config with If-Match: \"<revision>\", and show the admin the before/after line."
+      "howTo": "Set it with /settings section:MatchState.PreMatch.WaitingForPlayers.PlayerCount key:MinimumRequiredPlayers value:<n> confirm:True, and set SEED_TARGET to the same number in Railway. For the AFK timeout, read the four sections nobody has looked at yet; it may not be a server setting on this build."
     }
   ],
   "decisions": [
@@ -98,7 +98,8 @@
     "2026-09-21: player.faction uses the same names as factionScores[].name. /server with 2 players on reported factionStrings [\"Valkyra\", \"Manticore\"]. factionKeyFor maps both to red/green and gameFactionFor maps back, so FACTION_ALIASES is not needed. This closes the last of the three things that were guesses.",
     "2026-09-21: matchSeconds and scoreCap are absent WITH PLAYERS ON, not just on an idle server. statusKeys from /server with 2 connected: alternator, experiences, factionScores, lighting, map, players, rotation, scoreTick, serverName. So there is no match clock on this build at all and clockDirection stays null by design.",
     "2026-09-21: the live build advertises 29 routes including GET/PUT /v1/config and POST /v1/config/validate, so the server settings CAN be written. What is missing is the document itself: the key names for minimum players and the AFK timeout are not in the docs and must be read with /settings before anything is written.",
-    "2026-09-21: /settings reads the live settings document and the build reports it as writable, so the server settings CAN be changed from Discord once the write path is built. The six section names are listed in docs/wardogs-rcon.md, not here, so there is one copy of them."
+    "2026-09-21: /settings reads the live settings document and the build reports it as writable, so the server settings CAN be changed from Discord once the write path is built. The six section names are listed in docs/wardogs-rcon.md, not here, so there is one copy of them.",
+    "2026-09-21: read the real settings keys off the live server. The match-start setting is MinimumRequiredPlayers in the MatchState.PreMatch section and it was 20. The reserved slots turned out to be a config array capped at 6, not a writable route, which is what had the donor-slot promise blocked. Key names and values: docs/wardogs-rcon.md. No AFK or idle-kick setting appears in either section read so far."
   ],
   "rules": [
     "Never move players between teams automatically during a match. The owner has ruled this out: /move stays an admin command only, and no balancing rule may ever call it on its own.",

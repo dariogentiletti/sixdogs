@@ -277,8 +277,12 @@ and a validation rule, so the whole path can be exercised without touching a liv
 `MOCK_BAD_CONFIG=1` seeds a document that is ALREADY invalid, which is the only way to rehearse
 the pre-existing-bad-value case.
 
-Still not done: nothing maps a friendly name ("match starts at 45") to a key. The key names inside
-the live sections have not been read; see docs/wardogs-rcon.md.
+The real key names read so far are in docs/wardogs-rcon.md. The two that matter:
+`MinimumRequiredPlayers` in `[MatchState.PreMatch.WaitingForPlayers.PlayerCount]` is the
+match-start threshold (was 20, and has to agree with `SEED_TARGET`), and the reserved slots are a
+config ARRAY capped by `MaxReservedSlots`, not the writable route `/reserved` made it look like.
+Granting a donor a slot is therefore an append, which `setConfigValue` refuses by design; it needs
+its own list editor. No AFK or idle-kick setting exists in either section read so far.
 
 ## Seeding ("I want to play")
 
