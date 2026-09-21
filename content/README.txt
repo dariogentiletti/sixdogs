@@ -2,7 +2,7 @@ These are the posts the bot keeps in your Discord channels.
 
 The file name is the channel: rules.md goes in #rules, get-verified.md in #get-verified,
 how-to-play.md in #how-to-play, announcements.md in #announcements. #server-info is different:
-the bot keeps a live board there by itself, so server-info.md isn't used. To add a post for another channel, make a new file
+the bot keeps a live board there by itself. To add a post for another channel, make a new file
 named after that channel.
 
 To change a post, edit the file here and restart the bot. It updates the existing message,

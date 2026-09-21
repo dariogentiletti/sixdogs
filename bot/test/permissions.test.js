@@ -11,7 +11,7 @@ const BASE = PermissionsBitField.resolve(PermissionsBitField.Default) & ~P.ViewC
 
 /** Discord's overwrite order: @everyone, then all role denies, then all role allows. */
 function effective(roles, ow) {
-  const serverRoles = rolePlan('Member', 'Commander Pool', { operationsEnabled: true });
+  const serverRoles = rolePlan('Commander Pool', { operationsEnabled: true });
   if (roles.some((r) => serverRoles.find((x) => x.name === r)?.permissions?.includes(P.Administrator))) return ~0n;
   let p = BASE;
   for (const r of roles) p |= bits(serverRoles.find((x) => x.name === r)?.permissions);

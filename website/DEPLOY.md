@@ -47,7 +47,8 @@ Cloudflare makes the DNS records and the HTTPS certificate itself.
 The "On the server now" section shows what `#server-info` shows in Discord. Your bot sends a
 small public summary to a Cloudflare Worker every 2 minutes, and the website reads it from there.
 
-1. Cloudflare → **Storage & Databases** → **KV** → **Create** → name `sixdogs-live`.
+1. ~~Create the KV namespace.~~ **Already done**: `sixdogs-live`, id
+   `6215eeaf827f4ba8be91f231f2b06e00`. Skip to step 2.
 2. **Workers & Pages** → **Create application** → **Worker** → name `sixdogs-live` → **Deploy**.
 3. **Edit code**, delete what's there, paste all of `cloudflare/live-worker.js`, **Deploy**.
 4. Worker → **Settings** → **Bindings** → **Add** → **KV namespace**: variable name `STATUS`,

@@ -10,7 +10,7 @@
       "monthlyUsd": 115,
       "confirmed": true,
       "onBill": true,
-      "notes": "RCON is enabled and reachable. Build ++Wardogs+Live-CL-501228. Public address 64.87.44.73:20016, given by the owner. Not verified from here: the game port is UDP and this sandbox cannot reach it. Cross-check it against the RCON host shown by /server.",
+      "notes": "RCON is enabled and reachable. Build ++Wardogs+Live-CL-501228. Public address 64.87.44.73:20016. CONFIRMED 2026-09-21: /server reports the RCON host as 64.87.44.73, the same machine, so the address points at the right box.",
       "address": "64.87.44.73:20016"
     },
     {
@@ -49,18 +49,11 @@
   ],
   "pending": [
     {
-      "id": "live-status",
-      "what": "live.sixdogs.gg: a Cloudflare Worker plus KV that stores the bot's status push so the website can show it",
-      "blocking": "The live tracker on the website stays hidden until this exists",
-      "cost": "Free on Cloudflare's free plan",
-      "howTo": "website/DEPLOY.md step 4"
-    },
-    {
-      "id": "steam-connect",
-      "what": "Whether WARDOGS supports steam://connect/<ip:port> for one-click joining",
-      "blocking": "A clickable join button. The address is shown as copyable text meanwhile, which always works.",
-      "cost": "None",
-      "howTo": "Paste steam://connect/64.87.44.73:20016 into a browser with Steam running and see whether the game launches into the server."
+      "id": "live-status-worker",
+      "what": "The Cloudflare Worker at live.sixdogs.gg. The KV namespace \"sixdogs-live\" (id 6215eeaf827f4ba8be91f231f2b06e00) already exists; the Worker, its STATUS binding, the PUSH_TOKEN secret and the custom domain still need doing in the dashboard.",
+      "blocking": "The live tracker on the website stays hidden until the bot has somewhere to push to",
+      "cost": "Free",
+      "howTo": "website/DEPLOY.md step 4, from point 2 onward. Then STATUS_PUSH_URL and STATUS_PUSH_TOKEN in Railway."
     }
   ],
   "decisions": [
@@ -72,6 +65,12 @@
   "verified": [
     "2026-09-21: /verify works end to end on the live server. A player links and the row persists.",
     "2026-09-21: the database is Railway Postgres, not the built-in one. /server reports it green, so a deploy does not wipe verified players.",
-    "2026-09-21: RCON serves all five actions (message, broadcast, kick, move, end match) plus config, bans, map, lighting, rotation, catalogs and audit."
+    "2026-09-21: RCON serves all five actions (message, broadcast, kick, move, end match) plus config, bans, map, lighting, rotation, catalogs and audit.",
+    "2026-09-21: the public address 64.87.44.73:20016 is the same machine as the RCON host, checked with /server.",
+    "2026-09-21: steam://connect/<ip:port> alone does nothing, because it names no game. The website now uses steam://run/1867240//+connect <address>, which still needs testing."
+  ],
+  "rules": [
+    "Never move players between teams automatically during a match. The owner has ruled this out: /move stays an admin command only, and no balancing rule may ever call it on its own.",
+    "Reserved slots: any donation gets the Supporter role, $10 or more gets a reserved slot for that month. There are six. If more than six donors want in at once they wait; do not add caveats about this to the public wording."
   ]
 }

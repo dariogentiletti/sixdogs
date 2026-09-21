@@ -44,7 +44,7 @@ test('operations are off by default, and fully present when enabled', () => {
   assert.ok(!rolePlan().some((r) => r.name === 'Operator'));
   const on = { operationsEnabled: true };
   assert.ok(channelPlan(on).some((c) => c.category === 'OPERATIONS'));
-  const roles = new Set(['@everyone', '@bot', ...rolePlan('Member', 'Commander Pool', on).map((r) => r.name)]);
+  const roles = new Set(['@everyone', '@bot', ...rolePlan('Commander Pool', on).map((r) => r.name)]);
   for (const cat of channelPlan(on)) for (const ch of cat.channels) for (const n of Object.keys(ch.ow ?? {})) assert.ok(roles.has(n), n);
   for (const cat of channelPlan(on)) for (const n of Object.keys(cat.ow)) assert.ok(roles.has(n), n);
 });

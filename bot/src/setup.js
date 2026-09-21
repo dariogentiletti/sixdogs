@@ -14,7 +14,7 @@ export const VERIFIED_COLOR = 0xc9a227;
 export const SUPPORTER_ROLE_NAME = '\u2605 Supporter';
 export const SUPPORTER_COLOR = 0xe3bc3c;
 
-export function rolePlan(memberRoleName = 'Member', poolRoleName = 'Commander Pool', { operationsEnabled = false, verifiedRoleName = 'Verified' } = {}) {
+export function rolePlan(poolRoleName = 'Commander Pool', { operationsEnabled = false, verifiedRoleName = 'Verified' } = {}) {
   return [
     { name: 'Admin', permissions: [P.Administrator], hoist: true },
     { name: 'Moderator', permissions: [P.KickMembers, P.BanMembers, P.ManageMessages, P.MuteMembers, P.MoveMembers, P.ModerateMembers], hoist: true },
@@ -245,7 +245,7 @@ export async function enforceLayout(guild, { verifiedRoleName = 'Verified', logC
   return report;
 }
 
-export async function runSetup(guild, { memberRoleName, poolRoleName, logChannelName, rolesChannelName, operationsEnabled = false, reapply = false, verifiedRoleName = 'Verified' }) {
+export async function runSetup(guild, { poolRoleName, logChannelName, rolesChannelName, operationsEnabled = false, reapply = false, verifiedRoleName = 'Verified' }) {
   const report = [];
   await guild.roles.fetch();
   await guild.channels.fetch();
@@ -270,7 +270,7 @@ export async function runSetup(guild, { memberRoleName, poolRoleName, logChannel
 
   // 1. Roles
   const roleIds = new Map();
-  for (const r of rolePlan(memberRoleName, poolRoleName, { operationsEnabled, verifiedRoleName })) {
+  for (const r of rolePlan(poolRoleName, { operationsEnabled, verifiedRoleName })) {
     let role = guild.roles.cache.find((x) => x.name === r.name);
     if (!role) {
       role = await guild.roles.create({

@@ -4,6 +4,7 @@
   "domain": "sixdogs.gg",
   "discordInvite": "https://discord.gg/7KJynyejRJ",
   "steamStore": "https://store.steampowered.com/app/1867240/WARDOGS/",
+  "steamAppId": "1867240",
   "liveStatusUrl": "https://live.sixdogs.gg/status",
   "server": {
     "search": "SIXDOGS",

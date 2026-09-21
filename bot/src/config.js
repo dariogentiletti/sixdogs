@@ -40,7 +40,6 @@ export function loadConfig() {
     commanderAwaySec: num('COMMANDER_AWAY_SEC', 300),
     botName: str('BOT_NAME', 'SIXDOGS'),
     logChannelName: str('LOG_CHANNEL_NAME', 'admin-log'),
-    memberRoleName: str('MEMBER_ROLE_NAME', 'Member'),
     commanderPoolRoleName: str('COMMANDER_POOL_ROLE_NAME', 'Commander Pool'),
     verifiedRoleName: str('VERIFIED_ROLE_NAME', 'Verified'),
     rolesChannelName: str('ROLES_CHANNEL_NAME', 'roles'),

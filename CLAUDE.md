@@ -65,6 +65,9 @@ Read off `/server` on the real SIXDOGS server, so these are facts now, not guess
 - `/code` (relaying tower digits): in-game TEAM chat already does this.
 - `/squad` callsigns: the API has no squad data.
 - Kicking people who aren't in Discord.
+- AUTOBALANCING TEAMS. The owner has ruled it out: never move a player between factions
+  automatically, during a match or between them. `/move` is an admin command and nothing may
+  call `setFaction` on its own. Do not add a balance rule however sensible it looks.
 
 ## Factions
 
@@ -114,6 +117,9 @@ The public bill is DERIVED from `services[]` by `costsFromStack` in `tools/facts
 When the owner says something broad like "update the website and Discord with the new
 information", that means: re-read `stack.json`, work out what changed since those pages were
 written, and update the facts before touching wording. Do not wait to be told which facts.
+
+`rules[]` records standing decisions the owner has made, the kind that are easy to undo by
+accident. Read it before building anything that acts on its own.
 
 `verified[]` records things checked against the live server, with the date. Trust it over
 guessing, and add to it whenever something is confirmed rather than assumed.

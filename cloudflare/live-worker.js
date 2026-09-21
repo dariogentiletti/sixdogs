@@ -1,12 +1,12 @@
 // SIXDOGS live status, a Cloudflare Worker at https://live.sixdogs.gg
-// Paste this whole file into the Worker's code editor (see website/DEPLOY.md, part 5).
+// Paste this whole file into the Worker's code editor (see website/DEPLOY.md, step 4).
 //
 //   POST /status   the bot sends the latest summary (needs the PUSH_TOKEN secret)
 //   GET  /status   the website reads it
 //
 // Needs two settings on the Worker:
 //   STATUS      a KV namespace binding (stores the one latest summary)
-//   PUSH_TOKEN  a secret, the same text as STATUS_PUSH_TOKEN in the bot's .env
+//   PUSH_TOKEN  a secret, the same text as STATUS_PUSH_TOKEN in the bot's settings
 
 const CORS = {
   'access-control-allow-origin': '*',

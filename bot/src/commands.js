@@ -464,7 +464,6 @@ export function makeHandlers({ core, commanders, ratings, config, log, verified 
     async 'setup-server'(i) {
       await i.deferReply({ flags: MessageFlags.Ephemeral });
       const report = await runSetup(i.guild, {
-        memberRoleName: config.memberRoleName,
         poolRoleName: config.commanderPoolRoleName,
         verifiedRoleName: config.verifiedRoleName,
         rolesChannelName: config.rolesChannelName,
