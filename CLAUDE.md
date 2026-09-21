@@ -189,9 +189,21 @@ size; lines above the first card go before it). A post = all the bot's non-menu 
 channel, oldest first; same count -> edit in place, fewer -> delete the extras at the end, more -> delete and repost.
 Guide panels are 1200x675 (2x) in the briefing style: design/verify-guide/build_panels.py +
 panels.css, rendered by render_panels.py, then saved as JPEG q88 into content/. The BODY is only
-about 535px tall once the gold strip and padding are off, and nothing warns you when content
-overflows: it is simply cut off the bottom of the picture. Always look at the rendered PNG before
-shipping one. A first draft of the start-a-match panel lost two of its four steps that way.
+about 535px tall once the gold strip and padding are off, and the panel is `overflow:hidden`, so
+content that does not fit is not flagged or wrapped: it is silently cut off the bottom of the
+picture. A first draft of the start-a-match panel lost two of its four steps that way.
+
+**Run `python3 measure_panels.py <page>` before rendering.** It reports the overflow (0 is what
+you want) and the gap between each column and the footer rule, and exits non-zero on either
+problem. A gap near zero is the crammed look even when nothing is technically cut off, which is
+what the owner saw on the second draft of start-a-match. Measure, then look at the PNG; guessing
+at type sizes costs several rounds.
+
+Two layout things that came out of that panel. Four boxes in two rows needs 544px and does not
+fit; three across one row does, and `.cols` has `flex:1` so the leftover height becomes breathing
+room above the footer. And column 2 of a three-column row is the narrowest (it has padding on
+both sides, the outer two do not), so its heading wraps first and drops its paragraph out of line
+with the others: give every heading the same `min-height` when that happens.
 `render_panels.py` finds the Chromium already on the machine (newest `/opt/pw-browsers/chromium-*`,
 or `PW_CHROME`): Playwright pins an exact revision and otherwise tells you to download a second
 copy of a browser that is already there.
