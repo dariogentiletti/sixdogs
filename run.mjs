@@ -26,17 +26,27 @@ function fail(msg) {
 const major = Number(process.versions.node.split('.')[0]);
 if (major < 20) fail(`Node.js ${process.versions.node} is too old. Install the LTS version from https://nodejs.org`);
 
-// ---- .env ----
+// ---- settings ----
+// Two ways to configure this, and they mix:
+//   - a .env file next to this script (your PC, or a plain Linux server)
+//   - real environment variables (Railway and hosts like it, where there is no file)
+// A .env file wins where both set the same thing.
 const envPath = join(root, '.env');
-if (!existsSync(envPath)) fail('No .env file. Copy .env.example to .env and fill in DISCORD_TOKEN and DISCORD_GUILD_ID.');
+const hasEnvFile = existsSync(envPath);
 const env = {};
-for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
-  const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
-  if (!m || line.trim().startsWith('#')) continue;
-  env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
+for (const [k, v] of Object.entries(process.env)) {
+  if (/^[A-Z][A-Z0-9_]*$/.test(k)) env[k] = v;
 }
-if (!env.DISCORD_TOKEN) fail('DISCORD_TOKEN is empty in .env (Developer Portal → your app → Bot → Reset Token).');
-if (!env.DISCORD_GUILD_ID) fail('DISCORD_GUILD_ID is empty in .env (right-click your server icon → Copy Server ID).');
+if (hasEnvFile) {
+  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
+    if (!m || line.trim().startsWith('#')) continue;
+    env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
+  }
+}
+const where = hasEnvFile ? 'in .env' : "in your host's variables (no .env file here)";
+if (!env.DISCORD_TOKEN) fail(`DISCORD_TOKEN is not set ${where} (Developer Portal → your app → Bot → Reset Token).`);
+if (!env.DISCORD_GUILD_ID) fail(`DISCORD_GUILD_ID is not set ${where} (right-click your server icon → Copy Server ID).`);
 if (!env.INTERNAL_TOKEN || env.INTERNAL_TOKEN.startsWith('make-up')) env.INTERNAL_TOKEN = randomBytes(24).toString('hex');
 let discordOnly = false;
 if (mock) {
@@ -66,10 +76,14 @@ const colors = { mock: 35, core: 36, bot: 33 };
 const children = [];
 let stopping = false;
 
-function start(name, script, extraEnv) {
+function start(name, script, extraEnv, { hide = [] } = {}) {
+  const childEnv = { ...process.env, ...extraEnv, SIXDOGS_SUPERVISED: '1' };
+  // Children inherit this process's environment, so a secret has to be taken
+  // out of the copy, not just left out of extraEnv.
+  for (const k of hide) delete childEnv[k];
   const child = spawn(process.execPath, [script], {
     cwd: join(root, name === 'mock' ? 'mock' : name),
-    env: { ...process.env, ...extraEnv, SIXDOGS_SUPERVISED: '1' },
+    env: childEnv,
     // stdin is a pipe from this process: if this window is closed, the pipe
     // breaks and the child exits too (no orphaned old bot left running).
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -115,8 +129,12 @@ const coreEnv = {
   ...(env.DATABASE_URL ? { DATABASE_URL: env.DATABASE_URL } : {}),
   ...Object.fromEntries(Object.entries(env).filter(([k]) => /^(POLL_|SLOW_POLL|SAMPLE_|VERIFY_|RCON_TIMEOUT|DATA_DIR|HEALTH_|BACKPRESSURE|RATING_)/.test(k))),
 };
-// The bot gets everything EXCEPT the RCON password and database URL.
-const { RCON_PASSWORD, DATABASE_URL, POSTGRES_PASSWORD, ...botBase } = env;
+// The bot talks only to core and must never see the RCON password. On a host
+// like Railway these are real variables of THIS process, so leaving them out of
+// botEnv is not enough: they are also hidden from what the bot inherits.
+const BOT_MUST_NOT_SEE = ['RCON_PASSWORD', 'DATABASE_URL', 'POSTGRES_PASSWORD'];
+const botBase = { ...env };
+for (const k of BOT_MUST_NOT_SEE) delete botBase[k];
 const botEnv = { ...botBase, CORE_URL: `http://127.0.0.1:${coreEnv.CORE_PORT}`, ...(discordOnly ? { CORE_DISABLED: '1' } : {}) };
 
 async function waitForCore() {
@@ -136,11 +154,11 @@ console.log(mock
     : `\n  SIXDOGS — game server ${env.RCON_URL}\n  Press Ctrl+C to stop.\n`);
 
 if (discordOnly) {
-  start('bot', 'src/index.js', botEnv);
+  start('bot', 'src/index.js', botEnv, { hide: BOT_MUST_NOT_SEE });
 } else {
   if (mock) start('mock', 'mock-wardogs.mjs', {});
   await new Promise((r) => setTimeout(r, mock ? 500 : 0));
   start('core', 'src/index.js', coreEnv);
   await waitForCore();
-  start('bot', 'src/index.js', botEnv);
+  start('bot', 'src/index.js', botEnv, { hide: BOT_MUST_NOT_SEE });
 }

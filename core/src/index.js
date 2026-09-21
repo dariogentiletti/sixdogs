@@ -18,7 +18,7 @@ async function loadCapabilitiesWithRetry(rcon) {
       return caps;
     } catch (err) {
       if (err.code === 'auth') {
-        console.error('[core] The game server rejected RCON_PASSWORD. Fix it in .env and restart.');
+        console.error('[core] The game server rejected RCON_PASSWORD. Fix it in your settings: .env, or the variables set by your host, then restart.');
       } else {
         console.warn(`[core] can't reach RCON yet (${err.message}). Retrying in 30s...`);
         if (attempt === 1) {

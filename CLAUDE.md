@@ -96,10 +96,13 @@ commands: everything happens by pushing to GitHub `main`.
 
 - `main` is production. A push to it deploys.
 - Website: Cloudflare Pages runs `node tools/build.mjs` and publishes `website/`.
-- Bot + core: the VPS runs `deploy/update.sh` every 2 minutes (systemd timer), which resets
-  to `origin/main`, reinstalls deps and restarts the `sixdogs` service. Setup: `deploy/`.
-- `.env` lives ONLY on the VPS (passwords, git-ignored). Claude cannot reach the VPS, so a
-  change that needs a new setting means telling the owner what to edit there, in plain words.
+- Bot + core: hosted on Railway, which redeploys on every push to `main` (`deploy/RAILWAY.md`).
+  Root `package.json` holds the `start` script Railway uses. `deploy/README.md` keeps the
+  plain-Linux/systemd path for if that is ever wanted again.
+- Settings are Railway variables, NOT a file. `run.mjs` reads a `.env` file when there is one
+  and real environment variables when there is not. Claude cannot read or set Railway
+  variables, so a change needing a new setting means telling the owner what to add, in plain
+  words. The database is Railway Postgres via `DATABASE_URL`, so PGlite is not used there.
 - The GitHub repo is PUBLIC. Never commit a secret, and never paste one into a doc or post.
 - Work on the branch you were given, but say clearly that it has to reach `main` to go live.
 

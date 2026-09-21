@@ -372,11 +372,11 @@ process.on('SIGINT', () => { client.destroy(); process.exit(0); });
 
 client.login(config.discordToken).catch((err) => {
   if (err.code === 'TokenInvalid') {
-    console.error('[bot] Discord rejected DISCORD_TOKEN. Reset it in the Developer Portal (Bot tab) and paste the new one into .env.');
+    console.error('[bot] Discord rejected DISCORD_TOKEN. Reset it in the Developer Portal (Bot tab) and save the new one wherever your settings live: .env, or the variables set by your host.');
   } else if (/disallowed intents/i.test(err.message)) {
     console.error('[bot] Turn on "Server Members Intent": Developer Portal → your app → Bot → Privileged Gateway Intents. Then start again.');
   } else {
-    console.error(`[bot] could not log in to Discord (${err.code ?? err.message}). Check DISCORD_TOKEN in .env and your internet connection.`);
+    console.error(`[bot] could not log in to Discord (${err.code ?? err.message}). Check DISCORD_TOKEN in your settings (.env, or the variables set by your host) and your internet connection.`);
   }
   process.exit(1);
 });
