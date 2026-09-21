@@ -124,3 +124,88 @@ test('#start-a-match is an INFO channel, so only the bot posts there', () => {
   assert.ok(info.channels.some((c) => c.name === 'start-a-match'));
   assert.equal(info.channels.find((c) => c.name === 'start-a-match').ow, undefined);
 });
+
+// ---- the explainer picture above the board ----
+
+import { stat } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { Seeding, SEED_GUIDE } from '../src/seeding.js';
+
+const GUIDE_PATH = fileURLToPath(new URL(`../../content/${SEED_GUIDE}`, import.meta.url));
+const guideSize = async () => (await stat(GUIDE_PATH)).size;
+
+function channelWith(messages) {
+  const sent = [];
+  const deleted = [];
+  const msgs = messages.map((m, i) => ({
+    id: String(i),
+    author: { id: 'BOT' },
+    attachments: new Map((m.attachments ?? []).map((a, j) => [String(j), a])),
+    delete: async () => { deleted.push(String(i)); },
+  }));
+  return {
+    name: 'start-a-match',
+    sent,
+    deleted,
+    messages: { fetch: async () => new Map(msgs.map((m) => [m.id, m])) },
+    send: async (payload) => { sent.push(payload); return { id: 'new' }; },
+  };
+}
+
+const seeder = () => {
+  const s = new Seeding({ core: {}, config: { seedChannel: 'start-a-match' }, log: async () => {} });
+  s.attach({ client: { user: { id: 'BOT' } } });
+  return s;
+};
+
+test('the picture goes up when there is none', async () => {
+  const ch = channelWith([]);
+  assert.equal(await seeder().ensureGuide(ch), true);
+  assert.equal(ch.sent.length, 1);
+  assert.equal(ch.sent[0].files[0].name, SEED_GUIDE);
+});
+
+test('a picture that matches the file is left alone', async () => {
+  const ch = channelWith([{ attachments: [{ name: SEED_GUIDE, size: await guideSize() }] }]);
+  assert.equal(await seeder().ensureGuide(ch), false);
+  assert.equal(ch.sent.length, 0, 'nothing reposted');
+  assert.equal(ch.deleted.length, 0, 'nothing deleted');
+});
+
+// The bug this exists for: the panel was redrawn, the file name did not change,
+// so matching on name alone left the old picture up and the redraw never
+// reached anybody. The owner's report was "the image looks the same".
+test('a picture that no longer matches the file is replaced', async () => {
+  const ch = channelWith([{ attachments: [{ name: SEED_GUIDE, size: 409141 }] }]);
+  assert.equal(await seeder().ensureGuide(ch), true);
+  assert.equal(ch.deleted.length, 1, 'the stale one is removed');
+  assert.equal(ch.sent.length, 1, 'and the current one posted');
+});
+
+test('duplicates are collapsed to one, even when one of them is current', async () => {
+  const ch = channelWith([
+    { attachments: [{ name: SEED_GUIDE, size: 111 }] },
+    { attachments: [{ name: SEED_GUIDE, size: await guideSize() }] },
+  ]);
+  assert.equal(await seeder().ensureGuide(ch), true);
+  assert.equal(ch.deleted.length, 2);
+  assert.equal(ch.sent.length, 1);
+});
+
+test('other messages in the channel are never touched', async () => {
+  const ch = channelWith([
+    { attachments: [] },
+    { attachments: [{ name: 'someone-elses.png', size: 10 }] },
+  ]);
+  await seeder().ensureGuide(ch);
+  assert.equal(ch.deleted.length, 0);
+});
+
+test('a missing picture file is a warning, not a crash or an empty post', async () => {
+  const s = seeder();
+  s.guidePath = () => '/nowhere/start-a-match.jpg';
+  const ch = channelWith([]);
+  assert.equal(await s.ensureGuide(ch), false);
+  assert.equal(ch.sent.length, 0, 'nothing is posted');
+  assert.equal(ch.deleted.length, 0, 'and nothing already there is removed');
+});

@@ -190,25 +190,44 @@ export class Seeding {
   }
 
   /**
-   * The explainer picture, posted once, above the board.
+   * The explainer picture, above the board, kept in step with the file.
    *
    * Not a channel post from content/: #start-a-match is skipped by syncPosts
    * because the board lives here and syncPosts would delete it. So this puts the
-   * picture up itself and leaves it alone afterwards.
+   * picture up itself.
+   *
+   * Matching on the file NAME alone is not enough, and getting that wrong was
+   * the whole bug: the picture was redrawn, the name did not change, so the old
+   * one stayed up and the redraw never reached anybody. The byte size is
+   * compared as well, the same way syncPosts tells its own pictures apart, and
+   * a picture that no longer matches the file is replaced.
    *
    * @returns true if it was just posted, which means the board is now ABOVE it
    *   and has to be moved.
    */
+  /** Where the picture lives. Its own method so a test can point it elsewhere. */
+  guidePath() {
+    return fileURLToPath(new URL(`../../content/${SEED_GUIDE}`, import.meta.url));
+  }
+
   async ensureGuide(channel) {
+    const path = this.guidePath();
+    const file = await stat(path).catch(() => null);
+    if (!file) {
+      this.warn('guide', `content/${SEED_GUIDE} is missing, so the board goes up without its picture`);
+      return false;
+    }
     const recent = await channel.messages.fetch({ limit: 50 }).catch(() => null);
     const mine = [...(recent?.values() ?? [])].filter((m) => m.author.id === this.guild.client.user.id);
-    if (mine.some((m) => [...m.attachments.values()].some((a) => a.name === SEED_GUIDE))) return false;
-    const path = fileURLToPath(new URL(`../../content/${SEED_GUIDE}`, import.meta.url));
-    if (!await stat(path).catch(() => null)) {
-      return this.warn('guide', `content/${SEED_GUIDE} is missing, so the board goes up without its picture`) ?? false;
-    }
+    const posted = mine.filter((m) => [...m.attachments.values()].some((a) => a.name === SEED_GUIDE));
+    const current = posted.find((m) => [...m.attachments.values()]
+      .some((a) => a.name === SEED_GUIDE && a.size === file.size));
+    if (current && posted.length === 1) return false;
+    // Either it has changed, or there is more than one copy up. Clear them all
+    // and post once, so the channel never ends up with two versions of it.
+    for (const m of posted) await m.delete().catch(() => {});
     await channel.send({ files: [{ attachment: path, name: SEED_GUIDE }], allowedMentions: { parse: [] } });
-    console.log(`[seed] posted the guide picture in #${channel.name}`);
+    console.log(`[seed] ${posted.length ? 'replaced' : 'posted'} the guide picture in #${channel.name}`);
     return true;
   }
 

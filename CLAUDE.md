@@ -370,11 +370,17 @@ decides whether a message really goes out: the cooldown is enforced by the INSER
 ticks landing together cannot ping twice.
 
 Bot: `bot/src/seeding.js` keeps TWO messages in `#start-a-match`: the explainer picture
-(`content/start-a-match.jpg`, posted once by `ensureGuide`, recognised by its attachment name)
-and the board below it (found again by its "Seeding board" footer), refreshed on a 15s beat and
+(`content/start-a-match.jpg`, kept in step by `ensureGuide`, matched on attachment name AND BYTE
+SIZE) and the board below it (found again by its "Seeding board" footer), refreshed on a 15s beat and
 on every click. The picture is posted by the seeding code rather than from `content/` as a normal
 channel post, because `syncPosts` skips this channel and would otherwise delete the board. If the
 picture has only just gone up, the board is reposted so it lands underneath it.
+
+Matching on the file NAME alone is not enough and that was a real bug: the panel was redrawn, the
+name did not change, so the old picture stayed up and the owner reported "the image looks the
+same". The size is compared too, the way `syncPosts` tells its own pictures apart, and a picture
+that no longer matches the file is deleted and reposted. Any redrawn guide picture reaches Discord
+on the next deploy without anyone clearing the channel by hand.
 
 The board leads with the SITUATION, not the mechanism: "Not enough people on to play?" Somebody
 seeing the channel for the first time has to recognise their own problem before a button means
