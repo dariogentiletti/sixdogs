@@ -419,9 +419,19 @@ function timeText(){if(!data)return'';var now=Date.now();
   if(data.showClock===false)return'Waiting for players';
   if(data.endsAt)return'Ends in '+clock(Date.parse(data.endsAt)-now);
   if(data.startedAt)return'Running '+clock(now-Date.parse(data.startedAt));return'–'}
+function why(d,now){
+  if(!d)return'could not read '+src+' (check the browser Network tab: CORS, DNS or the Worker being down)';
+  if(!d.updatedAt)return'the reply had no updatedAt, so it is not the status JSON';
+  if(now-Date.parse(d.updatedAt)>STALE)return'the data is '+ago(now-Date.parse(d.updatedAt))+', older than the 10 minute cutoff. The bot has stopped pushing.';
+  if(d.state==='not-connected')return'the bot is running without a game server configured';
+  if(d.state!=='live'&&d.state!=='offline')return'unexpected state "'+d.state+'"';
+  return null}
 function draw(){
   var d=data,now=Date.now();
-  if(!d||!d.updatedAt||now-Date.parse(d.updatedAt)>STALE||(d.state!=='live'&&d.state!=='offline')){show(false);return}
+  var problem=why(d,now);
+  // Visitors should never see an empty board, so it stays hidden. But say why
+  // in the console: hiding without a word is impossible to debug.
+  if(problem){console.warn('[SIXDOGS] live board hidden: '+problem);show(false);return}
   var name=esc(d.serverName||'SIXDOGS'),upd='Updated '+ago(now-Date.parse(d.updatedAt));
   if(d.state==='offline'){
     box.innerHTML='<div class="board-top"><span class="on off"><i></i>Offline · '+name+'</span><span class="age">'+upd+'</span></div>'+
