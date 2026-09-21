@@ -56,13 +56,13 @@ small public summary to a Cloudflare Worker every 2 minutes, and the website rea
    value: a long random password you make up (30+ letters and numbers). Keep a copy.
 6. **Settings** → **Domains & Routes** → **Add** → **Custom domain** → `live.sixdogs.gg`.
 7. Open https://live.sixdogs.gg/status. You should see `{"v":1,"state":"unknown"}`.
-8. In the SIXDOGS `.env` on your PC add:
+8. Add two variables to the bot on Railway (service → **Variables**):
    ```
    STATUS_PUSH_URL=https://live.sixdogs.gg/status
    STATUS_PUSH_TOKEN=the same password as step 5
    ```
-   Restart the bot. The section appears on sixdogs.gg within 2 minutes, and hides itself again
-   10 minutes after the bot stops.
+   Railway restarts the bot itself. The section appears on sixdogs.gg within 2 minutes, and
+   hides itself again 10 minutes after the bot stops.
 
 ## What the site serves
 - `sixdogs.gg` → the website
@@ -70,6 +70,6 @@ small public summary to a Cloudflare Worker every 2 minutes, and the website rea
 - `sixdogs.gg/donate` → your donation page, once `donate.url` in `community.json` has a link
 
 ## If Claude isn't around
-`build-website.bat` rebuilds `index.html` and `_redirects` from `community.json`, and Cloudflare
-also accepts a manual upload: Pages project → **Create a new deployment** → drag the `website`
-folder in. You shouldn't need either.
+`node tools/build.mjs` rebuilds `index.html` and `_redirects` from `community.json`, and
+Cloudflare also accepts a manual upload: Pages project → **Create a new deployment** → drag the
+`website` folder in. You shouldn't need either.

@@ -1,9 +1,9 @@
 # SIXDOGS — notes for Claude Code
 
-Community tooling for a WARDOGS server. Two processes plus a database. Normally started with
-`node run.mjs` (or `start.bat` / `start-practice.bat` on Windows) — no Docker. With no
-`DATABASE_URL`, core uses PGlite (embedded Postgres, files in `data/`); with one, a real Postgres.
-`docker-compose.yml` is an optional alternative.
+Community tooling for a WARDOGS server. Two processes plus a database, started with
+`node run.mjs` (add `--mock` for the fake game server). Hosted on Railway; see
+"How changes reach the world" below. With no `DATABASE_URL`, core uses PGlite (embedded
+Postgres, files in `data/`); with one, a real Postgres, which is what Railway provides.
 
 
 - `core/` — owns the RCON token, polls the game server every 5s, writes to Postgres, serves an internal API on :8080 (bearer `INTERNAL_TOKEN`). Plain Node 22 ESM; deps `pg` and `@electric-sql/pglite`.
@@ -97,8 +97,7 @@ commands: everything happens by pushing to GitHub `main`.
 - `main` is production. A push to it deploys.
 - Website: Cloudflare Pages runs `node tools/build.mjs` and publishes `website/`.
 - Bot + core: hosted on Railway, which redeploys on every push to `main` (`deploy/RAILWAY.md`).
-  Root `package.json` holds the `start` script Railway uses. `deploy/README.md` keeps the
-  plain-Linux/systemd path for if that is ever wanted again.
+  Root `package.json` holds the `start` script Railway uses.
 - Settings are Railway variables, NOT a file. `run.mjs` reads a `.env` file when there is one
   and real environment variables when there is not. Claude cannot read or set Railway
   variables, so a change needing a new setting means telling the owner what to add, in plain

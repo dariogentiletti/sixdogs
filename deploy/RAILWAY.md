@@ -108,7 +108,3 @@ is almost always enough.
 Useful buttons on the service page: **Restart** (re-runs the bot) and
 **Redeploy** (rebuilds it from scratch).
 
-## If you ever want a plain server instead
-
-`deploy/README.md` sets the same thing up on an ordinary Linux box with systemd.
-You do not need it while you are on Railway.
