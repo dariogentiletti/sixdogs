@@ -49,6 +49,11 @@ export function loadConfig() {
     ratingVoteMinutes: num('RATING_VOTE_MINUTES', 30),   // must match core (same .env)
     ratingMaxPerFaction: num('RATING_MAX_PER_FACTION', 3), // most commanders rated per faction per match
     ratingWindowDays: num('RATING_WINDOW_DAYS', 60),
+    // Seeding: the "I'd play right now" board. How many are needed, how long a
+    // pledge lasts and how often a ping is allowed are core's settings
+    // (SEED_TARGET, SEED_PLEDGE_MINUTES, SEED_COOLDOWN_MINUTES), so there's one copy.
+    seedChannel: str('SEED_CHANNEL_NAME', 'start-a-match'),
+    seedPingRoleName: str('SEED_PING_ROLE_NAME', 'Match Alerts'),
     // Scheduled ops (OPERATIONS channels + Operator role). Off while this is a 24/7 server.
     operationsEnabled: process.env.OPERATIONS_ENABLED === 'true',
     // Live board in #server-info.

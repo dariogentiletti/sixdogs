@@ -72,7 +72,8 @@
     "Railway over a plain VPS: no SSH for routine changes, settings are a web form, managed Postgres, and it redeploys on every push to main.",
     "Cloudflare Pages over Railway for the website: free, purpose-built for static files, and the _redirects file and the live-status worker were already written for it.",
     "Postgres on Railway rather than the embedded PGlite: PGlite measured about 500 MB resident, which is most of a small box.",
-    "Push straight to main, no pull requests: solo project, and main is what deploys."
+    "Push straight to main, no pull requests: solo project, and main is what deploys.",
+    "Seeding pings an opt-in role (Match Alerts), never @everyone, and at most once every SEED_COOLDOWN_MINUTES. The owner asked for a limit so people aren't pinged continuously; the default is 45 minutes rather than 3, because the list is emptied when a ping fires, so a second ping needs a fresh set of people anyway and 3 minutes would only matter if something went wrong."
   ],
   "verified": [
     "2026-09-21: /verify works end to end on the live server. A player links and the row persists.",
@@ -88,6 +89,7 @@
   ],
   "rules": [
     "Never move players between teams automatically during a match. The owner has ruled this out: /move stays an admin command only, and no balancing rule may ever call it on its own.",
-    "Reserved slots: any donation gets the Supporter role, $10 or more gets a reserved slot for that month. There are six. If more than six donors want in at once they wait; do not add caveats about this to the public wording."
+    "Reserved slots: any donation gets the Supporter role, $10 or more gets a reserved slot for that month. There are six. If more than six donors want in at once they wait; do not add caveats about this to the public wording.",
+    "Nobody is pinged who didn't ask to be. The seeding call-in mentions the opt-in Match Alerts role only, and the bot never uses @everyone or @here."
   ]
 }

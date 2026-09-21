@@ -46,6 +46,12 @@ export const config = {
   verifyCodeTtlSec: num('VERIFY_CODE_TTL_SEC', 600),
   verifyCodeDigits: num('VERIFY_CODE_DIGITS', 3), // shorter is friendlier to type; see MAX_ATTEMPTS in verify.js
   ratingWindowDays: num('RATING_WINDOW_DAYS', 60),
+  // Seeding: pledges in Discord that add up to a "come and play" ping.
+  seedTarget: Math.max(2, num('SEED_TARGET', 10)),
+  seedPledgeMinutes: Math.max(5, num('SEED_PLEDGE_MINUTES', 45)),
+  seedCooldownMinutes: Math.max(3, num('SEED_COOLDOWN_MINUTES', 45)),
+  // Don't call anyone in once this many are already playing. 0 = same as the target.
+  seedQuietAbove: num('SEED_QUIET_ABOVE', 0) || null,
   ratingVoteMinutes: num('RATING_VOTE_MINUTES', 30),
   requestTimeoutMs: num('RCON_TIMEOUT_MS', 4000),
 };

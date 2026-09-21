@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { roleMenu, entryForEmoji, menuPayload, isMenuMessage, CLASS_ROLE_NAMES } from '../src/rolemenu.js';
 import { rolePlan, channelPlan } from '../src/setup.js';
 
-test('menu has commander + the six WARDOGS classes', () => {
+test('menu has commander, match alerts + the six WARDOGS classes', () => {
   const names = roleMenu('Commander Pool').map((r) => r.roleName);
-  assert.deepEqual(names, ['Commander Pool', 'Assault', 'Medic', 'Recon', 'Support', 'Driver', 'Pilot']);
+  assert.deepEqual(names, ['Commander Pool', 'Match Alerts', 'Assault', 'Medic', 'Recon', 'Support', 'Driver', 'Pilot']);
   const emojis = roleMenu().map((r) => r.emoji);
   assert.equal(new Set(emojis).size, emojis.length, 'emojis are unique');
 });

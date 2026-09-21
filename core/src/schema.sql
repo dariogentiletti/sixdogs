@@ -100,3 +100,18 @@ CREATE TABLE IF NOT EXISTS rating_votes (
   voted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (round_id, voter_id)
 );
+
+-- Seeding: who has said "I'd play right now". One row per person; the row is
+-- dropped when they're seen in game, when everyone gets called in, or when it
+-- goes stale (SEED_PLEDGE_MINUTES).
+CREATE TABLE IF NOT EXISTS seed_pledges (
+  discord_id TEXT PRIMARY KEY,
+  pledged_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- One row per "everyone in" ping, so the cooldown survives a restart.
+CREATE TABLE IF NOT EXISTS seed_pings (
+  id        BIGSERIAL PRIMARY KEY,
+  pinged_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ready     INTEGER NOT NULL
+);

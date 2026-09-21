@@ -73,7 +73,7 @@ test('first start: everything set to the plan; second start: nothing to do', asy
     'put the INFO channels in order',
   ]) assert.ok(first.includes(line), line);
   const info = w.channels.filter((c) => c.parentId === 'INFO').sort((a, b) => a.rawPosition - b.rawPosition).map((c) => c.name);
-  assert.deepEqual(info, ['rules', 'get-verified', 'how-to-play', 'roles', 'server-info', 'support-the-community', 'announcements']);
+  assert.deepEqual(info, ['rules', 'get-verified', 'how-to-play', 'roles', 'server-info', 'start-a-match', 'support-the-community', 'announcements']);
   assert.equal(w.channels.find((c) => c.name === 'get-verified').rateLimitPerUser, 10);
 
   const blue = w.channels.find((c) => c.name === 'Blue Command (listen)').permissionOverwrites.cache;

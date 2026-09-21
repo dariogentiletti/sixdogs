@@ -16,7 +16,7 @@ SIXDOGS is a WARDOGS community (Discord plus a 24/7 game server) built around pl
 Every faction has one commander, the only voice in the faction's listen channel, chosen by the bot from a pool and rated by their own side after each match. Public WARDOGS servers leave squads to play their own game.
 
 ## Operating Context
-- Discord server with locked info channels (#rules, #roles, #server-info, #announcements), a #roles reaction menu, and per-faction "X Command (listen)" voice channels.
+- Discord server with locked info channels (#rules, #roles, #server-info, #start-a-match, #announcements), a #roles reaction menu, and per-faction "X Command (listen)" voice channels.
 - Verification: be on the game server, `/verify <in-game name>` in Discord, receive a short numeric code as an in-game private message (valid 10 minutes), `/confirm <code>`. Duplicate names are resolved with a Steam profile link or SteamID. Links are by SteamID; Steam name changes do not unlink.
 - Factions are named by colour in Discord: Blue (Lonestar), Red (Valkyra), Green (Manticore).
 - Channel posts are Discord embeds generated from `content/*.md`; guides are shared as images in channels.
@@ -24,6 +24,7 @@ Every faction has one commander, the only voice in the faction's listen channel,
 ## Capabilities and Constraints
 - Verified players get their faction role automatically, which unlocks that faction's listen channel.
 - Commander Pool role via 🎖️ in #roles; the bot offers command to pool members first.
+- Seeding: a board in #start-a-match where players say they would play right now. At ten, the bot pings the opt-in Match Alerts role once so everyone joins together instead of waiting AFK in an empty server. Limits (a name lasts 45 minutes, a ping at most every 45 minutes, nothing sent while the server is busy or unreachable) are in core, and the bot never uses @everyone.
 - After each match, players who served under a commander 5+ minutes get a DM to rate them (good / poor / toxic).
 - Server policy (owner-stated): players who are not verified on Discord get kicked from the game server. OPEN: the bot does not enforce this yet (the RCON API has a kick endpoint).
 - Game server address is not public yet (TBD).

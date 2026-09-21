@@ -71,6 +71,9 @@ export class CoreClient {
   ratingScores() { return this.request('GET', '/internal/ratings/scores'); }
   ratingsDue() { return this.request('GET', '/internal/ratings/due'); }
   ratingNotified(roundId) { return this.request('POST', `/internal/ratings/rounds/${roundId}/notified`, {}); }
+  seedState() { return this.request('GET', '/internal/seed'); }
+  seedPledge(discordId, on) { return this.request('POST', '/internal/seed/pledge', { discordId, on }); }
+  seedPing(force = false) { return this.request('POST', '/internal/seed/ping', { force }); }
   commanderLog(matchId, faction, discordId, event) {
     return this.request('POST', '/internal/commander-log', { matchId, faction, discordId, event }).catch(() => {});
   }

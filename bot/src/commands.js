@@ -26,6 +26,10 @@ export const commandDefinitions = [
   new SlashCommandBuilder().setName('standdown').setDescription('Stop commanding (someone else gets picked)'),
   new SlashCommandBuilder().setName('claim').setDescription("Take command of your faction if nobody's been picked"),
 
+  new SlashCommandBuilder().setName('seed').setDescription("ADMIN: who's ready to play, and call everyone in")
+    .addBooleanOption((o) => o.setName('call-now').setDescription('Call everyone in right now, without waiting for the target'))
+    .setDefaultMemberPermissions(P.ManageRoles),
+
   new SlashCommandBuilder().setName('reroll').setDescription('ADMIN: pick a new commander for a faction')
     .addStringOption(factionChoice)
     .setDefaultMemberPermissions(P.ManageRoles),
@@ -153,7 +157,7 @@ export function findPlayer(players, needle) {
 
 const ephemeral = (content) => ({ content, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
 
-export function makeHandlers({ core, commanders, ratings, config, log, verified }) {
+export function makeHandlers({ core, commanders, ratings, seeding, config, log, verified }) {
   return {
     async verify(i) {
       await i.deferReply({ flags: MessageFlags.Ephemeral });
@@ -167,6 +171,20 @@ export function makeHandlers({ core, commanders, ratings, config, log, verified 
       await verified.set(i.user.id, true);
       await i.editReply(`✅ Linked to **${r.name ?? r.steamId}**. You're **Verified**, and your team role will follow you in-game from now on.`);
       await log(`🔗 <@${i.user.id}> verified as **${r.name ?? r.steamId}** (${r.steamId}).`);
+    },
+
+    // Seeding: the "I'd play right now" list. The board in #start-a-match shows
+    // the same numbers to everyone; this adds the reason it hasn't fired yet.
+    async seed(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      if (i.options.getBoolean('call-now')) {
+        const r = await seeding.callEveryoneIn({ force: true });
+        await i.editReply(r.fired
+          ? `📣 Called everyone in. ${r.ready} ${r.ready === 1 ? 'person was' : 'people were'} on the list.`
+          : `Nothing sent: ${r.reason}.`);
+        return;
+      }
+      await i.editReply(await seeding.describe());
     },
 
     async unlink(i) {

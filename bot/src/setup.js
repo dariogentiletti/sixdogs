@@ -4,7 +4,7 @@
 
 import { ChannelType, OverwriteType, PermissionFlagsBits as P, PermissionsBitField } from 'discord.js';
 import { FACTIONS } from './factions.js';
-import { CLASS_ROLE_NAMES, ensureRoleMenu } from './rolemenu.js';
+import { CLASS_ROLE_NAMES, SEED_PING_ROLE_NAME, ensureRoleMenu } from './rolemenu.js';
 
 // Top to bottom. Discord puts each new role at the bottom, so creating them
 // in this order leaves them in this order.
@@ -25,6 +25,8 @@ export function rolePlan(poolRoleName = 'Commander Pool', { operationsEnabled = 
     { name: poolRoleName, permissions: [] },
     // WARDOGS classes, self-assigned in #roles. Mentionable so people can ping "@Pilot".
     ...CLASS_ROLE_NAMES.map((name) => ({ name, permissions: [], mentionable: true })),
+    // Opt-in in #roles. The bot pings it when enough people are ready to play.
+    { name: SEED_PING_ROLE_NAME, permissions: [], mentionable: true },
     ...(operationsEnabled ? [{ name: 'Operator', permissions: [] }] : []),
     // Given by the bot to everyone who linked their Steam account (/confirm or admin /link).
     // It's the key to the server: writing in chat and joining voice.
@@ -76,6 +78,10 @@ export function channelPlan({ verifiedRoleName = 'Verified', logChannelName = 'a
         { name: 'how-to-play' },
         { name: rolesChannelName },
         { name: 'server-info' },   // live board: the bot edits one message every few minutes
+        // Seeding: the bot's board with the "I'd play right now" buttons. Buttons work
+        // in a read-only channel (a click is an interaction, not a message), so this
+        // needs no extra permission for anyone.
+        { name: 'start-a-match' },
         { name: 'support-the-community' },  // running costs + donate button
         // Admins post announcements (and can ping everyone there).
         { name: 'announcements', ow: { Admin: allow(V, H, S, P.EmbedLinks, P.AttachFiles, P.MentionEveryone) } },

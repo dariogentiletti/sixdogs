@@ -150,14 +150,16 @@ against your real server. The bot recognises factions by the colour the server r
 | Everyone | `/verify <in-game name>` | Sends a code to you in-game (you must be on the server). Same name as someone else? Use your Steam profile link instead |
 | | `/confirm <code>` | Finishes linking |
 | | `/whoami`, `/unlink` | Check / remove your link |
-| | *(react in #roles)* | Pick Commander and/or classes; remove the reaction to drop one |
+| | *(react in #roles)* | Pick Commander, Match Alerts and/or classes; remove the reaction to drop one |
+| | *(buttons in #start-a-match)* | Say you'd play right now, or take your name off |
 | | `/commanders` | Who's commanding this match |
 | | `/rating` | Your commander score (admins: `/rating @member`) |
 | | *(DM after a match)* | Rate your commander: 👍 / 👎 / 🚫 |
 | | `/accept` | Accept a commander offer (or use the DM button) |
 | | `/standdown` | Stop commanding; someone else is picked |
 | | `/claim` | Take command if nobody was picked (e.g. everyone passed) |
-| Admin | `/reroll <faction>` | Replace the current commander |
+| Admin | `/seed [call-now]` | Who's ready to play, why nobody's been called in yet, or call them in now |
+| | `/reroll <faction>` | Replace the current commander |
 | | `/link @member <steamid>` / `/unlink-member @member` | Manual link fixes |
 | | `/setup-server [reapply-permissions]` | Build (or repair) the server layout |
 | | `/say <message>` | Announce something to everyone in-game |
@@ -198,6 +200,30 @@ Everything the bot does is logged to `#admin-log`.
   restarts mid-match, the sitting commanders keep their roles.
 - The Commander Pool and class roles only change when someone reacts in `#roles` (or an admin
   changes them by hand).
+
+## Getting a cold server started
+
+A 24/7 server with nobody on it stays that way: nobody wants to be the first one on an empty map,
+and sitting there AFK waiting for company is nobody's idea of an evening.
+
+So don't wait in the server, wait in Discord. In `#start-a-match` the bot keeps a board with one
+button. Press it, go and do something else, and when **10** people have pressed it everyone gets
+called in at once.
+
+- **Who gets pinged:** only the **Match Alerts** role, which you take yourself with 📣 in `#roles`.
+  The bot never uses `@everyone`.
+- **How often:** at most once every 45 minutes (`SEED_COOLDOWN_MINUTES`), and the list is emptied
+  when a ping goes out, so the next one needs a fresh set of people.
+- **Your name comes off** after 45 minutes (`SEED_PLEDGE_MINUTES`), or the moment the server sees
+  you playing. A promise from two hours ago isn't a promise.
+- **Nothing is sent** when the server is already busy, or when the game server isn't answering.
+  Calling people to a black screen is how you lose them.
+- **Admins:** `/seed` says how many are ready and, if nothing has fired, exactly why.
+  `/seed call-now:True` calls everyone in without waiting for the target. It still respects the
+  cooldown: the promise to everyone holding the ping role is that it can't go off twice in a row.
+
+Every number above is a setting (`SEED_*` in `.env.example`); they live in core, so the bot and
+the board can never disagree about them.
 
 ## How commanders are chosen
 

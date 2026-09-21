@@ -79,14 +79,14 @@ In Discord, factions are colours: Blue = Lonestar, Red = Valkyra, Green = Mantic
 
 ## #roles reaction menu
 
-`bot/src/rolemenu.js`: one bot message in `#roles`, one emoji per role (Commander Pool + the six
-WARDOGS classes: Assault, Medic, Recon, Support, Driver, Pilot). Reaction add/remove = role
+`bot/src/rolemenu.js`: one bot message in `#roles`, one emoji per role (Commander Pool, Match
+Alerts and the six WARDOGS classes: Assault, Medic, Recon, Support, Driver, Pilot). Reaction add/remove = role
 add/remove; startup catch-up only adds. Class roles are informational for now (mentionable).
 
 ## Channel layout
 
 `enforceLayout` in `bot/src/setup.js` runs on every start: INFO channels created if missing,
-ordered (rules, get-verified, how-to-play, roles, server-info, support-the-community, announcements) and locked (bot-only;
+ordered (rules, get-verified, how-to-play, roles, server-info, start-a-match, support-the-community, announcements) and locked (bot-only;
 #announcements Admin-only), #clips renamed to #clips-screenshots, #looking-for-squad deleted,
 faction listen channels allow UseEmbeddedActivities (wardogs.tech map) but not Speak.
 COMMUNITY is #general and #clips-screenshots only. enforceLayout applies the WHOLE channelPlan
@@ -186,7 +186,8 @@ size; lines above the first card go before it). A post = all the bot's non-menu 
 channel, oldest first; same count -> edit in place, fewer -> delete the extras at the end, more -> delete and repost.
 Guide panels are 1200x675 (2x) in the briefing style: design/verify-guide/build_panels.py +
 panels.css, rendered by render_panels.py.
-#server-info is skipped: it's the live board (`bot/src/liveboard.js`, one message found by its
+#server-info and #start-a-match are skipped: both are live boards the bot keeps itself
+(`skip` in `syncPosts`). #server-info is the live board (`bot/src/liveboard.js`, one message found by its
 "Live board" footer, edited every LIVE_BOARD_MINUTES and on match/commander change). WARDOGS
 has no direct-join URL and Discord link buttons can't use steam://, so the board shows the
 Server ID (RCON /v1/server-id, override GAME_SERVER_ID) for "Join by ID". Tone: plain, warm,
@@ -235,6 +236,34 @@ needs `If-Match: "<revision>"`, one pre-existing bad value blocks unrelated edit
 `errors[]` and name the key), and a wrong write breaks a live server. Read the real document
 first, validate with `POST /v1/config/validate` before any PUT, and edit one key in the existing
 text rather than rebuilding it.
+
+## Seeding ("I'd play right now")
+
+The answer to a 24/7 server sitting at zero players. Nobody wants to be first on an empty map,
+so instead of waiting in it, people put their name down in `#start-a-match` and get called in
+together once enough have.
+
+Rules live in `core/src/seeding.js` (pure, tested) and core's settings, so there is ONE copy and
+it survives a bot restart: `SEED_TARGET` (10), `SEED_PLEDGE_MINUTES` (45), `SEED_COOLDOWN_MINUTES`
+(45), `SEED_QUIET_ABOVE` (0 = the target). `shouldPing` gives every "no" a readable reason, which
+is the point: `/seed` shows it, so "why hasn't it pinged?" always has an answer.
+
+It does NOT ping when: the game server isn't answering, enough people are already playing, the
+target isn't met, or a ping went out inside the cooldown. A name drops off when it goes stale,
+when that player is seen in game (core matches by link), or when a ping fires and the list is
+emptied, so the next ping needs a fresh set of people.
+
+Tables `seed_pledges` / `seed_pings`. Core routes `GET /internal/seed`,
+`POST /internal/seed/pledge`, `POST /internal/seed/ping`. Core, not the bot, decides whether a
+ping really happens: the cooldown is enforced by the INSERT itself, so two ticks landing together
+cannot ping twice.
+
+Bot: `bot/src/seeding.js` keeps one board message in `#start-a-match` (found again by its
+"Seeding board" footer), refreshed on a 15s beat and on every click. The ping is a SEPARATE
+message, because editing a board notifies nobody; the board is then reposted below it. It mentions
+only `Match Alerts`, an opt-in role taken with 📣 in `#roles`, never `@everyone`. `/seed` is the
+admin view, with `call-now:True` to call people in without waiting for the target. `force` skips
+the TARGET, never the cooldown.
 
 ## Post-match ratings
 

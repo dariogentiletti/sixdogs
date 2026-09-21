@@ -188,7 +188,7 @@ export async function syncPosts(guild, { dir = DEFAULT_CONTENT_DIR, isMenu = () 
     .find((c) => c.type === ChannelType.GuildText && c.name === name)?.id ?? null;
   for (const post of await loadPosts(dir)) {
     if (skip.includes(post.channel)) {
-      report.push(`= #${post.channel} is the live board; content/${post.channel}.md isn't used`);
+      report.push(`= #${post.channel} is a live board the bot keeps itself; content/${post.channel}.md isn't used`);
       continue;
     }
     const channel = guild.channels.cache.find((c) => c.type === ChannelType.GuildText && c.name === post.channel);

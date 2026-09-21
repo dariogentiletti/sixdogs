@@ -5,9 +5,14 @@
 import { ChannelType } from 'discord.js';
 
 // The WARDOGS classes, plus the commander volunteer list.
+// Pinged when enough people have said they'd play right now (see seeding.js).
+// Opt-in and rare by design: nobody is pinged who didn't ask to be.
+export const SEED_PING_ROLE_NAME = 'Match Alerts';
+
 export function roleMenu(poolRoleName = 'Commander Pool') {
   return [
     { emoji: '🎖️', roleName: poolRoleName, label: 'Commander', blurb: "you'd like to run comms. When your faction needs a commander, you're asked first." },
+    { emoji: '📣', roleName: SEED_PING_ROLE_NAME, label: 'Match Alerts', blurb: 'you want to be told when enough people are ready to start a match. One ping, only when the server is waking up.' },
     { emoji: '💥', roleName: 'Assault', label: 'Assault', blurb: 'rifle in hand, fighting inside the control zone and holding it.' },
     { emoji: '🩹', roleName: 'Medic', label: 'Medic', blurb: 'bandages for the wounded, the defib for anyone who goes down.' },
     { emoji: '🔭', roleName: 'Recon', label: 'Recon', blurb: 'binoculars and rangefinder. Marks vehicles, helicopters and positions for the team, and snipes from range.' },

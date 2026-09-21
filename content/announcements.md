@@ -20,6 +20,11 @@ footer: See you out there.
 color: gold
 A few things changed this week.
 
+## Nobody has to sit in an empty server
+{#start-a-match} has a button on it. Press it when you'd play right now, then go and do something else. When ten people have pressed it, everyone gets called in at once and you all drop in together.
+
+Want the ping? Take **Match Alerts** with 📣 in {#roles}. It goes to nobody else, and never more than once every 45 minutes.
+
 ## Verification is quicker
 The code you get in game is now three digits instead of six. Same steps, less typing. If you've already linked your account you don't need to do anything.
 

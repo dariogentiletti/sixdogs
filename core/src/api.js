@@ -8,6 +8,7 @@ import { VerifyError } from './verify.js';
 import { RconError } from './rcon.js';
 import { looksEphemeral } from './db.js';
 import { commanderTerms, ratedTerms, roundPoints } from './ratings.js';
+import { shouldPing } from './seeding.js';
 
 const MAX_BODY = 16 * 1024;
 
@@ -295,6 +296,116 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       [body.matchId ?? null, String(body.faction ?? ''), String(body.discordId ?? ''), String(body.event ?? '')],
     );
     return { ok: true };
+  });
+
+  // ---- seeding: getting a cold server started ----
+  //
+  // People pledge in Discord ("I'd play right now"). When enough have, the bot
+  // calls the opt-in role in. The rules are in seeding.js; this holds the list.
+
+  /**
+   * The state of play, and whether it's time to call everyone in.
+   *
+   * Tidies up first, so the count is always honest: anyone already in game
+   * doesn't need calling, and a pledge from hours ago isn't a promise any more.
+   */
+  async function seedSummary() {
+    const s = poller.state;
+    const onNow = (s.players ?? []).map((p) => String(p.steamId));
+    if (onNow.length) {
+      await pool.query(
+        `DELETE FROM seed_pledges WHERE discord_id IN (
+           SELECT discord_id FROM links WHERE steam_id = ANY($1::text[]))`, [onNow]);
+    }
+    await pool.query(
+      'DELETE FROM seed_pledges WHERE pledged_at < now() - make_interval(mins => $1)',
+      [config.seedPledgeMinutes]);
+    const { rows } = await pool.query('SELECT discord_id, pledged_at FROM seed_pledges ORDER BY pledged_at');
+    const { rows: [last] } = await pool.query('SELECT pinged_at, ready FROM seed_pings ORDER BY id DESC LIMIT 1');
+    const pledges = rows.map((r) => ({ discordId: r.discord_id, at: new Date(r.pledged_at).toISOString() }));
+    const lastPingAt = last ? new Date(last.pinged_at).toISOString() : null;
+    const playersOn = (s.players ?? []).length;
+    const decision = shouldPing({
+      pledges,
+      playersOn,
+      serverOk: s.ok,
+      target: config.seedTarget,
+      quietAbove: config.seedQuietAbove,
+      lastPingAt,
+      pledgeMinutes: config.seedPledgeMinutes,
+      cooldownMinutes: config.seedCooldownMinutes,
+    });
+    return {
+      ok: true,
+      pledges,
+      lastPingAt,
+      playersOn,
+      serverOk: s.ok,
+      target: config.seedTarget,
+      quietAbove: config.seedQuietAbove ?? config.seedTarget,
+      pledgeMinutes: config.seedPledgeMinutes,
+      cooldownMinutes: config.seedCooldownMinutes,
+      ...decision,
+    };
+  }
+
+  route('GET', '/internal/seed', async () => seedSummary());
+
+  // on: true = "I'd play now", false = take my name off. Pledging twice is not
+  // an error; it just moves the clock on, which is what a second click means.
+  route('POST', '/internal/seed/pledge', async (_p, body) => {
+    if (!isSnowflake(body.discordId)) {
+      return [400, { error: { code: 'bad_request', message: 'discordId required' } }];
+    }
+    const on = body.on !== false;
+    if (on) {
+      await pool.query(
+        `INSERT INTO seed_pledges (discord_id) VALUES ($1)
+         ON CONFLICT (discord_id) DO UPDATE SET pledged_at = now()`, [body.discordId]);
+    } else {
+      await pool.query('DELETE FROM seed_pledges WHERE discord_id = $1', [body.discordId]);
+    }
+    return { ok: true, on, ...(await seedSummary()) };
+  });
+
+  /**
+   * Record a ping and clear the list. Core decides, not the bot: two bot ticks
+   * (or two bots) landing at once must not ping twice, so the cooldown is
+   * enforced by the insert itself and the loser is told it already happened.
+   *
+   * `force` (an admin using /seed call-now) skips the target, but NOT the
+   * cooldown: the promise made to everyone who took the ping role is that it
+   * can't go off twice in a row, and an admin in a hurry is exactly the case
+   * that promise is for.
+   */
+  route('POST', '/internal/seed/ping', async (_p, body) => {
+    const summary = await seedSummary();
+    if (!body.force && !summary.fire) return { ok: true, fired: false, ...summary };
+    const { rows } = await pool.query(
+      `INSERT INTO seed_pings (ready)
+       SELECT $1::int WHERE NOT EXISTS (
+         SELECT 1 FROM seed_pings WHERE pinged_at > now() - make_interval(mins => $2))
+       RETURNING id, pinged_at`,
+      [summary.ready, config.seedCooldownMinutes]);
+    if (!rows[0]) {
+      // Lost the race, or an admin forced one inside the cooldown. Either way,
+      // say how long is left rather than just "no".
+      const left = summary.lastPingAt
+        ? config.seedCooldownMinutes * 60_000 - (Date.now() - Date.parse(summary.lastPingAt)) : 0;
+      return {
+        ok: true, fired: false, ...summary,
+        reason: left > 0
+          ? `everyone was called in recently, ${Math.ceil(left / 60_000)} min before the next one`
+          : 'everyone was called in a moment ago',
+      };
+    }
+    // The list has done its job. Clearing it means the next ping needs a fresh
+    // set of people, rather than yesterday's names firing it again.
+    await pool.query('DELETE FROM seed_pledges');
+    return {
+      ok: true, fired: true, ready: summary.ready, target: summary.target,
+      pledges: summary.pledges, pingedAt: new Date(rows[0].pinged_at).toISOString(),
+    };
   });
 
   // ---- post-match commander ratings ----

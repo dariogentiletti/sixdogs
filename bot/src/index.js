@@ -13,6 +13,7 @@ import { ensureRoleMenu, entryForEmoji, isMenuMessage, reconcileRoleMenu } from 
 import { applyOperationsVisibility, enforceLayout } from './setup.js';
 import { syncPosts } from './posts.js';
 import { Ratings } from './ratings.js';
+import { Seeding } from './seeding.js';
 import { applyIdentity } from './identity.js';
 
 // Started by run.mjs: exit when it does, so closing the window never leaves an old bot running.
@@ -47,10 +48,11 @@ async function log(text) {
 
 const commanders = new CommanderManager({ core, config, log });
 const ratings = new Ratings({ core, config, log });
+const seeding = new Seeding({ core, config, log });
 const verified = new VerifiedRole({ roleName: config.verifiedRoleName });
 const board = new LiveBoard({ core, commanders, config });
 const web = new WebStatus({ core, commanders, config });
-const handlers = makeHandlers({ core, commanders, ratings, config, log, verified });
+const handlers = makeHandlers({ core, commanders, ratings, seeding, config, log, verified });
 
 // ---------------------------------------------------------------------------
 // Faction role sync
@@ -102,6 +104,11 @@ async function syncOnce() {
       return;
     }
     lastCoreError = null;
+
+    // The seeding board reads the same core state, outage or not: when the game
+    // server is down it says so rather than quietly collecting names for a
+    // server nobody can join. Not awaited — it must never hold up role syncing.
+    seeding.tick(state).catch((err) => console.warn(`[seed] ${err.message}`));
 
     // Game server unreachable: change nothing for a while. Stripping everyone's
     // roles because the host hiccuped would be worse than a stale role. After
@@ -199,6 +206,7 @@ client.once(Events.ClientReady, async (c) => {
   await guild.channels.fetch();
   commanders.attach(guild);
   ratings.attach(guild);
+  seeding.attach(guild);
   verified.attach(guild);
   board.attach(guild);
   logChannel = guild.channels.cache.find((ch) => ch.isTextBased() && ch.name === config.logChannelName) ?? null;
@@ -255,7 +263,7 @@ client.once(Events.ClientReady, async (c) => {
   // Channel posts from the content/ folder (#rules, #server-info, #announcements).
   try {
     const isMenu = (m) => isMenuMessage(m, client.user.id, config.rolesChannelName);
-    for (const line of await syncPosts(guild, { isMenu, skip: [config.liveBoardChannel] })) {
+    for (const line of await syncPosts(guild, { isMenu, skip: [config.liveBoardChannel, config.seedChannel] })) {
       if (line.startsWith('!')) console.warn(`[posts] ${line.slice(2)}`);
       else console.log(`[posts] ${line.slice(2)}`);
     }
@@ -344,6 +352,7 @@ client.on(Events.ChannelCreate, (ch) => {
 client.on(Events.InteractionCreate, async (i) => {
   try {
     if (i.isButton() && i.customId.startsWith('rate:')) return ratings.onButton(i);
+    if (i.isButton() && i.customId.startsWith('seed:')) return seeding.onButton(i);
     if (i.isButton() && i.customId.startsWith('cmd:')) {
       const [, action, , matchId] = i.customId.split(':');
       if (Number(matchId) !== commanders.matchId) {
