@@ -44,6 +44,10 @@ Read off `/server` on the real SIXDOGS server, so these are facts now, not guess
   `gameFactionFor` maps blue/red/green back to Lonestar/Valkyra/Manticore.
 - All five actions are served: message, broadcast, kick, move (`PATCH /v1/players/{id}`) and
   end match. The full observed route list is in `docs/wardogs-rcon.md`.
+- `player.faction` carries the SAME strings as `factionScores[].name`: read off a live server
+  with players on, `factionStrings` came back `["Valkyra", "Manticore"]`. So the plain-name
+  fallback in `factionKeyFor` is the path that actually runs, both directions check out
+  (Valkyra->red->Valkyra), and `FACTION_ALIASES` is not needed. No alias guessing required.
 - Also served but unused so far: `GET`/`PUT /v1/config` + `POST /v1/config/validate` (server
   settings), `/v1/bans`, `/v1/match/map`, `/v1/match/restart`, `PUT /v1/world/lighting`,
   `/v1/rotation`, the `/v1/catalog/*` lists, `/v1/audit`, `POST /v1/players/{id}/kill`.
@@ -54,12 +58,11 @@ Read off `/server` on the real SIXDOGS server, so these are facts now, not guess
 
 ## Still unverified — check against a live server before relying on them
 
-- Whether `matchSeconds` counts up or down (core infers it). The first `/server` was taken on
-  an empty server, where `matchSeconds` was null, so this is still open.
-- The exact strings in `player.faction`. Nobody was online, so `factionStrings` came back
-  empty. `factionScores[].name` is Lonestar/Valkyra/Manticore, so the existing fallbacks
-  should cover it, but confirm with players on. `FACTION_ALIASES` overrides
-  (`bot/src/factions.js`).
+- Whether `matchSeconds` counts up or down. Moot in practice on this build: `/server` with
+  players on shows `matchSeconds: null` and no `matchSeconds` key in `statusKeys` at all, so
+  there is no clock to infer a direction from. `clockDirection` stays null and the board falls
+  back to when the bot first saw the match. Only worth revisiting if a future build starts
+  sending the field.
 
 ## Deliberately cut — don't re-add
 

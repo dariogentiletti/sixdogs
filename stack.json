@@ -94,7 +94,10 @@
     "2026-09-21: the live build does not send matchSeconds or scoreCap even while a match is open, not just when idle. The board falls back to when the bot first saw the match, which is only meaningful once players are on.",
     "2026-09-21: the browser CAN read live.sixdogs.gg from sixdogs.gg (CORS fine, state live, fresh). The live tracker was missing only because the deployed page was stale.",
     "2026-09-21: the Pages project was a Direct Upload, which is why no website change reached visitors all day. Replaced with a Git-connected project.",
-    "2026-09-21: WARDOGS does not answer steam:// links at all. Neither steam://connect/<ip:port> nor steam://run/1867240//+connect <ip:port> launches the game into the server, so there is no one-click join. The website shows the Server ID for Community servers -> Join by ID instead."
+    "2026-09-21: WARDOGS does not answer steam:// links at all. Neither steam://connect/<ip:port> nor steam://run/1867240//+connect <ip:port> launches the game into the server, so there is no one-click join. The website shows the Server ID for Community servers -> Join by ID instead.",
+    "2026-09-21: player.faction uses the same names as factionScores[].name. /server with 2 players on reported factionStrings [\"Valkyra\", \"Manticore\"]. factionKeyFor maps both to red/green and gameFactionFor maps back, so FACTION_ALIASES is not needed. This closes the last of the three things that were guesses.",
+    "2026-09-21: matchSeconds and scoreCap are absent WITH PLAYERS ON, not just on an idle server. statusKeys from /server with 2 connected: alternator, experiences, factionScores, lighting, map, players, rotation, scoreTick, serverName. So there is no match clock on this build at all and clockDirection stays null by design.",
+    "2026-09-21: the live build advertises 29 routes including GET/PUT /v1/config and POST /v1/config/validate, so the server settings CAN be written. What is missing is the document itself: the key names for minimum players and the AFK timeout are not in the docs and must be read with /settings before anything is written."
   ],
   "rules": [
     "Never move players between teams automatically during a match. The owner has ruled this out: /move stays an admin command only, and no balancing rule may ever call it on its own.",
