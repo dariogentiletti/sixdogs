@@ -305,6 +305,22 @@ Both show you the change and save nothing until you add `confirm:True`, and both
 past the six the server allows. Nothing is ever granted by typing a SteamID: a mistyped one would
 hand a paid slot to a stranger.
 
+## Announcements
+
+`content/announcements.md` is the latest announcement, and `#announcements` is append only. Change
+that file and the bot posts it as a **new message** next time it starts, leaving the older ones
+above it as history. It never edits one: an edit notifies nobody and would slip the news in above
+messages people have already read.
+
+Two things to keep to when you write one:
+
+- **Replace the whole file**, don't add to it. What's in there is what gets posted.
+- **Put the date in the title**, written out by hand, e.g. `# What's new: 21 September 2026`. That
+  is how people tell what's actually new. Don't make it generate itself, or the bot would post the
+  same announcement again every time it restarts.
+
+If you change nothing, nothing is posted.
+
 ## Settings
 
 Every setting, with its default and what it does, is in **`.env.example`**. On Railway those

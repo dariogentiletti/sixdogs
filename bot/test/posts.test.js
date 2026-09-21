@@ -66,3 +66,117 @@ test('posts: // lines are notes and never show up', () => {
   assert.equal(p.embeds[0].description, 'Hi');
   assert.equal(p.components.length, 0);
 });
+
+// ---- #announcements is append only ----
+
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { syncPosts, APPEND_CHANNELS } from '../src/posts.js';
+
+/**
+ * A guild with one text channel, remembering what was sent, edited and deleted.
+ * `history` is what the bot has already posted there, newest last.
+ */
+function fakeGuild(history = []) {
+  const sent = [];
+  const edited = [];
+  const deleted = [];
+  const msgs = history.map((h, i) => ({
+    id: String(i),
+    author: { id: 'BOT' },
+    createdTimestamp: i,
+    content: '',
+    embeds: h.embeds,
+    components: [],
+    attachments: new Map(),
+    edit: async (p) => { edited.push({ id: String(i), p }); },
+    delete: async () => { deleted.push(String(i)); },
+  }));
+  const channel = {
+    id: 'C',
+    name: 'announcements',
+    type: 0,
+    messages: { fetch: async () => new Map(msgs.map((m) => [m.id, m])) },
+    send: async (p) => { sent.push(p); return { id: 'new' }; },
+  };
+  return {
+    guild: { client: { user: { id: 'BOT' } }, channels: { cache: [channel] } },
+    sent, edited, deleted,
+  };
+}
+
+async function contentDir(text) {
+  const dir = await mkdtemp(join(tmpdir(), 'sixdogs-posts-'));
+  await writeFile(join(dir, 'announcements.md'), text, 'utf8');
+  return dir;
+}
+
+const NEWS = "# What's new: 21 September 2026\ncolor: gold\nWe changed some things.";
+const OLDER = "# What's new: 1 September 2026\ncolor: gold\nWe changed other things.";
+
+test('#announcements is in the append list, #rules is not', () => {
+  assert.ok(APPEND_CHANNELS.includes('announcements'));
+  assert.ok(!APPEND_CHANNELS.includes('rules'));
+});
+
+test('a new announcement is SENT, never an edit of the last one', async () => {
+  const dir = await contentDir(NEWS);
+  const w = fakeGuild([{ embeds: renderPost(OLDER, () => '1').embeds }]);
+  const report = await syncPosts(w.guild, { dir });
+  assert.equal(w.sent.length, 1, 'posted as a new message');
+  assert.equal(w.edited.length, 0, 'nothing edited, so people actually see it');
+  assert.equal(w.deleted.length, 0, 'the older announcement is left as history');
+  assert.match(report.join(' '), /posted a new announcement/);
+  await rm(dir, { recursive: true, force: true });
+});
+
+// The failure that would matter most: posting the same thing again on every
+// restart would turn the channel into spam within a day.
+test('an unchanged announcement is not posted again', async () => {
+  const dir = await contentDir(NEWS);
+  const w = fakeGuild([
+    { embeds: renderPost(OLDER, () => '1').embeds },
+    { embeds: renderPost(NEWS, () => '1').embeds },
+  ]);
+  const report = await syncPosts(w.guild, { dir });
+  assert.equal(w.sent.length, 0);
+  assert.equal(w.edited.length, 0);
+  assert.match(report.join(' '), /already has this one/);
+  await rm(dir, { recursive: true, force: true });
+});
+
+test('only the most recent post is compared, so old ones never trigger a repost', async () => {
+  const dir = await contentDir(NEWS);
+  // The same text appears further back in the history, but the latest differs.
+  const w = fakeGuild([
+    { embeds: renderPost(NEWS, () => '1').embeds },
+    { embeds: renderPost(OLDER, () => '1').embeds },
+  ]);
+  await syncPosts(w.guild, { dir });
+  assert.equal(w.sent.length, 1, 'the newest is what counts');
+  await rm(dir, { recursive: true, force: true });
+});
+
+test('an empty channel gets the announcement', async () => {
+  const dir = await contentDir(NEWS);
+  const w = fakeGuild([]);
+  await syncPosts(w.guild, { dir });
+  assert.equal(w.sent.length, 1);
+  await rm(dir, { recursive: true, force: true });
+});
+
+test('turning append off puts a channel back to editing in place', async () => {
+  const dir = await contentDir(NEWS);
+  const w = fakeGuild([{ embeds: renderPost(OLDER, () => '1').embeds }]);
+  await syncPosts(w.guild, { dir, append: [] });
+  assert.equal(w.sent.length, 0);
+  assert.equal(w.edited.length, 1, 'edited in place, the way #rules works');
+  await rm(dir, { recursive: true, force: true });
+});
+
+test('the shipped announcement carries a date in its title', async () => {
+  const [announcement] = (await loadPosts()).filter((p) => p.channel === 'announcements');
+  const { title } = renderPost(announcement.text, () => '1').embeds[0];
+  assert.match(title, /\d{1,2} \w+ \d{4}/, `"${title}" should say when it arrived`);
+});

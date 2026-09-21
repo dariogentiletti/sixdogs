@@ -187,6 +187,18 @@ attaches a picture from content/ to that card (shown small, avoid for guides); `
 https://...` adds link buttons; `//` lines are notes (ignored); `panel: x.jpg` posts a picture as its own plain message (full
 size; lines above the first card go before it). A post = all the bot's non-menu messages in the
 channel, oldest first; same count -> edit in place, fewer -> delete the extras at the end, more -> delete and repost.
+
+**#announcements is APPEND ONLY** (`APPEND_CHANNELS` in `posts.js`). Editing is right for #rules
+and the guides, where nobody should be pinged because a sentence was tidied. It is wrong for news:
+an edit notifies nobody and slides the announcement in above messages people have already read, so
+it arrives silently and looks older than it is. Change `content/announcements.md` and the bot
+SENDS a new message, leaving every earlier announcement untouched as history. It compares only
+against the most recent post, so an unchanged file posts nothing (there is a test for that; the
+same announcement going up on every restart would be spam within a day).
+
+That file therefore holds the LATEST announcement only, replaced wholesale, with the date in the
+title. Write the date BY HAND. A generated one would differ on every render and the bot would post
+again every time it restarted.
 Guide panels are 1200x675 (2x) in the briefing style: design/verify-guide/build_panels.py +
 panels.css, rendered by render_panels.py, then saved as JPEG q88 into content/. The BODY is only
 about 535px tall once the gold strip and padding are off, and the panel is `overflow:hidden`, so

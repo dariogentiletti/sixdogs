@@ -182,7 +182,19 @@ async function findPosts(channel, botUserId, isMenu) {
 
 const attachmentSizes = (m) => Object.fromEntries([...(m.attachments?.values() ?? [])].map((a) => [a.name, a.size]));
 
-export async function syncPosts(guild, { dir = DEFAULT_CONTENT_DIR, isMenu = () => false, skip = [] } = {}) {
+/**
+ * Channels where a change is NEWS, so it gets a new message rather than an edit.
+ *
+ * Editing is right for #rules and the guides: nobody should be pinged because a
+ * sentence was tidied. It is wrong for announcements, where the whole point is
+ * that people find out. An edit notifies nobody and slides in above messages
+ * they have already read, so the news would arrive silently and look older than
+ * it is. Old announcements are left alone, which is what makes the channel a
+ * history instead of a single message that keeps changing.
+ */
+export const APPEND_CHANNELS = ['announcements'];
+
+export async function syncPosts(guild, { dir = DEFAULT_CONTENT_DIR, isMenu = () => false, skip = [], append = APPEND_CHANNELS } = {}) {
   const report = [];
   const idByName = (name) => guild.channels.cache
     .find((c) => c.type === ChannelType.GuildText && c.name === name)?.id ?? null;
@@ -238,6 +250,22 @@ export async function syncPosts(guild, { dir = DEFAULT_CONTENT_DIR, isMenu = () 
     wanted.push(...panelMsgs.slice(panelsBefore));
 
     let existing = await findPosts(channel, guild.client.user.id, isMenu);
+
+    if (append.includes(post.channel)) {
+      // Compare only against the most recent post. Anything older is history
+      // and is never touched, edited or counted.
+      const latest = existing.slice(-wanted.length);
+      const unchanged = latest.length === wanted.length && latest.every((m, i) =>
+        !m.content && signature(m.embeds, m.components, attachmentSizes(m)) === wanted[i].sig);
+      if (unchanged) {
+        report.push(`= #${post.channel} already has this one`);
+        continue;
+      }
+      for (const w of wanted) await channel.send(w.payload);
+      report.push(`+ #${post.channel}: posted a new announcement`);
+      continue;
+    }
+
     // Fewer messages than before (e.g. a card was removed): drop the extras at the end, edit the rest.
     let trimmed = 0;
     if (existing.length > wanted.length) {
