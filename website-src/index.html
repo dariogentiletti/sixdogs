@@ -404,6 +404,10 @@ function ago(ms){var m=Math.round(ms/60000);return m<1?'just now':m===1?'1 min a
 function clock(ms){var t=Math.max(0,Math.floor(ms/1000)),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s).padStart(2,'0')}
 function show(on){sec.hidden=!on;nav.hidden=!on}
 function timeText(){if(!data)return'';var now=Date.now();
+  // showClock is false when the only clock we have is "when the bot noticed
+  // this match" and nobody is playing. Counting that up would claim a match
+  // that never happened.
+  if(data.showClock===false)return'Waiting for players';
   if(data.endsAt)return'Ends in '+clock(Date.parse(data.endsAt)-now);
   if(data.startedAt)return'Running '+clock(now-Date.parse(data.startedAt));return'–'}
 function draw(){

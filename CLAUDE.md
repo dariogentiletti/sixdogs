@@ -47,9 +47,10 @@ Read off `/server` on the real SIXDOGS server, so these are facts now, not guess
 - Also served but unused so far: `GET`/`PUT /v1/config` + `POST /v1/config/validate` (server
   settings), `/v1/bans`, `/v1/match/map`, `/v1/match/restart`, `PUT /v1/world/lighting`,
   `/v1/rotation`, the `/v1/catalog/*` lists, `/v1/audit`, `POST /v1/players/{id}/kill`.
-- `/v1/status` on an idle server omits `matchSeconds` and `scoreCap`. Both are already treated
-  as optional (`typeof === 'number'` guards); match detection then leans on map, rotation index
-  and the score reset.
+- `/v1/status` omits `matchSeconds` and `scoreCap` entirely on this build, idle or not. Both are
+  treated as optional (`typeof === 'number'` guards); match detection leans on map, rotation
+  index and the score reset. `summarize` sets `clockFromServer:false` in that case and
+  `showClock` only once players are on, so the board never counts up a match nobody played.
 
 ## Still unverified — check against a live server before relying on them
 

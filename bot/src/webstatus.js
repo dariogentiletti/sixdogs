@@ -24,6 +24,8 @@ export function publicStatus(state, { now = Date.now(), commanderOf = () => null
     matchId: s.matchId,
     endsAt: iso(s.endsAt),
     startedAt: iso(s.startedAt),
+    // False when the clock is only "when the bot noticed" and nobody is on.
+    showClock: s.showClock,
     scoreCap: s.scoreCap,
     players: { current: s.current, max: s.max },
     teams: s.teams.map((t) => ({

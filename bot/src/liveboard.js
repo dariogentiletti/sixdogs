@@ -42,11 +42,19 @@ export function summarize(state, { now = Date.now(), commanderOf = () => null, a
     if (p.discordId) byKey.get(key).linked++;
   }
 
+  // Two very different clocks. One comes from the game (matchSeconds), the
+  // other is just when the bot first noticed this match. The second is fine
+  // once people are playing, but on an idle server it counts up forever and
+  // would claim a six hour match nobody played. Flag which one this is.
   const secs = typeof status.matchSeconds === 'number' ? status.matchSeconds : null;
   let endsAt = null, startedAt = null;
   if (secs !== null && state?.clockDirection === 'down') endsAt = now + secs * 1000;
   else if (secs !== null && state?.clockDirection === 'up') startedAt = now - secs * 1000;
+  const clockFromServer = endsAt !== null || startedAt !== null;
   if (!startedAt && state?.matchStartedAt) startedAt = new Date(state.matchStartedAt).getTime();
+  // Only trust our own guess once somebody is actually on the server.
+  const playersOn = status.players?.current ?? players.length;
+  const showClock = clockFromServer || playersOn > 0;
 
   const top = players
     .filter((p) => typeof p.kills === 'number' && p.kills > 0)
@@ -62,7 +70,7 @@ export function summarize(state, { now = Date.now(), commanderOf = () => null, a
     serverName: status.serverName ?? null,
     map: status.map ?? null,
     matchId: state?.matchId ?? null,
-    endsAt, startedAt,
+    endsAt, startedAt, clockFromServer, showClock,
     scoreCap: typeof status.scoreCap === 'number' ? status.scoreCap : null,
     current: status.players?.current ?? players.length,
     max: status.players?.max ?? null,
@@ -123,8 +131,8 @@ export function buildBoard(s, { now = Date.now(), links = {}, serverIdOverride =
   const head = [];
   const where = [s.map && `**${s.map}**`, s.matchId && `Match #${s.matchId}`].filter(Boolean).join(' · ');
   if (where) head.push(where);
-  if (s.endsAt) head.push(`⏱️ Ends <t:${unix(s.endsAt)}:R>`);
-  else if (s.startedAt) head.push(`⏱️ Started <t:${unix(s.startedAt)}:R>`);
+  if (s.showClock && s.endsAt) head.push(`⏱️ Ends <t:${unix(s.endsAt)}:R>`);
+  else if (s.showClock && s.startedAt) head.push(`⏱️ Started <t:${unix(s.startedAt)}:R>`);
   if (s.scoreCap) head.push(`🏁 First to **${s.scoreCap}** points wins`);
   if (s.lead) head.push(`📈 ${DOT[s.lead.team.key]} **${s.lead.team.label}** leads by ${s.lead.by}`);
 

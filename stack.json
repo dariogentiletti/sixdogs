@@ -70,7 +70,10 @@
     "2026-09-21: the database is Railway Postgres, not the built-in one. /server reports it green, so a deploy does not wipe verified players.",
     "2026-09-21: RCON serves all five actions (message, broadcast, kick, move, end match) plus config, bans, map, lighting, rotation, catalogs and audit.",
     "2026-09-21: the public address 64.87.44.73:20016 is the same machine as the RCON host, checked with /server.",
-    "2026-09-21: steam://connect/<ip:port> alone does nothing, because it names no game. The website now uses steam://run/1867240//+connect <address>, which still needs testing."
+    "2026-09-21: steam://connect/<ip:port> alone does nothing, because it names no game. The website now uses steam://run/1867240//+connect <address>, which still needs testing.",
+    "2026-09-21: the live status pipeline works end to end. bot -> live.sixdogs.gg -> KV, read back as state:live with map, teams and player counts.",
+    "2026-09-21: real map names look like 'Bakurani'. Server name is 'SIXDOGS.gg | *NEW* Commander Mode | Hardcore  (Join Discord)', max players 100.",
+    "2026-09-21: the live build does not send matchSeconds or scoreCap even while a match is open, not just when idle. The board falls back to when the bot first saw the match, which is only meaningful once players are on."
   ],
   "rules": [
     "Never move players between teams automatically during a match. The owner has ruled this out: /move stays an admin command only, and no balancing rule may ever call it on its own.",
