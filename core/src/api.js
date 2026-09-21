@@ -233,6 +233,11 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
     return { ok: true, items: await rcon.catalog(kind) };
   });
 
+  route('GET', '/internal/reserved-slots', async () => {
+    const { list, raw } = await rcon.reservedSlots();
+    return { ok: true, slots: list, raw };
+  });
+
   route('GET', '/internal/rotation', async () => ({ ok: true, rotation: await rcon.rotation() }));
 
   route('GET', '/internal/audit', async () => ({ ok: true, entries: await rcon.audit(50) }));

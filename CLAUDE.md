@@ -226,6 +226,10 @@ sections of `{key, value, kind}` where kind is `set`, `clear` (`!Key=ClearArray`
 (`.Key=value`). The clear directive is NEVER reported as a value of Key — that is the whole point
 of the `kind` field, and there is a test for it.
 
+`/reserved` reads `GET /v1/reserved-slots`. There is NO route to write it on this build, so
+granting a donor their promised slot means editing the settings document, which is why the write
+path below matters: it is the only way to keep a public promise the donation page already makes.
+
 WRITING IS NOT IMPLEMENTED. Before adding it: `PUT /v1/config` replaces the entire document and
 needs `If-Match: "<revision>"`, one pre-existing bad value blocks unrelated edits (read
 `errors[]` and name the key), and a wrong write breaks a live server. Read the real document

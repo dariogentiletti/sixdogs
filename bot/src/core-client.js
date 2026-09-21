@@ -61,6 +61,7 @@ export class CoreClient {
   unban(steamId) { return this.request('DELETE', `/internal/bans/${steamId}`); }
   catalog(kind) { return this.request('GET', `/internal/catalog/${kind}`).then((r) => r.items); }
   rotation() { return this.request('GET', '/internal/rotation').then((r) => r.rotation); }
+  reservedSlots() { return this.request('GET', '/internal/reserved-slots'); }
   audit() { return this.request('GET', '/internal/audit').then((r) => r.entries); }
   matchCommanders(matchId) { return this.request('GET', `/internal/matches/${matchId}/commanders`); }
   matchParticipants(matchId) { return this.request('GET', `/internal/matches/${matchId}/participants`); }

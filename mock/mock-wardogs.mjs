@@ -47,6 +47,7 @@ const ROUTES = [
   'GET /v1/capabilities', 'GET /v1/status', 'GET /v1/players', 'GET /v1/health', 'GET /v1/server-id',
   'POST /v1/players/{steamId}/message', 'POST /v1/broadcast',
   'GET /v1/config',
+  'GET /v1/reserved-slots',
   ...(process.env.MOCK_NO_ACTIONS === '1' ? [] : [
     'POST /v1/players/{steamId}/kick',
     'PATCH /v1/players/{steamId}',
@@ -255,6 +256,9 @@ http.createServer(async (req, res) => {
   if (req.method === 'GET' && p === '/v1/catalog/maps') return json(res, 200, { maps: MAPS });
   if (req.method === 'GET' && p === '/v1/catalog/lightings') return json(res, 200, { lightings: LIGHTINGS });
   if (req.method === 'GET' && p === '/v1/catalog/experiences') return json(res, 200, { experiences: EXPERIENCES });
+  if (req.method === 'GET' && p === '/v1/reserved-slots') {
+    return json(res, 200, { slots: [{ steamId: '76561198000000009', name: 'Donor One' }] });
+  }
   if (req.method === 'GET' && p === '/v1/rotation') {
     return json(res, 200, { enabled: true, mode: 'sequential', entries: MAPS.map((m) => ({ map: m })) });
   }

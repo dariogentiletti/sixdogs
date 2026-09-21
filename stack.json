@@ -59,7 +59,15 @@
       "notes": "Worker \"sixdogs-live\", KV namespace \"sixdogs-live\" (6215eeaf827f4ba8be91f231f2b06e00) bound as STATUS, PUSH_TOKEN secret, custom domain live.sixdogs.gg. Set up by the owner 2026-09-21, along with STATUS_PUSH_URL and STATUS_PUSH_TOKEN in Railway. Serves the root and /status alike. Claude cannot reach the domain from its sandbox, so confirm by opening it."
     }
   ],
-  "pending": [],
+  "pending": [
+    {
+      "id": "reserved-slot-grant",
+      "what": "A way to actually give a donor their reserved slot. /reserved can read the list, but the live build offers no route to write it, so a slot has to be added in the settings document via PUT /v1/config, which is not implemented.",
+      "blocking": "The donation page promises \"$10 or more: a reserved slot for that month\" and nothing can deliver it. Right now a slot has to be granted by hand in the xREALM panel.",
+      "cost": "None",
+      "howTo": "Run /reserved and /settings on the live server to see how slots are stored, then build the config write path described in CLAUDE.md."
+    }
+  ],
   "decisions": [
     "Railway over a plain VPS: no SSH for routine changes, settings are a web form, managed Postgres, and it redeploys on every push to main.",
     "Cloudflare Pages over Railway for the website: free, purpose-built for static files, and the _redirects file and the live-status worker were already written for it.",

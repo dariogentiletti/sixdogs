@@ -61,6 +61,8 @@ export const commandDefinitions = [
     .setDefaultMemberPermissions(P.Administrator),
   new SlashCommandBuilder().setName('server').setDescription('ADMIN: what the game server reports and what it lets the bot do')
     .setDefaultMemberPermissions(P.ManageRoles),
+  new SlashCommandBuilder().setName('reserved').setDescription('ADMIN: who holds a reserved slot on the game server')
+    .setDefaultMemberPermissions(P.ManageRoles),
   new SlashCommandBuilder().setName('settings').setDescription("ADMIN: read the game server's settings")
     .addStringOption((o) => o.setName('section').setDescription('Show one section in full').setMaxLength(100))
     .setDefaultMemberPermissions(P.Administrator),
@@ -406,6 +408,23 @@ export function makeHandlers({ core, commanders, ratings, config, log, verified 
       if (!entries.length) return i.editReply('The game server has no recent admin actions logged.');
       const row = (e) => (typeof e === 'string' ? e : [e.at ?? e.timestamp, e.action ?? e.type, e.actor, e.target, e.detail].filter(Boolean).join('  '));
       await i.editReply(`**Server audit log** (${entries.length})\n\`\`\`\n${entries.map(row).join('\n').slice(0, 1700)}\n\`\`\``);
+    },
+
+    // Donors at $10 or more are promised a reserved slot, so an admin needs to
+    // see who currently has one. Read only: the build offers no route to grant
+    // a slot, so that lives in the settings document.
+    async reserved(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const r = await core.reservedSlots();
+      const slots = r.slots ?? [];
+      const row = (x) => (typeof x === 'string' ? x : [x.steamId ?? x.id, x.name, x.note].filter(Boolean).join('  '));
+      const lines = [
+        `**Reserved slots**: ${slots.length} in use`,
+        slots.length ? '```\n' + slots.map(row).join('\n').slice(0, 1400) + '\n```' : '_Nobody holds one right now._',
+      ];
+      // Until we know the shape on a live server, show the raw reply too.
+      if (!slots.length && r.raw) lines.push('What the server sent back:', '```json', JSON.stringify(r.raw).slice(0, 400), '```');
+      await i.editReply(lines.join('\n').slice(0, 1990));
     },
 
     async settings(i) {

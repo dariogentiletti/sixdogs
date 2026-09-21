@@ -235,6 +235,21 @@ export class RconClient {
     return Array.isArray(r) ? r : (r?.entries ?? r?.audit ?? []);
   }
 
+  /**
+   * Who holds a reserved slot. Read only: the live build advertises
+   * GET /v1/reserved-slots and nothing to write it, so granting a slot means
+   * editing the settings document instead.
+   */
+  async reservedSlots() {
+    if (!this.has('GET', '/v1/reserved-slots')) {
+      throw new RconError('This server build does not expose its reserved slots.', { code: 'unsupported' });
+    }
+    const r = await this.request('GET', '/v1/reserved-slots');
+    // Builds differ on the wrapper; take whichever list is there.
+    const list = Array.isArray(r) ? r : (r?.slots ?? r?.reservedSlots ?? r?.entries ?? r?.players ?? []);
+    return { list: Array.isArray(list) ? list : [], raw: r };
+  }
+
   // ---- server settings ----
   // The config is one plain-text document (ServerSettings.ini style), not JSON.
   // Reading is safe; writing replaces the WHOLE document and is not done here

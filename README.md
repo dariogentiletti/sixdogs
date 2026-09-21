@@ -48,7 +48,7 @@ project, add a Postgres database, paste in the two Discord settings above, and i
 There is nothing to install and no server to log into. Once it is running it stays running, and
 every change pushed to GitHub `main` redeploys it by itself.
 
-You want `registered 30 slash commands` in the Railway deployment log.
+You want `registered 31 slash commands` in the Railway deployment log.
 
 ## 3. Set up your Discord
 
@@ -167,8 +167,9 @@ against your real server. The bot recognises factions by the colour the server r
 | | `/endmatch confirm:True` | End the match now |
 | | `/server` | What the game server reports, and what it lets the bot do |
 | | `/settings [section]` | Read the game server's settings document |
+| | `/reserved` | Who holds a reserved slot (donors at $10 or more are promised one) |
 
-The last seven need a game server. Each one is checked against what your server
+The last eight need a game server. Each one is checked against what your server
 build actually supports first, so an action it can't do comes back as a
 sentence saying so rather than a failure. `/server` lists which are available.
 
