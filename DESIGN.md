@@ -243,7 +243,7 @@ Briefing is square with slight wear: 4px on command bars and icon tabs, 3px on a
 The signature shared component: shows exactly what to type. Dark bar, mono 38px, argument name in a muted chip, sample value in gold, a gold caret. Briefing: ink bar, 4px radius, thin caret. HUD: terminal black with 2px olive border, square corners, block cursor, gold prompt.
 
 ### In-Game Message
-Mono 34px mock of the private message with a 28px mono header; the six-digit code on a gold band. Briefing: light slip with 3px ink border. HUD: 2px gold border over an 8% gold wash. Mockups are illustrative until real screenshots exist.
+Mono 34px mock of the private message with a 28px mono header; the code on a gold band. Briefing: light slip with 3px ink border. HUD: 2px gold border over an 8% gold wash. Mockups are illustrative until real screenshots exist.
 
 ### The Rule (kick warning)
 - **Briefing:** a red rotated rubber stamp beside the Situation paragraph, the key clause gold-highlighted.

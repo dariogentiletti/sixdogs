@@ -188,7 +188,7 @@ export class CommanderManager {
     const inVoice = vc && this.voiceOf(pick.discordId) === vc.id;
     // They're looking at the game, not Discord — so whisper in-game first.
     await this.core.message(pick.steamId,
-      `You've been picked as ${f.label} COMMANDER. Alt-tab and press Accept in your Discord DMs (or type /accept) within ${secs}s.${inVoice ? '' : ` Then join "${f.voiceChannelName}".`}`)
+      `You've been picked as ${f.label} COMMANDER. Alt-tab to Discord and press Accept in your DMs within ${secs}s.${inVoice ? '' : ` Then join "${f.voiceChannelName}".`}`)
       .catch((err) => console.warn('[commander] in-game whisper failed:', err.message));
 
     const row = new ActionRowBuilder().addComponents(
@@ -240,9 +240,28 @@ export class CommanderManager {
     await this.log(`✅ ${f.label} commander: <@${discordId}> (${how}).`);
     const player = this.latest.players.find((p) => p.discordId === discordId);
     if (player) {
-      this.core.message(player.steamId, `You are ${f.label} commander. You're live in ${f.voiceChannelName}. Watch TEAM chat for tower digits.`).catch(() => {});
+      this.core.message(player.steamId, `You are ${f.label} commander. You're live in ${f.voiceChannelName}. Make sure you read team chat for comms.`).catch(() => {});
     }
+    // Everyone in the game is told who is commanding, not just the commander.
+    // The in-game name is what the rest of the server recognises; the Discord
+    // name is only a fallback for someone who has just left the server.
+    const shown = player?.name || member.displayName || member.user?.username;
+    if (shown) this.announce(`A new ${f.label} commander has been chosen: ${shown}`);
     return true;
+  }
+
+  /**
+   * Say something to everyone in the game. Never allowed to break whatever
+   * asked for it: a build without broadcasts, or a server that hiccups, must
+   * not stop someone becoming commander. Fire and forget on purpose.
+   */
+  announce(text) {
+    try {
+      const sent = this.core.broadcast?.(text);
+      sent?.catch?.((err) => console.warn(`[commander] couldn't announce to the server: ${err.message}`));
+    } catch (err) {
+      console.warn(`[commander] couldn't announce to the server: ${err.message}`);
+    }
   }
 
   async remove(faction, why, { cooldown = 'removed', reselect = true } = {}) {

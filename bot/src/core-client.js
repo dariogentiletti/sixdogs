@@ -52,6 +52,16 @@ export class CoreClient {
   endMatch() { return this.request('POST', '/internal/match/end', {}); }
   diagnostics() { return this.request('GET', '/internal/diagnostics'); }
   serverConfig() { return this.request('GET', '/internal/config'); }
+  kill(steamId) { return this.request('POST', `/internal/players/${steamId}/kill`, {}); }
+  restartMatch() { return this.request('POST', '/internal/match/restart', {}); }
+  setMap(body) { return this.request('POST', '/internal/match/map', body); }
+  setLighting(lighting) { return this.request('PUT', '/internal/world/lighting', { lighting }); }
+  bans() { return this.request('GET', '/internal/bans').then((r) => r.bans); }
+  ban(steamId, reason) { return this.request('POST', '/internal/bans', { steamId, reason }); }
+  unban(steamId) { return this.request('DELETE', `/internal/bans/${steamId}`); }
+  catalog(kind) { return this.request('GET', `/internal/catalog/${kind}`).then((r) => r.items); }
+  rotation() { return this.request('GET', '/internal/rotation').then((r) => r.rotation); }
+  audit() { return this.request('GET', '/internal/audit').then((r) => r.entries); }
   matchCommanders(matchId) { return this.request('GET', `/internal/matches/${matchId}/commanders`); }
   matchParticipants(matchId) { return this.request('GET', `/internal/matches/${matchId}/participants`); }
   ratingPlan(matchId, body) { return this.request('POST', `/internal/matches/${matchId}/rating-plan`, body); }

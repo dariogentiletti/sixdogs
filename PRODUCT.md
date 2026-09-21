@@ -17,7 +17,7 @@ Every faction has one commander, the only voice in the faction's listen channel,
 
 ## Operating Context
 - Discord server with locked info channels (#rules, #roles, #server-info, #announcements), a #roles reaction menu, and per-faction "X Command (listen)" voice channels.
-- Verification: be on the game server, `/verify <in-game name>` in Discord, receive a 6-digit code as an in-game private message (valid 10 minutes), `/confirm <code>`. Duplicate names are resolved with a Steam profile link or SteamID. Links are by SteamID; Steam name changes do not unlink.
+- Verification: be on the game server, `/verify <in-game name>` in Discord, receive a short numeric code as an in-game private message (valid 10 minutes), `/confirm <code>`. Duplicate names are resolved with a Steam profile link or SteamID. Links are by SteamID; Steam name changes do not unlink.
 - Factions are named by colour in Discord: Blue (Lonestar), Red (Valkyra), Green (Manticore).
 - Channel posts are Discord embeds generated from `content/*.md`; guides are shared as images in channels.
 

@@ -145,6 +145,96 @@ export class RconClient {
     return this.request('POST', '/v1/match/end');
   }
 
+  kill(steamId) {
+    if (!this.has('POST', '/v1/players/{steamId}/kill')) {
+      throw new RconError('This server build cannot kill players.', { code: 'unsupported' });
+    }
+    return this.request('POST', `/v1/players/${encodeURIComponent(steamId)}/kill`);
+  }
+
+  restartMatch() {
+    if (!this.has('POST', '/v1/match/restart')) {
+      throw new RconError('This server build cannot restart the match.', { code: 'unsupported' });
+    }
+    return this.request('POST', '/v1/match/restart');
+  }
+
+  /**
+   * Change the map. Only `map` is required; the rest are left out entirely when
+   * not given, so the server keeps whatever it was using rather than being sent
+   * a null it has to interpret.
+   */
+  setMap({ map, experiences, lighting, zoneAlternator } = {}) {
+    if (!this.has('POST', '/v1/match/map')) {
+      throw new RconError('This server build cannot change the map.', { code: 'unsupported' });
+    }
+    const body = { map };
+    if (Array.isArray(experiences) && experiences.length) body.experiences = experiences;
+    if (lighting) body.lighting = lighting;
+    if (zoneAlternator) body.zoneAlternator = zoneAlternator;
+    return this.request('POST', '/v1/match/map', body);
+  }
+
+  setLighting(lighting) {
+    if (!this.has('PUT', '/v1/world/lighting')) {
+      throw new RconError('This server build cannot change the lighting.', { code: 'unsupported' });
+    }
+    return this.request('PUT', '/v1/world/lighting', { lighting });
+  }
+
+  // ---- bans ----
+
+  async bans() {
+    if (!this.has('GET', '/v1/bans')) {
+      throw new RconError('This server build does not keep a ban list.', { code: 'unsupported' });
+    }
+    const r = await this.request('GET', '/v1/bans');
+    return Array.isArray(r) ? r : (r?.bans ?? []);
+  }
+
+  ban(steamId, reason) {
+    if (!this.has('POST', '/v1/bans')) {
+      throw new RconError('This server build cannot ban players.', { code: 'unsupported' });
+    }
+    return this.request('POST', '/v1/bans', { steamId, reason });
+  }
+
+  unban(steamId) {
+    if (!this.has('DELETE', '/v1/bans/{steamId}')) {
+      throw new RconError('This server build cannot lift bans.', { code: 'unsupported' });
+    }
+    return this.request('DELETE', `/v1/bans/${encodeURIComponent(steamId)}`);
+  }
+
+  // ---- what the server offers ----
+
+  /** kind: 'maps' | 'lightings' | 'experiences' */
+  async catalog(kind) {
+    const path = `/v1/catalog/${kind}`;
+    if (!this.has('GET', path)) {
+      throw new RconError(`This server build does not list its ${kind}.`, { code: 'unsupported' });
+    }
+    const r = await this.request('GET', path);
+    // Builds differ on whether this is a bare array or wrapped under the name.
+    return Array.isArray(r) ? r : (r?.[kind] ?? r?.items ?? []);
+  }
+
+  rotation() {
+    if (!this.has('GET', '/v1/rotation')) {
+      throw new RconError('This server build does not expose its rotation.', { code: 'unsupported' });
+    }
+    return this.request('GET', '/v1/rotation');
+  }
+
+  async audit(limit = 20) {
+    if (!this.has('GET', '/v1/audit')) {
+      throw new RconError('This server build does not keep an audit log.', { code: 'unsupported' });
+    }
+    const n = Math.min(500, Math.max(1, Number(limit) || 20));
+    const r = await this.request('GET', `/v1/audit?limit=${n}`);
+    return Array.isArray(r) ? r : (r?.entries ?? r?.audit ?? []);
+  }
+
   // ---- server settings ----
   // The config is one plain-text document (ServerSettings.ini style), not JSON.
   // Reading is safe; writing replaces the WHOLE document and is not done here
@@ -177,6 +267,12 @@ export class RconClient {
       kick: this.has('POST', '/v1/players/{steamId}/kick'),
       move: this.has('PATCH', '/v1/players/{steamId}'),
       endMatch: this.has('POST', '/v1/match/end'),
+      kill: this.has('POST', '/v1/players/{steamId}/kill'),
+      restart: this.has('POST', '/v1/match/restart'),
+      changeMap: this.has('POST', '/v1/match/map'),
+      lighting: this.has('PUT', '/v1/world/lighting'),
+      ban: this.has('POST', '/v1/bans'),
+      audit: this.has('GET', '/v1/audit'),
     };
   }
 }

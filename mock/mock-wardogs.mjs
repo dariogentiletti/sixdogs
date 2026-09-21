@@ -25,6 +25,7 @@ const FACTION_COLORS = ['#2f6fd6', '#d13b3b', '#3aa655'];
 
 let matchStart = Date.now();
 let map = 'Harbor';
+let lighting = 'Day';
 let rotationIndex = 0;
 const messages = [];
 const players = new Map();
@@ -50,6 +51,13 @@ const ROUTES = [
     'POST /v1/players/{steamId}/kick',
     'PATCH /v1/players/{steamId}',
     'POST /v1/match/end',
+    'POST /v1/match/restart',
+    'POST /v1/match/map',
+    'PUT /v1/world/lighting',
+    'POST /v1/players/{id}/kill',
+    'GET /v1/bans', 'POST /v1/bans', 'DELETE /v1/bans/{steamId}',
+    'GET /v1/catalog/maps', 'GET /v1/catalog/lightings', 'GET /v1/catalog/experiences',
+    'GET /v1/rotation', 'GET /v1/audit',
   ]),
 ];
 
@@ -80,6 +88,12 @@ bEnabled=True
 .Maps=Foundry
 `;
 let configRevision = 7;
+const MAPS = ['Harbor', 'Ridge', 'Foundry', 'Delta'];
+const LIGHTINGS = ['Day', 'Dusk', 'Night'];
+const EXPERIENCES = ['Assault', 'Domination'];
+const bans = new Map();
+const auditLog = [];
+const note = (action, detail) => auditLog.unshift({ at: new Date().toISOString(), action, detail });
 
 async function body(req) {
   const chunks = [];
@@ -137,7 +151,7 @@ http.createServer(async (req, res) => {
   if (req.method === 'GET' && p === '/v1/status') {
     const secs = Math.floor((Date.now() - matchStart) / 1000);
     return json(res, 200, {
-      serverName: 'SIXDOGS | Command net in Discord (MOCK)', map, experiences: [], lighting: 'Day', alternator: 'A',
+      serverName: 'SIXDOGS | Command net in Discord (MOCK)', map, experiences: [], lighting, alternator: 'A',
       scoreTick: { current: 30, min: 10, max: 60 }, scoreCap: 100, matchSeconds: secs,
       players: { current: players.size, max: 99 },
       factionScores: FACTIONS.map((name, i) => ({ name, colorHex: FACTION_COLORS[i] })),
@@ -187,6 +201,65 @@ http.createServer(async (req, res) => {
     pl.faction = b.faction;
     console.log(`[mock] moved ${pl.name} to ${b.faction}`);
     return json(res, 200, { ok: true, faction: pl.faction });
+  }
+  if (req.method === 'POST' && p === '/v1/match/restart') {
+    matchStart = Date.now();
+    note('match.restart', '');
+    console.log('[mock] match restarted');
+    return json(res, 200, { ok: true });
+  }
+  if (req.method === 'POST' && p === '/v1/match/map') {
+    const b = await body(req);
+    if (!MAPS.includes(b.map)) return json(res, 422, { error: { code: 'bad_map', message: `unknown map "${b.map}"` } });
+    if (b.lighting && !LIGHTINGS.includes(b.lighting)) return json(res, 422, { error: { code: 'bad_lighting', message: `unknown lighting "${b.lighting}"` } });
+    map = b.map;
+    if (b.lighting) lighting = b.lighting;
+    newMatch();
+    note('match.map', `${b.map}${b.lighting ? ' ' + b.lighting : ''}`);
+    console.log(`[mock] map changed to ${b.map}`);
+    return json(res, 200, { ok: true, map });
+  }
+  if (req.method === 'PUT' && p === '/v1/world/lighting') {
+    const b = await body(req);
+    if (!LIGHTINGS.includes(b.lighting)) return json(res, 422, { error: { code: 'bad_lighting', message: `unknown lighting "${b.lighting}"` } });
+    lighting = b.lighting;
+    note('world.lighting', b.lighting);
+    console.log(`[mock] lighting set to ${b.lighting}`);
+    return json(res, 200, { ok: true, lighting });
+  }
+  const mkill = /^\/v1\/players\/([^/]+)\/kill$/.exec(p);
+  if (req.method === 'POST' && mkill) {
+    const pl = players.get(mkill[1]);
+    if (!pl) return json(res, 404, { error: { code: 'player_not_found', message: 'not online' } });
+    pl.deaths += 1;
+    note('player.kill', pl.name);
+    console.log(`[mock] killed ${pl.name}`);
+    return json(res, 200, { ok: true });
+  }
+  if (req.method === 'GET' && p === '/v1/bans') return json(res, 200, { bans: [...bans.values()] });
+  if (req.method === 'POST' && p === '/v1/bans') {
+    const b = await body(req);
+    bans.set(String(b.steamId), { steamId: String(b.steamId), reason: b.reason ?? '', at: new Date().toISOString() });
+    players.delete(String(b.steamId));
+    note('ban.add', String(b.steamId));
+    console.log(`[mock] banned ${b.steamId}: ${b.reason}`);
+    return json(res, 200, { ok: true });
+  }
+  const munban = /^\/v1\/bans\/([^/]+)$/.exec(p);
+  if (req.method === 'DELETE' && munban) {
+    if (!bans.delete(munban[1])) return json(res, 404, { error: { code: 'not_banned', message: 'not in the ban list' } });
+    note('ban.remove', munban[1]);
+    console.log(`[mock] unbanned ${munban[1]}`);
+    return json(res, 200, { ok: true });
+  }
+  if (req.method === 'GET' && p === '/v1/catalog/maps') return json(res, 200, { maps: MAPS });
+  if (req.method === 'GET' && p === '/v1/catalog/lightings') return json(res, 200, { lightings: LIGHTINGS });
+  if (req.method === 'GET' && p === '/v1/catalog/experiences') return json(res, 200, { experiences: EXPERIENCES });
+  if (req.method === 'GET' && p === '/v1/rotation') {
+    return json(res, 200, { enabled: true, mode: 'sequential', entries: MAPS.map((m) => ({ map: m })) });
+  }
+  if (req.method === 'GET' && p.startsWith('/v1/audit')) {
+    return json(res, 200, { entries: auditLog.slice(0, 50) });
   }
   if (req.method === 'GET' && p === '/v1/config') {
     return json(res, 200, {

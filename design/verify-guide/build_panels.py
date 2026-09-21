@@ -21,11 +21,11 @@ panel('v2', G, 2, T, '''<div class="cols">
 </div>'''),
 panel('v3', G, 3, T, '''<div class="cols">
   <div><div class="num">3</div><h3>Read your code</h3>
-    <p><span class="w">In game.</span> A private message with six digits. <b>It works for 10 minutes.</b></p>
-    <div class="slip"><div class="t">PRIVATE MESSAGE</div><div class="m">SIXDOGS verification code: <span class="k">482913</span></div></div></div>
+    <p><span class="w">In game.</span> A private message with a short code. <b>It works for 10 minutes.</b></p>
+    <div class="slip"><div class="t">PRIVATE MESSAGE</div><div class="m">SIXDOGS verification code: <span class="k">417</span></div></div></div>
   <div><div class="num">4</div><h3>Type /confirm</h3>
     <p><span class="w">In Discord.</span> Enter the code from the message.</p>
-    <div class="typed">/confirm <span class="opt">code</span><span class="val">482913</span><span class="caret"></span></div></div>
+    <div class="typed">/confirm <span class="opt">code</span><span class="val">417</span><span class="caret"></span></div></div>
 </div>'''),
 panel('v4', G, 4, T, '''<div class="cols">
   <div><div class="num">5</div><h3>You're verified</h3>

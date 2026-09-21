@@ -1,11 +1,15 @@
 // /verify flow: Discord user names their in-game character -> we find the
-// SteamID in the live player list -> whisper them a six-digit code in-game ->
+// SteamID in the live player list -> whisper them a short numeric code in-game ->
 // they paste it back in Discord -> links row.
 
 import { randomInt } from 'node:crypto';
 
 const RESEND_COOLDOWN_SEC = 60;
-const MAX_ATTEMPTS = 5;
+// Lowered from 5 when the code went from six digits to three. A short code is
+// only safe if guessing is expensive: with 3 digits and 3 tries per code, an
+// attacker needs roughly 230 rounds for an even chance, each one costing a
+// 60s wait and sending the victim another whisper they did not ask for.
+const MAX_ATTEMPTS = 3;
 
 export class VerifyError extends Error {
   constructor(message, code = 'verify_error') {
@@ -48,11 +52,14 @@ export function findPlayerByName(players, rawName) {
 }
 
 export class Verifier {
-  constructor({ pool, rcon, poller, ttlSec }) {
+  constructor({ pool, rcon, poller, ttlSec, codeDigits = 3 }) {
     this.pool = pool;
     this.rcon = rcon;
     this.poller = poller;
     this.ttlSec = ttlSec;
+    // How long the in-game code is. Short is friendlier to type; see
+    // MAX_ATTEMPTS above for why the two have to move together.
+    this.codeDigits = Math.min(10, Math.max(3, Number(codeDigits) || 3));
   }
 
   async start(discordId, name) {
@@ -89,7 +96,8 @@ export class Verifier {
       throw new VerifyError(`I just sent you a code. Check your in-game messages, or try again in ${wait}s.`, 'cooldown');
     }
 
-    const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    const digits = this.codeDigits;
+    const code = String(randomInt(0, 10 ** digits)).padStart(digits, '0');
     // Send first: if the whisper fails we don't want a code sitting in the DB.
     await this.rcon.message(steamId, `SIXDOGS verification code: ${code}. Type /confirm ${code} in Discord. Didn't ask for this? Ignore it.`);
 
@@ -101,7 +109,7 @@ export class Verifier {
              attempts = 0, created_at = now()`,
       [discordId, steamId, code, this.ttlSec],
     );
-    return { steamId, name: player.name, expiresInSec: this.ttlSec };
+    return { steamId, name: player.name, expiresInSec: this.ttlSec, digits };
   }
 
   async confirm(discordId, rawCode) {

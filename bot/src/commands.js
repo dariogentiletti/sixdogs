@@ -15,7 +15,7 @@ export const commandDefinitions = [
   new SlashCommandBuilder().setName('verify').setDescription('Link your Discord to your WARDOGS character (be in-game first)')
     .addStringOption((o) => o.setName('name').setDescription('Your in-game name as on the scoreboard (or your Steam profile link)').setRequired(true).setMaxLength(100)),
   new SlashCommandBuilder().setName('confirm').setDescription('Finish /verify with the code you were sent in-game')
-    .addStringOption((o) => o.setName('code').setDescription('Six-digit code').setRequired(true).setMaxLength(12)),
+    .addStringOption((o) => o.setName('code').setDescription('The code you were sent in-game').setRequired(true).setMaxLength(12)),
   new SlashCommandBuilder().setName('unlink').setDescription('Unlink your Discord from your WARDOGS character'),
   new SlashCommandBuilder().setName('whoami').setDescription('Show which WARDOGS character you are linked to'),
 
@@ -64,7 +64,54 @@ export const commandDefinitions = [
   new SlashCommandBuilder().setName('settings').setDescription("ADMIN: read the game server's settings")
     .addStringOption((o) => o.setName('section').setDescription('Show one section in full').setMaxLength(100))
     .setDefaultMemberPermissions(P.Administrator),
+
+  // ---- match and world control ----
+  new SlashCommandBuilder().setName('map').setDescription('ADMIN: change the map now')
+    .addStringOption((o) => o.setName('map').setDescription('Map name (see /maps)').setRequired(true).setMaxLength(100))
+    .addStringOption((o) => o.setName('lighting').setDescription('Day, Night, ... (see /maps)').setMaxLength(60))
+    .setDefaultMemberPermissions(P.Administrator),
+  new SlashCommandBuilder().setName('maps').setDescription('ADMIN: list the maps and lightings this server offers')
+    .setDefaultMemberPermissions(P.ManageRoles),
+  new SlashCommandBuilder().setName('lighting').setDescription('ADMIN: change the time of day')
+    .addStringOption((o) => o.setName('lighting').setDescription('Day, Night, ... (see /maps)').setRequired(true).setMaxLength(60))
+    .setDefaultMemberPermissions(P.Administrator),
+  new SlashCommandBuilder().setName('restart').setDescription('ADMIN: restart the current match')
+    .addBooleanOption((o) => o.setName('confirm').setDescription('Yes, restart it for everyone playing').setRequired(true))
+    .setDefaultMemberPermissions(P.Administrator),
+  new SlashCommandBuilder().setName('rotation').setDescription('ADMIN: what the map rotation is set to')
+    .setDefaultMemberPermissions(P.ManageRoles),
+
+  // ---- moderation ----
+  new SlashCommandBuilder().setName('ban').setDescription('ADMIN: ban a player from the game server')
+    .addStringOption((o) => o.setName('player').setDescription('In-game name (if on now), or their SteamID64').setRequired(true).setMaxLength(100))
+    .addStringOption((o) => o.setName('reason').setDescription('Kept with the ban').setMaxLength(150))
+    .setDefaultMemberPermissions(P.BanMembers),
+  new SlashCommandBuilder().setName('unban').setDescription('ADMIN: lift a ban')
+    .addStringOption((o) => o.setName('steamid').setDescription('SteamID64 (see /bans)').setRequired(true).setMaxLength(30))
+    .setDefaultMemberPermissions(P.BanMembers),
+  new SlashCommandBuilder().setName('bans').setDescription('ADMIN: who is banned from the game server')
+    .setDefaultMemberPermissions(P.BanMembers),
+  new SlashCommandBuilder().setName('kill').setDescription('ADMIN: kill a player in-game (they respawn)')
+    .addStringOption(playerChoice)
+    .addBooleanOption((o) => o.setName('confirm').setDescription('Yes, kill them now').setRequired(true))
+    .setDefaultMemberPermissions(P.Administrator),
+  new SlashCommandBuilder().setName('audit').setDescription("ADMIN: the game server's own log of recent admin actions")
+    .setDefaultMemberPermissions(P.Administrator),
 ].map((c) => c.toJSON());
+
+/**
+ * A ban can target someone who has already left, so a bare SteamID64 is taken
+ * at face value here instead of being looked up in the online list.
+ */
+export function resolveTarget(players, needle) {
+  const q = String(needle ?? '').trim();
+  if (/^\d{15,25}$/.test(q)) {
+    const online = players.find((p) => p.steamId === q);
+    return { steamId: q, label: online ? online.name : q };
+  }
+  const { player, error } = findPlayer(players, q);
+  return error ? { error } : { steamId: player.steamId, label: player.name };
+}
 
 /**
  * Find one online player by in-game name or SteamID64. Returns { player } or
@@ -97,7 +144,7 @@ export function makeHandlers({ core, commanders, ratings, config, log, verified 
     async verify(i) {
       await i.deferReply({ flags: MessageFlags.Ephemeral });
       const r = await core.verifyStart(i.user.id, i.options.getString('name', true));
-      await i.editReply(`📨 I've sent a six-digit code to **${r.name}** in-game (private message). Type \`/confirm <code>\` here within ${Math.round(r.expiresInSec / 60)} minutes.`);
+      await i.editReply(`📨 I've sent a ${r.digits ?? 3}-digit code to **${r.name}** in-game (private message). Type \`/confirm <code>\` here within ${Math.round(r.expiresInSec / 60)} minutes.`);
     },
 
     async confirm(i) {
@@ -236,6 +283,111 @@ export function makeHandlers({ core, commanders, ratings, config, log, verified 
         '```',
       ];
       await i.editReply(lines.join('\n').slice(0, 1990));
+    },
+
+    // ---- match and world control ----
+
+    async map(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const map = i.options.getString('map', true);
+      const lighting = i.options.getString('lighting') || undefined;
+      await core.setMap({ map, lighting });
+      await i.editReply(`🗺️ Switching to **${map}**${lighting ? ` (${lighting})` : ''}.`);
+      await log(`🗺️ <@${i.user.id}> changed the map to **${map}**${lighting ? ` (${lighting})` : ''}.`);
+    },
+
+    async maps(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const [maps, lightings] = await Promise.all([
+        core.catalog('maps').catch(() => []),
+        core.catalog('lightings').catch(() => []),
+      ]);
+      const name = (x) => (typeof x === 'string' ? x : x?.name ?? x?.id ?? JSON.stringify(x));
+      const lines = [
+        `**Maps** (${maps.length})`, '```', maps.map(name).join('\n').slice(0, 900) || '(none reported)', '```',
+        `**Lightings** (${lightings.length})`, '```', lightings.map(name).join(', ').slice(0, 400) || '(none reported)', '```',
+      ];
+      await i.editReply(lines.join('\n').slice(0, 1990));
+    },
+
+    async lighting(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const lighting = i.options.getString('lighting', true);
+      await core.setLighting(lighting);
+      await i.editReply(`🌤️ Lighting set to **${lighting}**.`);
+      await log(`🌤️ <@${i.user.id}> set the lighting to **${lighting}**.`);
+    },
+
+    async restart(i) {
+      if (!i.options.getBoolean('confirm', true)) {
+        return i.reply(ephemeral('Nothing done. Run it again with **confirm: True** to restart the match for everyone playing.'));
+      }
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      await core.restartMatch();
+      await i.editReply('🔄 Match restarted.');
+      await log(`🔄 <@${i.user.id}> restarted the match.`);
+    },
+
+    async rotation(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const r = await core.rotation();
+      const entries = Array.isArray(r?.entries) ? r.entries : [];
+      const lines = [
+        `**Rotation**: ${r?.enabled ? 'on' : 'off'}${r?.mode ? `, mode \`${r.mode}\`` : ''}`,
+        '```',
+        entries.map((e, n) => `${n + 1}. ${typeof e === 'string' ? e : e?.map ?? JSON.stringify(e)}`).join('\n').slice(0, 1500) || '(no entries)',
+        '```',
+      ];
+      await i.editReply(lines.join('\n').slice(0, 1990));
+    },
+
+    // ---- moderation ----
+
+    async ban(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const reason = i.options.getString('reason') || 'Banned by an admin';
+      const { steamId, label, error } = resolveTarget((await core.state()).players ?? [], i.options.getString('player', true));
+      if (error) return i.editReply(`${error}\nIf they have already left, give me their SteamID64 instead.`);
+      await core.ban(steamId, reason);
+      await i.editReply(`🔨 Banned **${label}** (\`${steamId}\`). Reason: ${reason}`);
+      await log(`🔨 <@${i.user.id}> banned **${label}** (${steamId}). Reason: ${reason}`);
+    },
+
+    async unban(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const steamId = i.options.getString('steamid', true).trim();
+      if (!/^\d{15,25}$/.test(steamId)) return i.editReply('That is not a SteamID64. Run `/bans` to see the list.');
+      await core.unban(steamId);
+      await i.editReply(`✅ Ban lifted for \`${steamId}\`.`);
+      await log(`✅ <@${i.user.id}> lifted the ban on ${steamId}.`);
+    },
+
+    async bans(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const list = await core.bans();
+      if (!list.length) return i.editReply('Nobody is banned.');
+      const row = (b) => (typeof b === 'string' ? b : `${b.steamId ?? '?'}  ${b.name ?? ''} ${b.reason ? `— ${b.reason}` : ''}`.trim());
+      await i.editReply(`**Banned** (${list.length})\n\`\`\`\n${list.map(row).join('\n').slice(0, 1700)}\n\`\`\``);
+    },
+
+    async kill(i) {
+      if (!i.options.getBoolean('confirm', true)) {
+        return i.reply(ephemeral('Nothing done. Run it again with **confirm: True**.'));
+      }
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const { player, error } = findPlayer((await core.state()).players ?? [], i.options.getString('player', true));
+      if (error) return i.editReply(error);
+      await core.kill(player.steamId);
+      await i.editReply(`💀 Killed **${player.name}** in-game. They respawn normally.`);
+      await log(`💀 <@${i.user.id}> killed **${player.name}** in-game.`);
+    },
+
+    async audit(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const entries = await core.audit();
+      if (!entries.length) return i.editReply('The game server has no recent admin actions logged.');
+      const row = (e) => (typeof e === 'string' ? e : [e.at ?? e.timestamp, e.action ?? e.type, e.actor, e.target, e.detail].filter(Boolean).join('  '));
+      await i.editReply(`**Server audit log** (${entries.length})\n\`\`\`\n${entries.map(row).join('\n').slice(0, 1700)}\n\`\`\``);
     },
 
     async settings(i) {

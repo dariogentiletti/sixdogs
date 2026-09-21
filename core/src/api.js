@@ -169,6 +169,51 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
 
   route('POST', '/internal/match/end', async () => ({ ok: true, result: await rcon.endMatch() }));
 
+  route('POST', '/internal/players/:steamId/kill', async ({ steamId }) => {
+    if (!isSteamId(steamId)) return [400, { error: { code: 'bad_request', message: 'steamId required' } }];
+    return { ok: true, result: await rcon.kill(steamId) };
+  });
+
+  route('POST', '/internal/match/restart', async () => ({ ok: true, result: await rcon.restartMatch() }));
+
+  route('POST', '/internal/match/map', async (_p, body) => {
+    const map = String(body.map ?? '').trim();
+    if (!map) return [400, { error: { code: 'bad_request', message: 'map required' } }];
+    return { ok: true, result: await rcon.setMap({ map, lighting: body.lighting, experiences: body.experiences, zoneAlternator: body.zoneAlternator }) };
+  });
+
+  route('PUT', '/internal/world/lighting', async (_p, body) => {
+    const lighting = String(body.lighting ?? '').trim();
+    if (!lighting) return [400, { error: { code: 'bad_request', message: 'lighting required' } }];
+    return { ok: true, result: await rcon.setLighting(lighting) };
+  });
+
+  route('GET', '/internal/bans', async () => ({ ok: true, bans: await rcon.bans() }));
+
+  route('POST', '/internal/bans', async (_p, body) => {
+    if (!isSteamId(String(body.steamId ?? ''))) {
+      return [400, { error: { code: 'bad_request', message: 'steamId required' } }];
+    }
+    const reason = String(body.reason ?? '').trim().slice(0, 200) || 'Banned by an admin';
+    return { ok: true, result: await rcon.ban(String(body.steamId), reason) };
+  });
+
+  route('DELETE', '/internal/bans/:steamId', async ({ steamId }) => {
+    if (!isSteamId(steamId)) return [400, { error: { code: 'bad_request', message: 'steamId required' } }];
+    return { ok: true, result: await rcon.unban(steamId) };
+  });
+
+  route('GET', '/internal/catalog/:kind', async ({ kind }) => {
+    if (!['maps', 'lightings', 'experiences'].includes(kind)) {
+      return [400, { error: { code: 'bad_request', message: 'kind must be maps, lightings or experiences' } }];
+    }
+    return { ok: true, items: await rcon.catalog(kind) };
+  });
+
+  route('GET', '/internal/rotation', async () => ({ ok: true, rotation: await rcon.rotation() }));
+
+  route('GET', '/internal/audit', async () => ({ ok: true, entries: await rcon.audit(50) }));
+
   // Read-only for now. PUT /v1/config replaces the entire document and a bad
   // value blocks unrelated edits, so writing is not wired up until we have seen
   // a real one. See CLAUDE.md.

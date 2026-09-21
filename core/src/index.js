@@ -45,7 +45,7 @@ async function main() {
   const rcon = new RconClient({ baseUrl: config.rconUrl, password: config.rconPassword, timeoutMs: config.requestTimeoutMs });
   const poller = new Poller({ rcon, pool, config });
   await poller.init();
-  const verifier = new Verifier({ pool, rcon, poller, ttlSec: config.verifyCodeTtlSec });
+  const verifier = new Verifier({ pool, rcon, poller, ttlSec: config.verifyCodeTtlSec, codeDigits: config.verifyCodeDigits });
 
   const api = createApi({ pool, poller, verifier, rcon, config });
   api.listen(config.port, () => console.log(`[core] internal API on :${config.port}`));

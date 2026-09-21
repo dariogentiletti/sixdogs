@@ -44,6 +44,7 @@ export const config = {
   backpressureDepth: num('BACKPRESSURE_QUEUE_DEPTH', 5),
   sampleRetentionDays: num('SAMPLE_RETENTION_DAYS', 14),
   verifyCodeTtlSec: num('VERIFY_CODE_TTL_SEC', 600),
+  verifyCodeDigits: num('VERIFY_CODE_DIGITS', 3), // shorter is friendlier to type; see MAX_ATTEMPTS in verify.js
   ratingWindowDays: num('RATING_WINDOW_DAYS', 60),
   ratingVoteMinutes: num('RATING_VOTE_MINUTES', 30),
   requestTimeoutMs: num('RCON_TIMEOUT_MS', 4000),

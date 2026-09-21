@@ -13,7 +13,7 @@ function fakeWorld() {
   const members = new Map();
   const mkMember = (id) => {
     const m = {
-      id, dms: [],
+      id, dms: [], displayName: `Member${id}`,
       send: async (msg) => { m.dms.push(msg); },
       roles: {
         add: async (role) => { role.members.set(id, m); },
@@ -33,11 +33,13 @@ function fakeWorld() {
   };
   const whispers = [];
   const logs = [];
+  const broadcasts = [];
   const core = {
     message: async (steamId, message) => { whispers.push({ steamId, message }); },
+    broadcast: async (message) => { broadcasts.push(message); },
     commanderLog: async () => {},
   };
-  return { guild, core, voice, roles, whispers, logs, mkMember };
+  return { guild, core, voice, roles, whispers, logs, broadcasts, mkMember };
 }
 
 const cfg = { commanderPoolRoleName: 'Commander Pool', commanderDelaySec: 60, commanderAcceptSec: 0.05, commanderAwaySec: 300 };
@@ -57,7 +59,7 @@ function setup() {
   const tick = (now) => cm.tick(players, factionOf, now);
   return { w, cm, pool, set, tick, factionOf };
 }
-const P = (id, factionKey) => ({ discordId: id, steamId: `s${id}`, factionKey });
+const P = (id, factionKey, name = `Player${id}`) => ({ discordId: id, steamId: `s${id}`, name, factionKey });
 
 test('no offers while the match settles; empty faction fills when someone joins', async () => {
   const { w, cm, set, tick } = setup();
@@ -210,4 +212,87 @@ test('a restart with two holders of one commander role keeps exactly one', async
   assert.equal(blueRole.members.size, 1, 'one commander left on blue');
   assert.equal(cm.state.blue.commanderId, 'A');
   assert.ok(blueRole.members.has('A'));
+});
+
+test('the whole server is told who the new commander is, by in-game name', async () => {
+  const { w, cm, set, tick } = setup();
+  const t0 = 4_000_000;
+  await cm.onMatchChange(11, { now: t0 });
+  set(P('A', 'blue', 'Rook'));
+
+  await tick(t0 + 61_000);
+  await cm.accept('A');
+
+  assert.deepEqual(w.broadcasts, ['A new Blue commander has been chosen: Rook'],
+    'announced once, using the name the rest of the server sees');
+
+  // The commander also gets their own whisper, with the new wording.
+  const own = w.whispers.filter((x) => /you are blue commander/i.test(x.message));
+  assert.equal(own.length, 1);
+  assert.match(own[0].message, /read team chat for comms/);
+  assert.doesNotMatch(own[0].message, /tower/i);
+});
+
+test('the in-game offer never tells anyone to type /accept', async () => {
+  const { w, cm, set, tick } = setup();
+  const t0 = 5_000_000;
+  await cm.onMatchChange(12, { now: t0 });
+  set(P('A', 'blue', 'Rook'));
+  await tick(t0 + 61_000);
+
+  const offer = w.whispers.find((x) => /picked as blue commander/i.test(x.message));
+  assert.ok(offer, 'the pick is whispered in-game');
+  assert.doesNotMatch(offer.message, /\/accept/, 'people were typing it into the game');
+  assert.match(offer.message, /Discord/);
+});
+
+test('a restart mid-match announces nothing: nobody changed', async () => {
+  const { w, cm, set } = setup();
+  w.roles[0].members.set('A', w.mkMember('A'));
+  set(P('A', 'blue', 'Rook'));
+
+  await cm.onMatchChange(13, { firstSeen: true, now: 6_000_000 });
+
+  assert.equal(cm.state.blue.commanderId, 'A', 'still commanding');
+  assert.deepEqual(w.broadcasts, [], 'no announcement for a commander who never changed');
+});
+
+test('a server that cannot broadcast still gets its commander', async () => {
+  const { w, cm, set, tick } = setup();
+  // An older build: core has no broadcast at all.
+  delete cm.core.broadcast;
+  const t0 = 7_000_000;
+  await cm.onMatchChange(14, { now: t0 });
+  set(P('A', 'blue', 'Rook'));
+  await tick(t0 + 61_000);
+
+  await assert.doesNotReject(async () => cm.accept('A'));
+  assert.equal(cm.state.blue.commanderId, 'A', 'the grant still happened');
+  assert.ok(w.roles[0].members.has('A'), 'and they got the role');
+});
+
+test('a broadcast that fails does not stop someone becoming commander', async () => {
+  const { w, cm, set, tick } = setup();
+  cm.core.broadcast = async () => { throw new Error('game server said no'); };
+  const t0 = 8_000_000;
+  await cm.onMatchChange(15, { now: t0 });
+  set(P('A', 'blue', 'Rook'));
+  await tick(t0 + 61_000);
+
+  await assert.doesNotReject(async () => cm.accept('A'));
+  assert.equal(cm.state.blue.commanderId, 'A');
+});
+
+test('someone not in the player list is announced by their Discord name', async () => {
+  const { w, cm, set, tick } = setup();
+  const t0 = 9_000_000;
+  await cm.onMatchChange(16, { now: t0 });
+  set(P('A', 'blue', 'Rook'));
+  await tick(t0 + 61_000);
+  // They drop off the server list between being picked and accepting.
+  cm.latest.players = [];
+  await cm.accept('A');
+
+  assert.equal(w.broadcasts.length, 1, 'still announced');
+  assert.match(w.broadcasts[0], /A new Blue commander has been chosen: /);
 });

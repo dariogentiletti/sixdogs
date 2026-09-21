@@ -48,7 +48,7 @@ project, add a Postgres database, paste in the two Discord settings above, and i
 There is nothing to install and no server to log into. Once it is running it stays running, and
 every change pushed to GitHub `main` redeploys it by itself.
 
-You want `registered 20 slash commands` in the Railway deployment log.
+You want `registered 30 slash commands` in the Railway deployment log.
 
 ## 3. Set up your Discord
 
