@@ -138,7 +138,7 @@ test('the command actually asks Discord for autocomplete on both options', () =>
 
 // ---- searching the settings document ----
 
-import { searchConfig } from '../src/commands.js';
+import { searchConfig, hitLine } from '../src/commands.js';
 import { parseConfigText } from '../src/serverconfig.js';
 
 const SECTIONS = parseConfigText(TEXT);
@@ -178,4 +178,18 @@ test('no match, and an empty term, both give nothing rather than everything', ()
   assert.deepEqual(searchConfig(SECTIONS, 'zzzz'), []);
   assert.deepEqual(searchConfig(SECTIONS, ''), []);
   assert.deepEqual(searchConfig(SECTIONS, '   '), []);
+});
+
+// Typing "afk" into the section box plainly means "find me the afk setting".
+// Answering "no section called afk" would be right and useless, and it is what
+// happens when a Discord client hasn't picked up the find: option yet.
+test('a section name that is really a search term still finds the setting', () => {
+  assert.equal(searchConfig(SECTIONS, 'idle').length, 1, 'searchable by the same call the fallback uses');
+  assert.equal(SECTIONS.some((x) => x.name.toLowerCase() === 'idle'), false, 'and it is not a section name');
+});
+
+test('a hit says what kind it is, so a list is not mistaken for a value', () => {
+  assert.match(hitLine({ section: 'A', key: 'K', value: '1', kind: 'set' }), /K = 1$/);
+  assert.match(hitLine({ section: 'A', key: 'K', value: 'ClearArray', kind: 'clear' }), /a list, built up below/);
+  assert.match(hitLine({ section: 'A', key: 'K', value: '765', kind: 'append' }), /\(list entry\) 765/);
 });

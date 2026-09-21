@@ -193,6 +193,14 @@ export function searchConfig(sections, term) {
   return hits;
 }
 
+/** One search hit as a line, saying what kind it is so a list isn't mistaken for a value. */
+export function hitLine(h) {
+  const value = h.kind === 'set' ? h.value
+    : h.kind === 'clear' ? '(a list, built up below)'
+      : `(list entry) ${h.value}`;
+  return `[${h.section}]\n  ${h.key} = ${value}`;
+}
+
 export function makeAutocomplete({ core, ttlMs = 30_000 }) {
   let cache = { at: 0, sections: [] };
   const sections = async () => {
@@ -608,16 +616,16 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
       // Hunting for a setting across a document nobody has read in full is the
       // common case, and reading six sections one command at a time to find one
       // key is a poor way to spend an afternoon.
+      const showHits = (term, hits, note = '') => i.editReply(
+        `**${hits.length} setting${hits.length === 1 ? '' : 's'} matching \`${term}\`**${note}\n`
+        + `\`\`\`ini\n${hits.map(hitLine).join('\n').slice(0, 1700)}\n\`\`\``);
+      const noHits = (term) => i.editReply(`Nothing matching **${term}** in any section, and no section by that name. `
+        + `There are ${sections.length} sections; \`/settings\` on its own lists them.`);
+
       const find = i.options.getString('find');
       if (find) {
         const hits = searchConfig(sections, find);
-        if (!hits.length) {
-          return i.editReply(`Nothing matching **${find}** in any section. `
-            + `There are ${sections.length} sections; \`/settings\` on its own lists them.`);
-        }
-        const lines = hits.map((h) => `[${h.section}]\n  ${h.key} = ${h.kind === 'set' ? h.value : `(${h.kind === 'clear' ? 'list' : 'list entry'}) ${h.value}`}`);
-        return i.editReply(`**${hits.length} setting${hits.length === 1 ? '' : 's'} matching \`${find}\`**\n`
-          + `\`\`\`ini\n${lines.join('\n').slice(0, 1700)}\n\`\`\``);
+        return hits.length ? showHits(find, hits) : noHits(find);
       }
 
       if (wanted) {
@@ -629,8 +637,13 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
             return i.editReply('That looks like two commands pasted into one box. '
               + 'Run them one at a time, and use the dropdown that appears when you start typing a section name.');
           }
-          const names = sections.map((x) => x.name).filter(Boolean);
-          return i.editReply(`No section called **${wanted}**. There is: ${names.join(', ') || '(none)'}`);
+          // Not a section, so take it as something to look for. Typing "afk"
+          // into the section box plainly means "find me the afk setting", and
+          // answering "no such section" would be technically right and useless.
+          const hits = searchConfig(sections, wanted);
+          return hits.length
+            ? showHits(wanted, hits, ' _(no section by that name, so I searched for it instead)_')
+            : noHits(wanted);
         }
         return i.editReply(`**[${sec.name}]** — ${summarise(sec)}\n\`\`\`ini\n${renderSection(sec)}\n\`\`\`\n`
           + `Change one with \`/settings section:${sec.name} key:<key> value:<value>\`.`);
@@ -641,7 +654,7 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
         '',
         ...sections.map((sec) => `\`${sec.name || '(top)'}\` — ${summarise(sec)}`),
         '',
-        'Use `/settings section:<name>` to see one in full.',
+        'Use `/settings section:<name>` to see one in full, or `/settings find:<text>` to search them all.',
       ];
       if (c.warnings?.length) {
         lines.push('', `⚠️ The server reports ${c.warnings.length} warning(s):`, '```', c.warnings.map((w) => (typeof w === 'string' ? w : JSON.stringify(w))).join('\n').slice(0, 500), '```');

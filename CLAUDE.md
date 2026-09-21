@@ -279,7 +279,10 @@ the pre-existing-bad-value case.
 
 The real key names are in docs/wardogs-rcon.md. `/settings find:<text>` searches EVERY section
 at once for a key (or section) whose name matches, which is how to locate a setting without
-reading six sections one command at a time.
+reading six sections one command at a time. `section:` falls back to the same search when it
+names no real section: typing "afk" into the section box plainly means "find me the afk setting",
+and it also keeps working while a Discord client is still caching a command definition that has
+no `find:` on it yet. That is not hypothetical, it is how the option's first four uses were lost.
 
 **The write path is proven against the live server**, not just the mock: `MinimumRequiredPlayers`
 went 20 -> 45 through `/settings` on 2026-09-21 and the server accepted it. 45 is the owner's
