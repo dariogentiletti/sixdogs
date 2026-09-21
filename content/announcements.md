@@ -21,7 +21,9 @@ color: gold
 A few things changed this week.
 
 ## Nobody has to sit in an empty server
-{#start-a-match} has a button on it. Press it when you'd play right now, then go and do something else. When ten people have pressed it, everyone gets called in at once and you all drop in together.
+{#start-a-match} has an **I want to play** button on it. Press it, go and do something else, and when enough of us are on or ready, everyone gets called in at once and we all drop in together.
+
+It counts the people already playing too, so it works just as well for turning a quiet server into a proper match as it does for waking a dead one.
 
 Want the ping? Take **Match Alerts** with 📣 in {#roles}. It goes to nobody else, and never more than once every 45 minutes.
 

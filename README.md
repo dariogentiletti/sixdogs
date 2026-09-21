@@ -206,18 +206,31 @@ Everything the bot does is logged to `#admin-log`.
 A 24/7 server with nobody on it stays that way: nobody wants to be the first one on an empty map,
 and sitting there AFK waiting for company is nobody's idea of an evening.
 
-So don't wait in the server, wait in Discord. In `#start-a-match` the bot keeps a board with one
-button. Press it, go and do something else, and when **10** people have pressed it everyone gets
-called in at once.
+It's the same problem at twelve players, just milder: a dozen people rattling around a map built
+for a hundred is not the match anyone turned up for.
 
+So don't wait in the server, wait in Discord. In `#start-a-match` the bot keeps a board with an
+**I want to play** button. Press it, go and do something else, and when enough of us are on or
+ready, everyone gets called in at once.
+
+- **The target counts players already on the server**, not just people who pressed the button.
+  Twelve playing plus eight ready is twenty, and twenty is a match. This is what makes seeding
+  useful for topping a half-full server up, which happens far more often than waking a dead one.
+- **How many:** `SEED_TARGET`, 20 by default. Pick it for your Discord, not for the server's 100
+  slots: a target nobody can ever reach on a quiet evening is a feature that never fires.
 - **Who gets pinged:** only the **Match Alerts** role, which you take yourself with 📣 in `#roles`.
   The bot never uses `@everyone`.
 - **How often:** at most once every 45 minutes (`SEED_COOLDOWN_MINUTES`), and the list is emptied
   when a ping goes out, so the next one needs a fresh set of people.
 - **Your name comes off** after 45 minutes (`SEED_PLEDGE_MINUTES`), or the moment the server sees
   you playing. A promise from two hours ago isn't a promise.
-- **Nothing is sent** when the server is already busy, or when the game server isn't answering.
-  Calling people to a black screen is how you lose them.
+- **Never for one or two people.** Nineteen on and one ready would clear a target of twenty, but
+  a ping to fetch a single player is how a ping stops meaning anything (`SEED_MIN_PLEDGES`, 5).
+- **Nothing is sent** when there are already enough people playing, or when the game server isn't
+  answering. Calling people to a black screen is how you lose them.
+- **Once the server is at the target the buttons disappear** and the board shows the Server ID
+  instead. There's nothing left to organise at that point, so it stops asking and tells you how
+  to get in.
 - **Admins:** `/seed` says how many are ready and, if nothing has fired, exactly why.
   `/seed call-now:True` calls everyone in without waiting for the target. It still respects the
   cooldown: the promise to everyone holding the ping role is that it can't go off twice in a row.

@@ -32,50 +32,75 @@ const joinLine = (serverId) => (serverId
  */
 export function seedBoard(s, { names = [], serverId = null } = {}) {
   const ready = s?.ready ?? 0;
-  const target = s?.target ?? 10;
-  const busy = (s?.playersOn ?? 0) > 0 && (s?.playersOn ?? 0) >= (s?.quietAbove ?? target);
+  const target = s?.target ?? 20;
+  const onServer = s?.playersOn ?? 0;
+  const needed = s?.needed ?? Math.max(0, target - (onServer + ready));
+  // Enough people are in there already. Nothing to organise: go and play.
+  const enough = onServer >= target;
+  const down = !s?.serverOk;
   const lines = [];
 
-  if (!s?.serverOk) {
+  if (down) {
     lines.push("The game server isn't answering at the moment, so nobody is being called in. "
       + 'You can still put your name down: it counts as soon as the server is back.');
-  } else if (busy) {
-    lines.push(`**${s.playersOn} playing right now.** No need to seed anything, just join.`);
+  } else if (enough) {
+    lines.push(`**${onServer} playing right now.** Nothing to wait for, just join.`);
   } else {
-    lines.push("Nobody wants to be the first one on an empty server, so don't be alone in there. "
-      + `Put your name down, go and do something else, and when **${target}** people are ready `
-      + 'everyone gets called in at once.');
+    lines.push("Nobody wants to be the first one on an empty server, and a handful of people "
+      + "rattling around a map built for a hundred isn't much better. So say you want to play, "
+      + `go and do something else, and when **${target}** of us are on or ready, everyone gets `
+      + 'called in at once.');
   }
 
-  lines.push('', ready >= target ? `**${ready} ready.** Calling everyone in.` : `**${ready} of ${target} ready**`);
-  if (names.length) {
-    const shown = names.slice(0, MAX_NAMES).join(', ');
-    lines.push(names.length > MAX_NAMES ? `${shown} and ${names.length - MAX_NAMES} more` : shown);
-  } else if (s?.serverOk && !busy) {
-    lines.push('Nobody yet. Be the first and the rest will follow.');
+  if (!enough) {
+    lines.push('');
+    // Players already on count toward the target, so the board has to show them.
+    // "4 of 20 ready" next to a match with 12 people in it would be a lie.
+    if (onServer) {
+      lines.push(`**${onServer} playing, ${ready} more ready.**`
+        + (needed ? ` ${needed} to go.` : ' Calling everyone in.'));
+    } else {
+      lines.push(needed ? `**${ready} of ${target} ready**` : `**${ready} ready.** Calling everyone in.`);
+    }
+    if (names.length) {
+      const shown = names.slice(0, MAX_NAMES).join(', ');
+      lines.push(names.length > MAX_NAMES ? `${shown} and ${names.length - MAX_NAMES} more` : shown);
+    } else if (!down) {
+      lines.push('Nobody yet. Say so and the rest will follow.');
+    }
+  }
+
+  // After a call-in the list is emptied, so without this the board would drop
+  // back to "0 ready" and look as though nothing had happened.
+  if (s?.lastPingAt) {
+    lines.push('', `Everyone was last called in <t:${Math.floor(Date.parse(s.lastPingAt) / 1000)}:R>.`);
   }
 
   const embed = {
-    title: 'Get a match going',
+    title: enough ? 'The server is up and running' : 'Get a match going',
     color: GOLD,
     description: lines.join('\n'),
     footer: { text: `${SEED_FOOTER} · your name comes off after ${s?.pledgeMinutes ?? 45} minutes, or as soon as you join the server` },
   };
   const join = joinLine(serverId);
-  if (join) embed.fields = [{ name: 'Already going in?', value: join }];
+  if (join) embed.fields = [{ name: enough ? 'How to join' : 'Going in already?', value: join }];
 
-  const components = [new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('seed:in').setLabel("I'd play right now").setEmoji('🟢').setStyle(ButtonStyle.Success),
+  // No buttons once there are enough people in there: the honest action is to
+  // join, not to put your name on a list for a match that's already happening.
+  const components = enough ? [] : [new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('seed:in').setLabel('I want to play').setEmoji('🟢').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId('seed:out').setLabel('Take me off').setStyle(ButtonStyle.Secondary),
   )];
   return { content: '', embeds: [embed], components, allowedMentions: { parse: [] } };
 }
 
 /** What the ping itself says. Separate message: editing a board notifies nobody. */
-export function callInMessage({ ready, roleId, serverId }) {
+export function callInMessage({ ready, onServer = 0, roleId, serverId }) {
   const who = roleId ? `<@&${roleId}> ` : '';
   const lines = [
-    `${who}**${ready} players are ready right now.** Get in and let's go.`,
+    onServer
+      ? `${who}**${onServer} are on the server and ${ready} more of us are ready.** Get in and let's fill it.`
+      : `${who}**${ready} of us are ready right now.** Get in and let's go.`,
     joinLine(serverId),
   ].filter(Boolean);
   return {
@@ -191,7 +216,8 @@ export class Seeding {
     const role = this.pingRole();
     if (!role) this.warn('role', `no "${this.config.seedPingRoleName}" role — run /setup-server. Calling in without a ping.`);
     if (channel) {
-      await channel.send(callInMessage({ ready: r.ready, roleId: role?.id ?? null, serverId: this.serverId }))
+      await channel.send(callInMessage({
+        ready: r.ready, onServer: r.playersOn ?? 0, roleId: role?.id ?? null, serverId: this.serverId }))
         .catch((err) => console.warn(`[seed] couldn't send the call-in: ${err.message}`));
       // The ping now sits below the board, so put a fresh board underneath it.
       // Found first, in case this process never saw the old one.
@@ -235,7 +261,7 @@ export class Seeding {
     const s = await this.core.seedState();
     const when = s.lastPingAt ? `<t:${Math.floor(Date.parse(s.lastPingAt) / 1000)}:R>` : 'never';
     return [
-      `**${s.ready} of ${s.target}** ready to play${s.playersOn ? `, ${s.playersOn} already on the server` : ''}.`,
+      `**${s.playersOn} playing, ${s.ready} ready.** That's ${s.heading} of ${s.target} toward a match.`,
       s.fire ? '**Calling everyone in.**' : `Not calling anyone in: ${s.reason}.`,
       `Last call-in: ${when}. A name lasts ${s.pledgeMinutes} min; a ping at most once every ${s.cooldownMinutes} min.`,
       s.pledges.length ? `Down to play: ${this.names(s.pledges).join(', ') || `${s.pledges.length} member(s)`}` : '',

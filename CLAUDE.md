@@ -237,21 +237,33 @@ needs `If-Match: "<revision>"`, one pre-existing bad value blocks unrelated edit
 first, validate with `POST /v1/config/validate` before any PUT, and edit one key in the existing
 text rather than rebuilding it.
 
-## Seeding ("I'd play right now")
+## Seeding ("I want to play")
 
-The answer to a 24/7 server sitting at zero players. Nobody wants to be first on an empty map,
-so instead of waiting in it, people put their name down in `#start-a-match` and get called in
-together once enough have.
+Getting the server up to a playable number without anyone sitting in it waiting. People put
+their name down in `#start-a-match` and get called in together once there are enough.
+
+THE TARGET COUNTS PLAYERS ALREADY ON THE SERVER, not just pledges: `heading = playersOn + ready`
+is what gets compared to `SEED_TARGET`. This is the whole design and it is easy to break by
+"simplifying" it back to a pledge count. A 100 slot server is short of a real match at twelve
+players far more often than it is at zero, so topping a half-full server up is the case that
+happens most; a rule that switched itself off the moment a match started would miss it every
+time. Do not re-add a "quiet above" style suppression: `playersOn >= target` already covers it.
 
 Rules live in `core/src/seeding.js` (pure, tested) and core's settings, so there is ONE copy and
-it survives a bot restart: `SEED_TARGET` (10), `SEED_PLEDGE_MINUTES` (45), `SEED_COOLDOWN_MINUTES`
-(45), `SEED_QUIET_ABOVE` (0 = the target). `shouldPing` gives every "no" a readable reason, which
-is the point: `/seed` shows it, so "why hasn't it pinged?" always has an answer.
+it survives a bot restart: `SEED_TARGET` (20), `SEED_MIN_PLEDGES` (5), `SEED_PLEDGE_MINUTES` (45),
+`SEED_COOLDOWN_MINUTES` (45). `shouldPing` gives every "no" a readable reason, which is the
+point: `/seed` shows it, so "why hasn't it pinged?" always has an answer.
 
-It does NOT ping when: the game server isn't answering, enough people are already playing, the
-target isn't met, or a ping went out inside the cooldown. A name drops off when it goes stale,
+It does NOT ping when: the game server isn't answering, `playersOn` already meets the target,
+fewer than `SEED_MIN_PLEDGES` are ready (never spend a ping fetching one player), `heading` is
+short of the target, or a ping went out inside the cooldown. A name drops off when it goes stale,
 when that player is seen in game (core matches by link), or when a ping fires and the list is
 emptied, so the next ping needs a fresh set of people.
+
+The board hides its buttons once `playersOn >= target`: there is nothing left to organise, so it
+shows the Server ID instead of asking people to queue for a match that is already running. It
+also keeps showing the last call-in time, because the list is emptied when a ping fires and the
+board would otherwise read as though nothing had happened.
 
 Tables `seed_pledges` / `seed_pings`. Core routes `GET /internal/seed`,
 `POST /internal/seed/pledge`, `POST /internal/seed/ping`. Core, not the bot, decides whether a

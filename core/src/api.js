@@ -330,7 +330,7 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       playersOn,
       serverOk: s.ok,
       target: config.seedTarget,
-      quietAbove: config.seedQuietAbove,
+      minPledges: config.seedMinPledges,
       lastPingAt,
       pledgeMinutes: config.seedPledgeMinutes,
       cooldownMinutes: config.seedCooldownMinutes,
@@ -342,7 +342,7 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       playersOn,
       serverOk: s.ok,
       target: config.seedTarget,
-      quietAbove: config.seedQuietAbove ?? config.seedTarget,
+      minPledges: config.seedMinPledges,
       pledgeMinutes: config.seedPledgeMinutes,
       cooldownMinutes: config.seedCooldownMinutes,
       ...decision,
@@ -403,7 +403,10 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
     // set of people, rather than yesterday's names firing it again.
     await pool.query('DELETE FROM seed_pledges');
     return {
-      ok: true, fired: true, ready: summary.ready, target: summary.target,
+      // playersOn travels with it: the call-in says "12 are on and 8 more are
+      // ready", which is a different and much better message than "8 ready".
+      ok: true, fired: true, ready: summary.ready, playersOn: summary.playersOn,
+      heading: summary.heading, target: summary.target,
       pledges: summary.pledges, pingedAt: new Date(rows[0].pinged_at).toISOString(),
     };
   });
