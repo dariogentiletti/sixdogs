@@ -276,6 +276,7 @@ export function makeHandlers({ core, commanders, ratings, config, log, verified 
       const lines = [
         `**Game server**: ${d.rconOk ? '🟢 connected' : '🔴 not reachable'}${d.lastError ? ` (${d.lastError})` : ''}`,
         `API ${d.apiVersion ?? '?'}, build \`${d.build ?? '?'}\`, server ID \`${d.serverId ?? '?'}\``,
+        `RCON host \`${d.rconHost ?? '?'}\` (the machine the game runs on)`,
         '',
         dbLine(d.database),
         '',

@@ -266,6 +266,9 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       apiVersion: rcon.capabilities?.apiVersion ?? null,
       build: rcon.capabilities?.build ?? null,
       serverId: s.serverId,
+      // Host only, never the RCON port or the password. Enough to confirm the
+      // public address people are given points at the same machine.
+      rconHost: (() => { try { return new URL(config.rconUrl).hostname; } catch { return null; } })(),
       actions: rcon.supportedActions(),
       config: rcon.configInfo(),
       database: await databaseInfo(),

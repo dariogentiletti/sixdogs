@@ -10,7 +10,8 @@
       "monthlyUsd": 115,
       "confirmed": true,
       "onBill": true,
-      "notes": "RCON is enabled and reachable. Build ++Wardogs+Live-CL-501228."
+      "notes": "RCON is enabled and reachable. Build ++Wardogs+Live-CL-501228. Public address 64.87.44.73:20016, given by the owner. Not verified from here: the game port is UDP and this sandbox cannot reach it. Cross-check it against the RCON host shown by /server.",
+      "address": "64.87.44.73:20016"
     },
     {
       "id": "bot",
@@ -55,10 +56,11 @@
       "howTo": "website/DEPLOY.md step 4"
     },
     {
-      "id": "server-ip",
-      "what": "A public IP and game port for the server, if xREALM will give one",
-      "blocking": "A one-click join link on the website. Without it the site shows the Server ID for Join by ID.",
-      "cost": "None"
+      "id": "steam-connect",
+      "what": "Whether WARDOGS supports steam://connect/<ip:port> for one-click joining",
+      "blocking": "A clickable join button. The address is shown as copyable text meanwhile, which always works.",
+      "cost": "None",
+      "howTo": "Paste steam://connect/64.87.44.73:20016 into a browser with Steam running and see whether the game launches into the server."
     }
   ],
   "decisions": [
