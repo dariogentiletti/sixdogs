@@ -45,17 +45,20 @@
       "confirmed": true,
       "onBill": true,
       "notes": "Free plan covers this comfortably. DNS for the domain is also Cloudflare, also free."
-    }
-  ],
-  "pending": [
+    },
     {
-      "id": "live-status-worker",
-      "what": "The Cloudflare Worker at live.sixdogs.gg. The KV namespace \"sixdogs-live\" (id 6215eeaf827f4ba8be91f231f2b06e00) already exists; the Worker, its STATUS binding, the PUSH_TOKEN secret and the custom domain still need doing in the dashboard.",
-      "blocking": "The live tracker on the website stays hidden until the bot has somewhere to push to",
-      "cost": "Free",
-      "howTo": "website/DEPLOY.md step 4, from point 2 onward. Then STATUS_PUSH_URL and STATUS_PUSH_TOKEN in Railway."
+      "id": "livestatus",
+      "name": "Live status",
+      "what": "Cloudflare Worker at live.sixdogs.gg that holds the latest server summary for the website",
+      "provider": "Cloudflare Workers + KV",
+      "plan": "Free",
+      "monthlyUsd": 0,
+      "confirmed": true,
+      "onBill": true,
+      "notes": "Worker \"sixdogs-live\", KV namespace \"sixdogs-live\" (6215eeaf827f4ba8be91f231f2b06e00) bound as STATUS, PUSH_TOKEN secret, custom domain live.sixdogs.gg. Set up by the owner 2026-09-21, along with STATUS_PUSH_URL and STATUS_PUSH_TOKEN in Railway. Serves the root and /status alike. Claude cannot reach the domain from its sandbox, so confirm by opening it."
     }
   ],
+  "pending": [],
   "decisions": [
     "Railway over a plain VPS: no SSH for routine changes, settings are a web form, managed Postgres, and it redeploys on every push to main.",
     "Cloudflare Pages over Railway for the website: free, purpose-built for static files, and the _redirects file and the live-status worker were already written for it.",
