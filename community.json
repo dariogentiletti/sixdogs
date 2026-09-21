@@ -2,7 +2,7 @@
   "_about": "The one place for SIXDOGS facts. The Discord posts (content/*.md), the website (website-src/ -> website/), the guide panels and the live board all read this file. After a change: restart the bot, run `node tools/build.mjs` and re-upload the website folder. Claude also re-renders the guide panels if hardcore or join facts changed.",
   "name": "SIXDOGS",
   "domain": "sixdogs.gg",
-  "discordInvite": "https://discord.gg/YOURCODE",
+  "discordInvite": "https://discord.gg/7KJynyejRJ",
   "steamStore": "https://store.steampowered.com/app/1867240/WARDOGS/",
   "liveStatusUrl": "https://live.sixdogs.gg/status",
   "server": {
@@ -19,7 +19,7 @@
   },
   "donate": {
     "platform": "Ko-fi",
-    "url": "",
+    "url": "https://ko-fi.com/sixdogs",
     "button": "Donate on Ko-fi",
     "how": "It takes cards, PayPal, Apple Pay and Google Pay from any country, and you don't need an account. Give once or monthly, any amount.",
     "perk": "Donors get one of the six reserved slots on the server. Nobody gets an advantage in game."
@@ -28,15 +28,11 @@
     "items": [
       {
         "item": "Game server",
-        "monthly": "TBD"
-      },
-      {
-        "item": "Bot hosting",
-        "monthly": "TBD"
+        "monthly": "$115"
       }
     ],
-    "total": "TBD",
-    "leftover": "Only the running costs above. Anything left over stays in the pot for the next month."
+    "total": "$115",
+    "leftover": "Only the running costs above. The bot also needs a small VPS to stay online around the clock. That isn't set up yet, so it isn't in the total, and it goes here once it is. Anything left over stays in the pot for the next month."
   },
   "hardcore": {
     "intro": "Our server runs WARDOGS Hardcore mode. When you die you get no kill cam, and the HUD shows less. Most of what you know about the enemy comes from what you see and what your team calls out.",
