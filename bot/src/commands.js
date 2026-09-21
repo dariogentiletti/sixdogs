@@ -74,6 +74,7 @@ export const commandDefinitions = [
     .addStringOption((o) => o.setName('section').setDescription('Show one section in full').setMaxLength(200).setAutocomplete(true))
     .addStringOption((o) => o.setName('key').setDescription('With value: the setting to change, inside that section').setMaxLength(200).setAutocomplete(true))
     .addStringOption((o) => o.setName('value').setDescription('What to change it to. Shows you the change first; nothing is saved without confirm').setMaxLength(200))
+    .addStringOption((o) => o.setName('find').setDescription('Search every section for a setting, e.g. afk, kick, timeout, player').setMaxLength(60))
     .addBooleanOption((o) => o.setName('confirm').setDescription('Yes, save it to the live server'))
     .setDefaultMemberPermissions(P.Administrator),
 
@@ -172,6 +173,26 @@ const ephemeral = (content) => ({ content, flags: MessageFlags.Ephemeral, allowe
  * Discord fires this on every keystroke, so the document is cached: hammering
  * the game server for a dropdown would be a poor trade.
  */
+/**
+ * Every setting whose key or section mentions `term`, across the whole
+ * document. For finding a setting when nobody knows which section it lives in,
+ * which is most of the time: the document has six sections and no index.
+ */
+export function searchConfig(sections, term) {
+  const t = String(term ?? '').trim().toLowerCase();
+  if (!t) return [];
+  const hits = [];
+  for (const sec of sections) {
+    const sectionMatches = sec.name.toLowerCase().includes(t);
+    for (const e of sec.entries) {
+      if (sectionMatches || e.key.toLowerCase().includes(t)) {
+        hits.push({ section: sec.name, key: e.key, value: e.value, kind: e.kind });
+      }
+    }
+  }
+  return hits;
+}
+
 export function makeAutocomplete({ core, ttlMs = 30_000 }) {
   let cache = { at: 0, sections: [] };
   const sections = async () => {
@@ -583,6 +604,21 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
 
       const c = await core.serverConfig();
       const sections = parseConfigText(c.text);
+
+      // Hunting for a setting across a document nobody has read in full is the
+      // common case, and reading six sections one command at a time to find one
+      // key is a poor way to spend an afternoon.
+      const find = i.options.getString('find');
+      if (find) {
+        const hits = searchConfig(sections, find);
+        if (!hits.length) {
+          return i.editReply(`Nothing matching **${find}** in any section. `
+            + `There are ${sections.length} sections; \`/settings\` on its own lists them.`);
+        }
+        const lines = hits.map((h) => `[${h.section}]\n  ${h.key} = ${h.kind === 'set' ? h.value : `(${h.kind === 'clear' ? 'list' : 'list entry'}) ${h.value}`}`);
+        return i.editReply(`**${hits.length} setting${hits.length === 1 ? '' : 's'} matching \`${find}\`**\n`
+          + `\`\`\`ini\n${lines.join('\n').slice(0, 1700)}\n\`\`\``);
+      }
 
       if (wanted) {
         const sec = findSection(sections, wanted);

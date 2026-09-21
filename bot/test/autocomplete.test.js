@@ -135,3 +135,47 @@ test('the command actually asks Discord for autocomplete on both options', () =>
     assert.equal(def.options.find((o) => o.name === name).autocomplete, true, `${name} autocompletes`);
   }
 });
+
+// ---- searching the settings document ----
+
+import { searchConfig } from '../src/commands.js';
+import { parseConfigText } from '../src/serverconfig.js';
+
+const SECTIONS = parseConfigText(TEXT);
+
+test('a setting is found without knowing which section it lives in', () => {
+  const hits = searchConfig(SECTIONS, 'idle');
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].key, 'IdleKickSeconds');
+  assert.equal(hits[0].section, '/Script/WDGame.WDGameSession');
+  assert.equal(hits[0].value, '180');
+});
+
+test('a key in several sections comes back from all of them', () => {
+  const hits = searchConfig(SECTIONS, 'maxplayers');
+  assert.deepEqual(hits.map((h) => h.section), ['/Script/WDGame.WDGameSession', '/Script/WDRCON.WDRCONSettings']);
+});
+
+test('matching a section name returns everything in it', () => {
+  const hits = searchConfig(SECTIONS, 'prematch');
+  assert.deepEqual(hits.map((h) => h.key), ['PlayerCount']);
+});
+
+test('searching is case insensitive and matches anywhere in the name', () => {
+  assert.equal(searchConfig(SECTIONS, 'KICK').length, 1);
+  assert.equal(searchConfig(SECTIONS, 'seconds').length, 1);
+});
+
+// A list is reported with its kind, so nobody tries to set it like a value.
+test('list entries are found too, and marked as lists', () => {
+  const hits = searchConfig(SECTIONS, 'reserved');
+  assert.ok(hits.length >= 2);
+  assert.ok(hits.some((h) => h.kind === 'clear'));
+  assert.ok(hits.some((h) => h.kind === 'append'));
+});
+
+test('no match, and an empty term, both give nothing rather than everything', () => {
+  assert.deepEqual(searchConfig(SECTIONS, 'zzzz'), []);
+  assert.deepEqual(searchConfig(SECTIONS, ''), []);
+  assert.deepEqual(searchConfig(SECTIONS, '   '), []);
+});

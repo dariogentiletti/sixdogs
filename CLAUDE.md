@@ -277,8 +277,16 @@ and a validation rule, so the whole path can be exercised without touching a liv
 `MOCK_BAD_CONFIG=1` seeds a document that is ALREADY invalid, which is the only way to rehearse
 the pre-existing-bad-value case.
 
-The real key names are in docs/wardogs-rcon.md. No AFK or idle-kick setting exists in either
-section read so far.
+The real key names are in docs/wardogs-rcon.md. `/settings find:<text>` searches EVERY section
+at once for a key (or section) whose name matches, which is how to locate a setting without
+reading six sections one command at a time.
+
+**The write path is proven against the live server**, not just the mock: `MinimumRequiredPlayers`
+went 20 -> 45 through `/settings` on 2026-09-21 and the server accepted it. 45 is the owner's
+decision, made after being told twice what it means; do not keep re-raising it.
+
+No AFK or idle-kick setting exists in either section read so far, and four sections have never
+been looked at.
 
 ## Reserved slots (the donation promise)
 
