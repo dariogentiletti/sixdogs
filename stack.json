@@ -44,7 +44,7 @@
       "monthlyUsd": 0,
       "confirmed": true,
       "onBill": true,
-      "notes": "Free plan covers this comfortably. DNS for the domain is also Cloudflare, also free."
+      "notes": "Free plan covers this comfortably. DNS for the domain is also Cloudflare, also free. WATCH OUT: the original Pages project was a Direct Upload, not Git-connected, so it never rebuilt and the site sat on a day-old build while everything else was fine. Check the Deployments tab shows a commit hash per push, not just a pages.dev URL."
     },
     {
       "id": "livestatus",
@@ -58,7 +58,15 @@
       "notes": "Worker \"sixdogs-live\", KV namespace \"sixdogs-live\" (6215eeaf827f4ba8be91f231f2b06e00) bound as STATUS, PUSH_TOKEN secret, custom domain live.sixdogs.gg. Set up by the owner 2026-09-21, along with STATUS_PUSH_URL and STATUS_PUSH_TOKEN in Railway. Serves the root and /status alike. Claude cannot reach the domain from its sandbox, so confirm by opening it."
     }
   ],
-  "pending": [],
+  "pending": [
+    {
+      "id": "pages-git",
+      "what": "Replace the Direct Upload Pages project with one connected to GitHub, then move sixdogs.gg and www across",
+      "blocking": "Every website change. Pushes do not reach visitors until this is done.",
+      "cost": "Free",
+      "howTo": "website/DEPLOY.md step 2, including the \"Is your project actually connected to GitHub?\" table."
+    }
+  ],
   "decisions": [
     "Railway over a plain VPS: no SSH for routine changes, settings are a web form, managed Postgres, and it redeploys on every push to main.",
     "Cloudflare Pages over Railway for the website: free, purpose-built for static files, and the _redirects file and the live-status worker were already written for it.",
@@ -73,7 +81,8 @@
     "2026-09-21: steam://connect/<ip:port> alone does nothing, because it names no game. The website now uses steam://run/1867240//+connect <address>, which still needs testing.",
     "2026-09-21: the live status pipeline works end to end. bot -> live.sixdogs.gg -> KV, read back as state:live with map, teams and player counts.",
     "2026-09-21: real map names look like 'Bakurani'. Server name is 'SIXDOGS.gg | *NEW* Commander Mode | Hardcore  (Join Discord)', max players 100.",
-    "2026-09-21: the live build does not send matchSeconds or scoreCap even while a match is open, not just when idle. The board falls back to when the bot first saw the match, which is only meaningful once players are on."
+    "2026-09-21: the live build does not send matchSeconds or scoreCap even while a match is open, not just when idle. The board falls back to when the bot first saw the match, which is only meaningful once players are on.",
+    "2026-09-21: the browser CAN read live.sixdogs.gg from sixdogs.gg (CORS fine, state live, fresh). The live tracker was missing only because the deployed page was stale."
   ],
   "rules": [
     "Never move players between teams automatically during a match. The owner has ruled this out: /move stays an admin command only, and no balancing rule may ever call it on its own.",

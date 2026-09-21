@@ -33,8 +33,25 @@ From now on, DNS changes happen in Cloudflare, not Namecheap.
    - Build output directory: `website`
 4. **Save and Deploy**. The first build takes a minute. It goes live at `sixdogs.pages.dev`.
 
-(If you already made a Pages project by dragging files in, make this new one anyway and move the
-custom domain over in step 3. A drag-and-drop project can't be switched to GitHub.)
+**Is your project actually connected to GitHub?** This is worth two seconds to check, because a
+Direct Upload project looks identical until you notice it never updates. Open the project's
+**Deployments** tab:
+
+| Git-connected | Direct Upload |
+|---|---|
+| The Deployment column shows a commit hash and message | It shows only a `*.pages.dev` URL |
+| A new row appears within a minute of every push | One row, dated whenever you last uploaded |
+| No upload button | A blue **Create deployment** button with an upload arrow |
+| **Settings** has a **Builds & deployments** section | It does not |
+
+A Direct Upload project **cannot be converted**. Make a new Git-connected one and move the custom
+domains to it:
+
+1. Create the new project as in step 2 above.
+2. Check its `*.pages.dev` URL serves the current site before touching DNS.
+3. Old project → **Custom domains** → remove `sixdogs.gg` and `www.sixdogs.gg`.
+4. New project → **Custom domains** → add them both.
+5. Delete the old project so nobody is confused by it later.
 
 ## 3. Connect sixdogs.gg
 In the Pages project → **Custom domains** → **Set up a domain**:
