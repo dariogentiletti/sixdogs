@@ -187,6 +187,9 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       routes: [...(rcon.routes ?? [])].sort(),
       clockDirection: s.clockDirection,
       matchSeconds: s.status?.matchSeconds ?? null,
+      // Which keys /v1/status actually has, so a missing matchSeconds can be
+      // told apart from a match that simply isn't running.
+      statusKeys: Object.keys(s.status ?? {}).sort(),
       factionScores: s.status?.factionScores ?? [],
       factionStrings: factions,
       playerCount: (s.players ?? []).length,

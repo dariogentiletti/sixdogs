@@ -29,13 +29,24 @@ Work from the real API, not memory: `docs/wardogs-rcon.md` (and `docs/wardogs-op
 - The API has no events and no history. "Joined", "left", "match started" are all inferred by
   comparing consecutive polls. `core/src/match.js` holds the match-boundary heuristics.
 
-## Unverified — check against a live server before relying on them
+## Confirmed against the live server (build `++Wardogs+Live-CL-501228`, API 1, Sept 2026)
 
-- Whether `matchSeconds` counts up or down (core infers it).
-- The score field name inside `factionScores[]` (schema only shows `name`, `colorHex`).
-- The exact strings in `player.faction`. The bot maps them to blue/red/green via the matching
-  `factionScores[].colorHex` hue, then the names Lonestar/Valkyra/Manticore, then a colour word;
-  `FACTION_ALIASES` overrides (`bot/src/factions.js`).
+Read off `/server` on the real SIXDOGS server, so these are facts now, not guesses:
+
+- `factionScores[]` DOES carry a numeric `score`, alongside `name` and `colorHex`.
+  `factionScoreTotal` already reads it first.
+- The real faction colours are Lonestar `#4CB1EF`, Valkyra `#FA503E`, Manticore `#1DD65C`
+  (not the Discord brand colours). `colorKeyFromHex` classifies all three correctly, and
+  `gameFactionFor` maps blue/red/green back to Lonestar/Valkyra/Manticore.
+
+## Still unverified — check against a live server before relying on them
+
+- Whether `matchSeconds` counts up or down (core infers it). The first `/server` was taken on
+  an empty server, where `matchSeconds` was null, so this is still open.
+- The exact strings in `player.faction`. Nobody was online, so `factionStrings` came back
+  empty. `factionScores[].name` is Lonestar/Valkyra/Manticore, so the existing fallbacks
+  should cover it, but confirm with players on. `FACTION_ALIASES` overrides
+  (`bot/src/factions.js`).
 
 ## Deliberately cut — don't re-add
 

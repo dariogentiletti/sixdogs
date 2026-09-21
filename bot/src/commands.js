@@ -220,10 +220,15 @@ export function makeHandlers({ core, commanders, ratings, config, log, verified 
         JSON.stringify({
           clockDirection: d.clockDirection,
           matchSeconds: d.matchSeconds,
+          statusKeys: d.statusKeys,
           factionScores: d.factionScores,
           factionStrings: d.factionStrings,
           playerCount: d.playerCount,
-        }, null, 1).slice(0, 1200),
+        }).slice(0, 800),
+        '```',
+        `**Routes it advertises** (${(d.routes ?? []).length})`,
+        '```',
+        (d.routes ?? []).join('\n').slice(0, 800),
         '```',
       ];
       await i.editReply(lines.join('\n').slice(0, 1990));

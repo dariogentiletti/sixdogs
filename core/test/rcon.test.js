@@ -67,3 +67,36 @@ test('the password is not an enumerable property', () => {
   assert.equal(Object.keys(c).includes('_auth'), false);
   assert.equal(JSON.stringify(c).includes('secret'), false);
 });
+
+test('a route is found whatever the build calls its path parameter', () => {
+  // The same route, spelled four ways. All of them must be recognised: a build
+  // that says {steam_id} still serves the route, and reporting it as missing
+  // would switch off verification and kicks for no reason.
+  for (const spelling of [
+    'POST /v1/players/{steamId}/message',
+    'POST /v1/players/{steam_id}/message',
+    'POST /v1/players/{id}/message',
+    'POST /v1/players/:steamId/message',
+  ]) {
+    const c = clientWith([spelling]);
+    assert.equal(c.has('POST', '/v1/players/{steamId}/message'), true, spelling);
+    assert.equal(c.supportedActions().message, true, spelling);
+  }
+});
+
+test('loose matching does not blur different routes', () => {
+  const c = clientWith([
+    'POST /v1/players/{id}/message',
+    'GET /v1/status',
+  ]);
+  // Same shape, different tail.
+  assert.equal(c.has('POST', '/v1/players/{steamId}/kick'), false);
+  // Same path, different method.
+  assert.equal(c.has('PATCH', '/v1/players/{steamId}'), false);
+  assert.equal(c.has('GET', '/v1/players/{steamId}/message'), false);
+  // A parameter must not swallow a fixed segment.
+  assert.equal(c.has('GET', '/v1/health'), false);
+  assert.deepEqual(c.supportedActions(), {
+    message: true, broadcast: false, kick: false, move: false, endMatch: false,
+  });
+});

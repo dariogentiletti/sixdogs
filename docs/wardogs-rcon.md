@@ -55,6 +55,17 @@ your host about a private network / IP allow-list.
 
 ## Gaps in the published schema (verify on your server)
 
+**Settled on the real server** (build `++Wardogs+Live-CL-501228`, API 1, Sept 2026): item 1 below
+is answered. `factionScores[]` does carry a numeric `score`:
+
+```json
+{"name": "Lonestar", "colorHex": "#4CB1EF", "score": 0}
+```
+
+The live colours are Lonestar `#4CB1EF`, Valkyra `#FA503E`, Manticore `#1DD65C`. Items 2 and 3
+are still open: the first reading was taken on an empty server, so `matchSeconds` was null and no
+`player.faction` strings were seen.
+
 1. `factionScores[]` only documents `name` and `colorHex`. The reference says to match factions by
    `colorHex`, not name. No score field is documented.
 2. `matchSeconds` direction (elapsed vs remaining) isn't documented.

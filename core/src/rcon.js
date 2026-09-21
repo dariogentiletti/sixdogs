@@ -11,6 +11,15 @@ export class RconError extends Error {
   }
 }
 
+/** "POST /v1/players/{steamId}/message" -> "POST /v1/players/{}/message" */
+function normalizeRoute(route) {
+  return String(route)
+    .trim()
+    .replace(/\{[^}]*\}/g, '{}')              // {steamId}, {steam_id}, {id}
+    .replace(/:[A-Za-z_][A-Za-z0-9_]*/g, '{}') // :steamId
+    .replace(/\s+/g, ' ');
+}
+
 export class RconClient {
   constructor({ baseUrl, password, timeoutMs = 4000 }) {
     this.baseUrl = baseUrl;
@@ -58,9 +67,25 @@ export class RconClient {
     return this.capabilities;
   }
 
-  /** Does this server build serve e.g. has('POST', '/v1/players/{steamId}/message')? */
+  /**
+   * Does this server build serve e.g. has('POST', '/v1/players/{steamId}/message')?
+   *
+   * Compared loosely on purpose. /v1/capabilities lists routes as text, and a
+   * build is free to name its path parameters whatever it likes:
+   * {steamId}, {steam_id}, {id} and :steamId all mean the same route. Matching
+   * the string exactly would report a route as missing because of its spelling,
+   * which is far worse than the reverse: a route we wrongly think exists just
+   * fails once with the game's own error.
+   */
   has(method, path) {
-    return this.routes?.has(`${method} ${path}`) ?? false;
+    if (!this.routes) return false;
+    const want = `${method} ${path}`;
+    if (this.routes.has(want)) return true;
+    const wanted = normalizeRoute(want);
+    for (const r of this.routes) {
+      if (normalizeRoute(r) === wanted) return true;
+    }
+    return false;
   }
 
   status() { return this.request('GET', '/v1/status'); }
