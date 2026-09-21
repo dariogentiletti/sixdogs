@@ -31,12 +31,18 @@ export class RconClient {
     this.capabilities = null;
   }
 
-  async request(method, path, body) {
-    const headers = { Authorization: this._auth, Accept: 'application/json' };
+  /**
+   * `body` as an object is sent as JSON, as a string it is sent as-is. The
+   * settings document is plain text, not JSON wrapping text, so /v1/config and
+   * /v1/config/validate need the string form.
+   */
+  async request(method, path, body, { headers: extra = {}, contentType } = {}) {
+    const headers = { Authorization: this._auth, Accept: 'application/json', ...extra };
     let payload;
     if (body !== undefined) {
-      headers['Content-Type'] = 'application/json';
-      payload = JSON.stringify(body);
+      const isText = typeof body === 'string';
+      headers['Content-Type'] = contentType ?? (isText ? 'text/plain; charset=utf-8' : 'application/json');
+      payload = isText ? body : JSON.stringify(body);
     }
     let res;
     try {
@@ -56,7 +62,12 @@ export class RconClient {
     if (!res.ok) {
       const msg = json?.error?.message || json?.message || text.slice(0, 200) || res.statusText;
       const code = json?.error?.code || (res.status === 401 || res.status === 403 ? 'auth' : 'http_error');
-      throw new RconError(`${method} ${path} -> ${res.status}: ${msg}`, { status: res.status, code });
+      const err = new RconError(`${method} ${path} -> ${res.status}: ${msg}`, { status: res.status, code });
+      // Config refusals carry errors[{section,key,code,message}] naming the key
+      // at fault, which is the only way to tell "your change is wrong" apart
+      // from "something already in this document is wrong". Keep them.
+      if (Array.isArray(json?.errors)) err.errors = json.errors;
+      throw err;
     }
     return json;
   }
@@ -272,6 +283,37 @@ export class RconClient {
       throw new RconError('This server build does not expose its settings.', { code: 'unsupported' });
     }
     return this.request('GET', '/v1/config');
+  }
+
+  /**
+   * Ask the server whether a document would be accepted, WITHOUT saving it.
+   * Always run before a write: a refusal here costs nothing, a refusal after a
+   * write is a live server in a state nobody chose.
+   */
+  validateConfig(text) {
+    if (!this.has('POST', '/v1/config/validate')) {
+      throw new RconError('This server build cannot check settings before saving them.', { code: 'unsupported' });
+    }
+    return this.request('POST', '/v1/config/validate', String(text));
+  }
+
+  /**
+   * Replace the settings document. The whole document: whatever goes in here is
+   * what the server becomes.
+   *
+   * `If-Match` is the safety catch. If anyone changed the settings since the
+   * revision this text was built from, the server answers 412 and nothing is
+   * written, instead of this quietly undoing their change.
+   */
+  writeConfig(text, revision) {
+    const info = this.configInfo();
+    if (!info.writable) {
+      throw new RconError('This server build does not allow its settings to be changed.', { code: 'unsupported' });
+    }
+    if (!revision) {
+      throw new RconError('Refusing to save settings without the revision they were read at.', { code: 'no_revision' });
+    }
+    return this.request('PUT', '/v1/config', String(text), { headers: { 'If-Match': `"${revision}"` } });
   }
 
   /** Which of the things SIXDOGS knows how to do this build actually serves. */

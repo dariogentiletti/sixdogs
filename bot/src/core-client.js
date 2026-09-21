@@ -52,6 +52,10 @@ export class CoreClient {
   endMatch() { return this.request('POST', '/internal/match/end', {}); }
   diagnostics() { return this.request('GET', '/internal/diagnostics'); }
   serverConfig() { return this.request('GET', '/internal/config'); }
+  /** apply:false (the default) says what would change without changing it. */
+  setServerSetting(section, key, value, apply = false) {
+    return this.request('PUT', '/internal/config/value', { section, key, value, apply });
+  }
   kill(steamId) { return this.request('POST', `/internal/players/${steamId}/kill`, {}); }
   restartMatch() { return this.request('POST', '/internal/match/restart', {}); }
   setMap(body) { return this.request('POST', '/internal/match/map', body); }

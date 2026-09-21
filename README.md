@@ -169,6 +169,7 @@ against your real server. The bot recognises factions by the colour the server r
 | | `/endmatch confirm:True` | End the match now |
 | | `/server` | What the game server reports, and what it lets the bot do |
 | | `/settings [section]` | Read the game server's settings document |
+| | `/settings section: key: value: [confirm]` | Change one setting. Shows the before/after and saves nothing until `confirm:True` |
 | | `/reserved` | Who holds a reserved slot (donors at $10 or more are promised one) |
 
 The last eight need a game server. Each one is checked against what your server

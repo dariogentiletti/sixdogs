@@ -47,6 +47,7 @@ const ROUTES = [
   'GET /v1/capabilities', 'GET /v1/status', 'GET /v1/players', 'GET /v1/health', 'GET /v1/server-id',
   'POST /v1/players/{steamId}/message', 'POST /v1/broadcast',
   'GET /v1/config',
+  'PUT /v1/config', 'POST /v1/config/validate',
   'GET /v1/reserved-slots',
   ...(process.env.MOCK_NO_ACTIONS === '1' ? [] : [
     'POST /v1/players/{steamId}/kick',
@@ -89,6 +90,9 @@ bEnabled=True
 .Maps=Foundry
 `;
 let configRevision = 7;
+let configText = process.env.MOCK_BAD_CONFIG === '1'
+  ? CONFIG_TEXT.replace('MaxPlayers=99', 'MaxPlayers=999')
+  : CONFIG_TEXT;
 const MAPS = ['Harbor', 'Ridge', 'Foundry', 'Delta'];
 const LIGHTINGS = ['Day', 'Dusk', 'Night'];
 const EXPERIENCES = ['Assault', 'Domination'];
@@ -96,11 +100,35 @@ const bans = new Map();
 const auditLog = [];
 const note = (action, detail) => auditLog.unshift({ at: new Date().toISOString(), action, detail });
 
-async function body(req) {
+async function rawBody(req) {
   const chunks = [];
   for await (const c of req) chunks.push(c);
-  const text = Buffer.concat(chunks).toString();
+  return Buffer.concat(chunks).toString();
+}
+
+async function body(req) {
+  const text = await rawBody(req);
   return text ? JSON.parse(text) : {};
+}
+
+// The real server validates the WHOLE document, so a value that was already
+// wrong blocks an unrelated edit. That is the trap worth being able to
+// reproduce locally, so the mock refuses the same way: MaxPlayers must be a
+// number 1-100, and MOCK_BAD_CONFIG=1 seeds a document that already breaks it.
+function configErrors(text) {
+  const errors = [];
+  let section = '';
+  for (const line of text.split(/\r?\n/)) {
+    const sec = /^\s*\[(.+)\]\s*$/.exec(line);
+    if (sec) { section = sec[1]; continue; }
+    const m = /^\s*([^!.;#=\s][^=]*?)\s*=\s*(.*?)\s*$/.exec(line);
+    if (!m) continue;
+    const [, key, value] = m;
+    if (key === 'MaxPlayers' && !(Number(value) >= 1 && Number(value) <= 100)) {
+      errors.push({ section, key, code: 'out_of_range', message: 'MaxPlayers must be between 1 and 100' });
+    }
+  }
+  return errors;
 }
 
 http.createServer(async (req, res) => {
@@ -269,10 +297,35 @@ http.createServer(async (req, res) => {
     return json(res, 200, {
       revision: String(configRevision),
       writable: true,
-      text: CONFIG_TEXT,
+      text: configText,
       sections: ['/Script/Wardogs.ServerSettings', '/Script/Wardogs.MapRotation'],
       warnings: [],
     });
+  }
+  if (req.method === 'POST' && p === '/v1/config/validate') {
+    if (!ROUTES.includes('POST /v1/config/validate')) return json(res, 404, { error: { code: 'not_found', message: 'no such route' } });
+    const errors = configErrors(await rawBody(req));
+    return errors.length
+      ? json(res, 422, { ok: false, errors })
+      : json(res, 200, { ok: true, errors: [] });
+  }
+  if (req.method === 'PUT' && p === '/v1/config') {
+    if (!ROUTES.includes('PUT /v1/config')) return json(res, 404, { error: { code: 'not_found', message: 'no such route' } });
+    const text = await rawBody(req);
+    // If-Match is the whole point of the route: a stale revision means somebody
+    // else saved in the meantime, and writing would quietly undo them.
+    const sent = (req.headers['if-match'] ?? '').replace(/"/g, '');
+    if (!sent) return json(res, 428, { error: { code: 'precondition_required', message: 'If-Match required' } });
+    if (sent !== String(configRevision)) {
+      return json(res, 412, { error: { code: 'revision_conflict', message: `settings are at revision ${configRevision}` } });
+    }
+    const errors = configErrors(text);
+    if (errors.length) return json(res, 422, { ok: false, errors });
+    configText = text;
+    configRevision += 1;
+    note('config', `saved, now revision ${configRevision}`);
+    console.log(`[mock] settings saved, revision ${configRevision}`);
+    return json(res, 200, { ok: true, revision: String(configRevision) });
   }
   if (req.method === 'POST' && p === '/v1/match/end') {
     if (!ROUTES.includes('POST /v1/match/end')) return json(res, 404, { error: { code: 'not_found', message: 'no such route' } });

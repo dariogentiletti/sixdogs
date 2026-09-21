@@ -245,11 +245,32 @@ REFUSES rather than guesses: unknown section, unknown key (it will not invent a 
 listed twice, a value containing a line break, a `!Key`/`.Key` list line. Refusing is always safe
 here; guessing breaks a live server in a way nobody sees until a match goes wrong. 15 tests.
 
-THE PUT IS STILL NOT WIRED UP. Before adding it: `PUT /v1/config` replaces the entire document and
-needs `If-Match: "<revision>"`, one pre-existing bad value blocks unrelated edits (read
-`errors[]` and name the key), and a wrong write breaks a live server. Read the real document
-first, validate with `POST /v1/config/validate` before any PUT, and edit one key in the existing
-text rather than rebuilding it.
+WRITING ONE VALUE IS NOW IMPLEMENTED, and deliberately narrow: one ordinary `Key=Value` in one
+`[Section]`, nothing else. There is no route that writes arbitrary text, and there shouldn't be.
+
+`PUT /internal/config/value` `{section, key, value, apply}` does the whole dance:
+GET the document -> `setConfigValue` changes that one line -> `POST /v1/config/validate` ->
+`PUT /v1/config` with `If-Match: "<revision>"`. **`apply` defaults to FALSE**: the expensive
+mistake is saving something nobody read, so the first call reports what would change and saves
+nothing. A 412 comes back as `stale` ("someone changed the settings while this was being
+prepared") and nothing is written, rather than quietly undoing them.
+
+`explainConfigErrors` handles the trap: the server validates the WHOLE document, so a value that
+was already wrong blocks an unrelated edit. Reported plainly that reads as "my edit was rejected"
+and the admin looks in the wrong place, so an error outside the edit is named AND called
+pre-existing.
+
+Bot: `/settings section:X key:Y value:Z` shows the before/after and saves nothing;
+`confirm:True` saves it and writes the change to `#admin-log`. `rcon.request` sends a string body
+as `text/plain`, since the document is text and not JSON wrapping text.
+
+The mock serves `PUT /v1/config` and `POST /v1/config/validate` too, including If-Match conflicts
+and a validation rule, so the whole path can be exercised without touching a live server.
+`MOCK_BAD_CONFIG=1` seeds a document that is ALREADY invalid, which is the only way to rehearse
+the pre-existing-bad-value case.
+
+Still not done: nothing maps a friendly name ("match starts at 45") to a key. The key names inside
+the live sections have not been read; see docs/wardogs-rcon.md.
 
 ## Seeding ("I want to play")
 

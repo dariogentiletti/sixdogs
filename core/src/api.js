@@ -9,6 +9,7 @@ import { RconError } from './rcon.js';
 import { looksEphemeral } from './db.js';
 import { commanderTerms, ratedTerms, roundPoints } from './ratings.js';
 import { seedDecision } from './seeding.js';
+import { ConfigEditError, explainConfigErrors, setConfigValue } from './configedit.js';
 
 const MAX_BODY = 16 * 1024;
 
@@ -256,6 +257,74 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       sections: c?.sections ?? [],
       text: typeof c?.text === 'string' ? c.text : '',
     };
+  });
+
+  /**
+   * Change ONE setting on the game server.
+   *
+   * Read, edit that one line, ask the server whether it would accept the
+   * result, and only then save it. `apply` is false by default: the expensive
+   * mistake here is writing something nobody looked at, so the default is to
+   * come back with "this is what would change" and wait to be asked again.
+   *
+   * PUT /v1/config replaces the whole document, so the text that goes back is
+   * the text that came out with one line different. See configedit.js.
+   */
+  route('PUT', '/internal/config/value', async (_p, body) => {
+    const section = String(body.section ?? '').trim();
+    const key = String(body.key ?? '').trim();
+    const value = String(body.value ?? '');
+    const apply = body.apply === true;
+    if (!section || !key) {
+      return [400, { error: { code: 'bad_request', message: 'section and key required' } }];
+    }
+
+    const doc = await rcon.getConfig();
+    const info = rcon.configInfo();
+    if (!info.writable) {
+      return [400, { error: { code: 'not_writable', message: 'This server build does not allow its settings to be changed.' } }];
+    }
+
+    let edit;
+    try {
+      edit = setConfigValue(doc?.text, { section, key, value });
+    } catch (err) {
+      if (err instanceof ConfigEditError) return [400, { error: { code: err.code, message: err.message } }];
+      throw err;
+    }
+    const base = { ok: true, section, key, from: edit.from, to: value, line: edit.line, revision: doc.revision };
+    if (!edit.changed) return { ...base, changed: false, applied: false, message: `${key} is already ${value || '(empty)'}.` };
+
+    // Checked before saving, every time. A refusal here costs nothing.
+    try {
+      const v = await rcon.validateConfig(edit.text);
+      if (v && v.ok === false) {
+        return [400, { error: { code: 'invalid', message: explainConfigErrors(v.errors, { section, key }) } }];
+      }
+    } catch (err) {
+      if (err instanceof RconError && err.errors) {
+        return [400, { error: { code: 'invalid', message: explainConfigErrors(err.errors, { section, key }) } }];
+      }
+      throw err;
+    }
+
+    if (!apply) return { ...base, changed: true, applied: false, validated: true };
+
+    try {
+      await rcon.writeConfig(edit.text, doc.revision);
+    } catch (err) {
+      // 412: somebody else saved while this was being prepared. Writing anyway
+      // would silently undo their change, so it doesn't.
+      if (err instanceof RconError && err.status === 412) {
+        return [409, { error: { code: 'stale', message: 'The settings changed while this was being prepared, so nothing was saved. Try again.' } }];
+      }
+      if (err instanceof RconError && err.errors) {
+        return [400, { error: { code: 'invalid', message: explainConfigErrors(err.errors, { section, key }) } }];
+      }
+      throw err;
+    }
+    log.log(`[config] ${section} ${key}: ${edit.from} -> ${value}`);
+    return { ...base, changed: true, applied: true, validated: true };
   });
 
   // What this particular server build can do, plus the raw numbers behind the

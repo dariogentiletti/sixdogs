@@ -131,3 +131,60 @@ test('the change reads as a sentence a human can check', () => {
   assert.equal(describeEdit({ section: 'X', key: 'PlayerCount', from: '10', to: '45' }),
     '[X] PlayerCount: 10 -> 45');
 });
+
+// ---- reading the server's refusal ----
+
+import { explainConfigErrors } from '../src/configedit.js';
+
+const EDIT = { section: 'MatchState.PreMatch.WaitingForPlayers.PlayerCount', key: 'PlayerCount' };
+
+test('a refusal about our own change names it plainly', () => {
+  const msg = explainConfigErrors(
+    [{ section: EDIT.section, key: 'PlayerCount', code: 'out_of_range', message: 'must be 1 to 100' }], EDIT);
+  assert.match(msg, /would not accept that value/);
+  assert.match(msg, /PlayerCount/);
+  assert.match(msg, /must be 1 to 100/);
+});
+
+// The trap CLAUDE.md warns about: the whole document is validated, so something
+// that was already wrong blocks an unrelated edit. Reported badly, the admin
+// goes hunting in the wrong place.
+test('a bad value that was already there is named AND called pre-existing', () => {
+  const msg = explainConfigErrors(
+    [{ section: '/Script/WDGame.WDGameSession', key: 'MaxPlayers', message: 'must be even' }], EDIT);
+  assert.match(msg, /The change itself is fine/);
+  assert.match(msg, /already in the document/);
+  assert.match(msg, /\[\/Script\/WDGame\.WDGameSession\] MaxPlayers/, 'the key at fault is named');
+  assert.match(msg, /must be even/);
+});
+
+test('both at once are kept apart', () => {
+  const msg = explainConfigErrors([
+    { section: EDIT.section, key: 'PlayerCount', message: 'too big' },
+    { section: '/Script/WDGame.WDGameSession', key: 'MaxPlayers', message: 'must be even' },
+  ], EDIT);
+  assert.match(msg, /would not accept that value/);
+  assert.match(msg, /It also rejects/);
+  assert.match(msg, /MaxPlayers/);
+});
+
+test('several pre-existing problems are counted, not just the first', () => {
+  const msg = explainConfigErrors([
+    { section: 'A', key: 'One', message: 'bad' },
+    { section: 'B', key: 'Two', message: 'worse' },
+  ], EDIT);
+  assert.match(msg, /2 settings/);
+  assert.match(msg, /One/);
+  assert.match(msg, /Two/);
+});
+
+test('a refusal with no detail still says something true', () => {
+  assert.match(explainConfigErrors([], EDIT), /did not say why/);
+  assert.match(explainConfigErrors(null, EDIT), /did not say why/);
+});
+
+test('an error with no key named does not print "undefined"', () => {
+  const msg = explainConfigErrors([{ section: 'A', message: 'broken' }], EDIT);
+  assert.doesNotMatch(msg, /undefined/);
+  assert.match(msg, /no key named/);
+});

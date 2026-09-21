@@ -100,3 +100,40 @@ export function setConfigValue(text, { section, key, value } = {}) {
 export function describeEdit({ section, key, from, to }) {
   return `[${section}] ${key}: ${from === '' ? '(empty)' : from} -> ${to === '' ? '(empty)' : to}`;
 }
+
+/**
+ * Turn the server's `errors[]` refusal into something an admin can act on.
+ *
+ * The distinction that matters, and the reason this exists: the server
+ * validates the WHOLE document, so a value that was already wrong before today
+ * blocks a change that has nothing to do with it. Told plainly, that reads as
+ * "my edit was rejected" and the admin goes looking in the wrong place. So the
+ * keys at fault are always named, and an error somewhere other than the edit is
+ * called out as pre-existing.
+ *
+ * @param {{section?, key?, code?, message?}[]} errors  as returned by the server
+ * @param {{section, key}} edit  what we were trying to change
+ */
+export function explainConfigErrors(errors, { section, key } = {}) {
+  const list = (Array.isArray(errors) ? errors : []).filter(Boolean);
+  if (!list.length) return 'The game server refused the settings but did not say why.';
+
+  const where = (e) => `${e.section ? `[${e.section}] ` : ''}${e.key ?? '(no key named)'}`;
+  const why = (e) => (e.message ? `: ${e.message}` : e.code ? ` (${e.code})` : '');
+  const mine = list.filter((e) => same(e.key, key) && (!e.section || same(e.section, section)));
+  const theirs = list.filter((e) => !mine.includes(e));
+
+  const out = [];
+  if (mine.length) {
+    out.push(`The game server would not accept that value for ${where(mine[0])}${why(mine[0])}`);
+  }
+  if (theirs.length) {
+    const names = theirs.map((e) => `${where(e)}${why(e)}`);
+    out.push(
+      (mine.length ? 'It also rejects' : 'The change itself is fine, but the game server rejects')
+      + ` ${names.length === 1 ? 'a setting' : `${names.length} settings`} that ${names.length === 1 ? 'was' : 'were'} `
+      + `already in the document: ${names.join('; ')}. `
+      + 'The whole document is checked at once, so that has to be fixed before anything else can be saved.');
+  }
+  return `${out.join('. ')}.`.replace(/\.\.+$/, '.');
+}

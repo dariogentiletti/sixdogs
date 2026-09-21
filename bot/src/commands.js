@@ -67,8 +67,11 @@ export const commandDefinitions = [
     .setDefaultMemberPermissions(P.ManageRoles),
   new SlashCommandBuilder().setName('reserved').setDescription('ADMIN: who holds a reserved slot on the game server')
     .setDefaultMemberPermissions(P.ManageRoles),
-  new SlashCommandBuilder().setName('settings').setDescription("ADMIN: read the game server's settings")
+  new SlashCommandBuilder().setName('settings').setDescription("ADMIN: read, and change, the game server's settings")
     .addStringOption((o) => o.setName('section').setDescription('Show one section in full').setMaxLength(100))
+    .addStringOption((o) => o.setName('key').setDescription('With value: the setting to change, inside that section').setMaxLength(100))
+    .addStringOption((o) => o.setName('value').setDescription('What to change it to. Shows you the change first; nothing is saved without confirm').setMaxLength(200))
+    .addBooleanOption((o) => o.setName('confirm').setDescription('Yes, save it to the live server'))
     .setDefaultMemberPermissions(P.Administrator),
 
   // ---- match and world control ----
@@ -447,9 +450,32 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
 
     async settings(i) {
       await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const wanted = i.options.getString('section');
+      const key = i.options.getString('key');
+      const value = i.options.getString('value');
+
+      // section + key + value is a change. Deliberately two steps: the first
+      // call says what would happen and saves nothing, and it only touches the
+      // live server once somebody has read that and asked again with confirm.
+      if (key !== null || value !== null) {
+        if (!wanted || key === null || value === null) {
+          return i.editReply('To change a setting I need all three: `section`, `key` and `value`. '
+            + 'Run `/settings section:<name>` first to see the keys that section actually has.');
+        }
+        const apply = i.options.getBoolean('confirm') === true;
+        const r = await core.setServerSetting(wanted, key, value, apply);
+        if (!r.changed) return i.editReply(`Nothing to do: **${r.key}** is already \`${r.from || '(empty)'}\`.`);
+        const change = `**[${r.section}]** \`${r.key}\`\n\`${r.from || '(empty)'}\` → \`${r.to || '(empty)'}\``;
+        if (!r.applied) {
+          return i.editReply(`${change}\n\nThe game server says it would accept that. **Nothing has been saved yet.** `
+            + 'Run the same command again with `confirm:True` to save it.');
+        }
+        await log(`⚙️ <@${i.user.id}> changed a game server setting: [${r.section}] ${r.key}: ${r.from || '(empty)'} → ${r.to || '(empty)'}`);
+        return i.editReply(`✅ Saved to the live server.\n${change}`);
+      }
+
       const c = await core.serverConfig();
       const sections = parseConfigText(c.text);
-      const wanted = i.options.getString('section');
 
       if (wanted) {
         const sec = findSection(sections, wanted);
@@ -457,7 +483,8 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
           const names = sections.map((x) => x.name).filter(Boolean);
           return i.editReply(`No section called **${wanted}**. There is: ${names.join(', ') || '(none)'}`);
         }
-        return i.editReply(`**[${sec.name}]** — ${summarise(sec)}\n\`\`\`ini\n${renderSection(sec)}\n\`\`\``);
+        return i.editReply(`**[${sec.name}]** — ${summarise(sec)}\n\`\`\`ini\n${renderSection(sec)}\n\`\`\`\n`
+          + `Change one with \`/settings section:${sec.name} key:<key> value:<value>\`.`);
       }
 
       const lines = [
