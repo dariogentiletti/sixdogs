@@ -1,0 +1,26 @@
+# The SIXDOGS bot, kept running by systemd.
+# Installed to /etc/systemd/system/sixdogs.service by deploy/setup.sh.
+
+[Unit]
+Description=SIXDOGS (WARDOGS Discord bot and core)
+Documentation=https://github.com/dariogentiletti/sixdogs
+After=network-online.target
+Wants=network-online.target
+# Never give up restarting. A bad token should keep retrying, not stop for good.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=sixdogs
+Group=sixdogs
+WorkingDirectory=/opt/sixdogs
+ExecStart=/usr/bin/node run.mjs
+Restart=always
+RestartSec=10
+# Everything the bot prints goes to the system log (journalctl -u sixdogs).
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sixdogs
+
+[Install]
+WantedBy=multi-user.target

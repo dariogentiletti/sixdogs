@@ -83,12 +83,25 @@ server search name, live status URL. Consumers:
 When the owner says "change X" (e.g. "change donation to PayPal"): edit community.json (and any
 wording that names the old thing, e.g. donate.how), `grep -ri` for the old name across content/,
 website-src/, design/verify-guide/, README.md and PRODUCT.md, run `node tools/build.mjs`, re-render
-panels if hardcore/join facts changed, run tests, copy the changed files to the PC
-(device_commit_files), `git commit` and `git push` (the GitHub repo `sixdogs` is the deploy
-trigger: Cloudflare Pages builds `node tools/build.mjs` and publishes `website/`), then tell the
-owner to restart the bot. Only the bot restart is manual; the website publishes itself.
+panels if hardcore/join facts changed, run tests, then `git commit` and `git push` to `main`.
+Pushing is the whole deploy: Cloudflare Pages rebuilds the website, and the VPS pulls the new
+code and restarts the bot within ~2 minutes. Nothing is manual any more.
 api.cloudflare.com is blocked from this sandbox, so never try to deploy with wrangler or the
 Cloudflare API: push to GitHub instead.
+
+## How changes reach the world
+
+There is no local machine in the loop. The owner is not a programmer and does not run
+commands: everything happens by pushing to GitHub `main`.
+
+- `main` is production. A push to it deploys.
+- Website: Cloudflare Pages runs `node tools/build.mjs` and publishes `website/`.
+- Bot + core: the VPS runs `deploy/update.sh` every 2 minutes (systemd timer), which resets
+  to `origin/main`, reinstalls deps and restarts the `sixdogs` service. Setup: `deploy/`.
+- `.env` lives ONLY on the VPS (passwords, git-ignored). Claude cannot reach the VPS, so a
+  change that needs a new setting means telling the owner what to edit there, in plain words.
+- The GitHub repo is PUBLIC. Never commit a secret, and never paste one into a doc or post.
+- Work on the branch you were given, but say clearly that it has to reach `main` to go live.
 
 ## Website live status
 

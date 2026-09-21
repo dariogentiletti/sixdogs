@@ -101,6 +101,9 @@ function shutdown(code = 0) {
   setTimeout(() => process.exit(code), 500);
 }
 process.on('SIGINT', () => { console.log('\nStopping...'); shutdown(0); });
+// systemd sends SIGTERM on `systemctl stop/restart`. Without this the children
+// are killed by the cgroup instead of being stopped by us.
+process.on('SIGTERM', () => { console.log('Stopping...'); shutdown(0); });
 
 const coreEnv = {
   RCON_URL: env.RCON_URL,

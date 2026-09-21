@@ -1,0 +1,11 @@
+# Runs deploy/update.sh once. Started by sixdogs-update.timer, not by hand.
+
+[Unit]
+Description=Pull the latest SIXDOGS from GitHub
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sixdogs/deploy/update.sh
+SyslogIdentifier=sixdogs-update
