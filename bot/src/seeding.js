@@ -288,7 +288,7 @@ export class Seeding {
     const when = (at) => (at ? `<t:${Math.floor(Date.parse(at) / 1000)}:R>` : 'never');
     const doing = { call: '**Calling everyone in.**', nudge: `**Telling ${this.config.seedPingRoleName} about it.**` };
     return [
-      `**${s.ready} of ${s.target} want to play**, and ${s.playersOn} are on the server.`,
+      `**${s.ready} of ${s.target} want to play**, and ${s.playersOn} ${s.playersOn === 1 ? 'is' : 'are'} on the server.`,
       doing[s.action] ?? `Nothing being sent: ${s.reason}.`,
       `Last call-in ${when(s.lastCallAt)}, last heads-up ${when(s.lastNudgeAt)}. `
         + `A name lasts ${Math.round(s.pledgeMinutes / 60)} h; each message at most once every ${s.cooldownMinutes} min.`,

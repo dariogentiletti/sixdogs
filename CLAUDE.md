@@ -234,7 +234,18 @@ of the `kind` field, and there is a test for it.
 granting a donor their promised slot means editing the settings document, which is why the write
 path below matters: it is the only way to keep a public promise the donation page already makes.
 
-WRITING IS NOT IMPLEMENTED. Before adding it: `PUT /v1/config` replaces the entire document and
+The live document's six sections are in `docs/wardogs-rcon.md`, read off `/settings` on
+2026-09-21. The build reports the document as **writable**. The KEY names inside those sections
+have NOT been read yet, and must not be guessed.
+
+`core/src/configedit.js` is the sharp end: `setConfigValue(text, {section, key, value})` changes
+ONE ordinary `Key=Value` inside one `[Section]` and returns the whole document back, byte for byte
+identical everywhere else, keeping CRLF, comments, blank lines and each line's own spacing. It
+REFUSES rather than guesses: unknown section, unknown key (it will not invent a line), a key
+listed twice, a value containing a line break, a `!Key`/`.Key` list line. Refusing is always safe
+here; guessing breaks a live server in a way nobody sees until a match goes wrong. 15 tests.
+
+THE PUT IS STILL NOT WIRED UP. Before adding it: `PUT /v1/config` replaces the entire document and
 needs `If-Match: "<revision>"`, one pre-existing bad value blocks unrelated edits (read
 `errors[]` and name the key), and a wrong write breaks a live server. Read the real document
 first, validate with `POST /v1/config/validate` before any PUT, and edit one key in the existing

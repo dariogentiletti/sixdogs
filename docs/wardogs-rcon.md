@@ -54,6 +54,26 @@ disabled `/verify`.
 `matchSeconds` and no `scoreCap`, both of which the reference documents. They may only appear
 during a live match; the code treats both as optional either way.
 
+## The settings document
+
+Read off `/settings` on the live server, 2026-09-21. The build reports the document as
+**writable** (`capabilities.config.writable` plus the `PUT /v1/config` route). Revisions change on
+every write, so they are not worth recording; the section names should be stable.
+
+| Section | Holds |
+|---|---|
+| `/Script/WDGame.WDGameSession` | 8 settings and 1 list. The biggest one; the list is almost certainly the reserved slots. |
+| `MatchState.PreMatch.WaitingForPlayers.PlayerCount` | 1 setting. By its name, how many players the server waits for before a match starts. |
+| `MatchState.Playing.KOTH` | 1 setting |
+| `/Script/WDGame.WDGameStateSession` | 2 settings |
+| `/Script/WDGame.WDServerMapRotationSettings` | 2 settings and 1 list (the rotation) |
+| `/Script/WDRCON.WDRCONSettings` | 3 settings |
+
+**The KEY names inside these sections have not been read yet.** Run `/settings section:<name>` and
+read them off the real server. Do not guess them: `PUT /v1/config` replaces the entire document,
+so a wrong key name is a broken live server, and `core/src/configedit.js` deliberately refuses to
+invent a line that isn't already there.
+
 ## Routes used by SIXDOGS
 
 | Route | Returns / body |

@@ -72,7 +72,7 @@
       "what": "Set the game server's own minimum player count to 45 (three teams of 15) so a match starts when the call-in says it will, and raise the AFK kick to 10 minutes so people waiting for a match to fill aren't thrown out of it.",
       "blocking": "Both are settings inside the config document. SEED_TARGET is 45 on the Discord side, so until the server agrees, the call-in promises a match the server may not start. Waiting in the server is now something seeding actively encourages, which makes the AFK timeout worse than it was.",
       "cost": "None",
-      "howTo": "Run /settings on the live server and paste the document. The key names are NOT in docs/wardogs-rcon.md and must not be guessed. Then build the PUT /v1/config write path described in CLAUDE.md: read, edit one key in the existing text, validate with POST /v1/config/validate, PUT with If-Match."
+      "howTo": "The section list is known (see verified[]): the match-start minimum is almost certainly in MatchState.PreMatch.WaitingForPlayers.PlayerCount and the AFK timeout in /Script/WDGame.WDGameSession. The KEY NAMES are still unread. Run /settings section:<name> on both and read them off; do not guess. The editing half is done and tested (core/src/configedit.js). What is left is the RCON write: POST /v1/config/validate first, then PUT /v1/config with If-Match: \"<revision>\", and show the admin the before/after line."
     }
   ],
   "decisions": [
@@ -97,7 +97,8 @@
     "2026-09-21: WARDOGS does not answer steam:// links at all. Neither steam://connect/<ip:port> nor steam://run/1867240//+connect <ip:port> launches the game into the server, so there is no one-click join. The website shows the Server ID for Community servers -> Join by ID instead.",
     "2026-09-21: player.faction uses the same names as factionScores[].name. /server with 2 players on reported factionStrings [\"Valkyra\", \"Manticore\"]. factionKeyFor maps both to red/green and gameFactionFor maps back, so FACTION_ALIASES is not needed. This closes the last of the three things that were guesses.",
     "2026-09-21: matchSeconds and scoreCap are absent WITH PLAYERS ON, not just on an idle server. statusKeys from /server with 2 connected: alternator, experiences, factionScores, lighting, map, players, rotation, scoreTick, serverName. So there is no match clock on this build at all and clockDirection stays null by design.",
-    "2026-09-21: the live build advertises 29 routes including GET/PUT /v1/config and POST /v1/config/validate, so the server settings CAN be written. What is missing is the document itself: the key names for minimum players and the AFK timeout are not in the docs and must be read with /settings before anything is written."
+    "2026-09-21: the live build advertises 29 routes including GET/PUT /v1/config and POST /v1/config/validate, so the server settings CAN be written. What is missing is the document itself: the key names for minimum players and the AFK timeout are not in the docs and must be read with /settings before anything is written.",
+    "2026-09-21: /settings reads the live settings document and the build reports it as writable, so the server settings CAN be changed from Discord once the write path is built. The six section names are listed in docs/wardogs-rcon.md, not here, so there is one copy of them."
   ],
   "rules": [
     "Never move players between teams automatically during a match. The owner has ruled this out: /move stays an admin command only, and no balancing rule may ever call it on its own.",
