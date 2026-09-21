@@ -1,0 +1,70 @@
+{
+  "_about": "What SIXDOGS actually runs on, what it costs, and what is still pending. This is the operational source of truth, kept up to date as things get set up or change. community.json holds what PLAYERS see; this holds what the OWNER is paying for and running. The bill shown on the website and in #support-the-community is derived from `services` below, so it can never drift from reality: add a service here and it appears in both. Never put passwords, tokens or account credentials in this file. The repo is public.",
+  "services": [
+    {
+      "id": "gameserver",
+      "name": "Game server",
+      "what": "The WARDOGS server itself",
+      "provider": "xREALM",
+      "plan": "Managed game server, US Mid",
+      "monthlyUsd": 115,
+      "confirmed": true,
+      "onBill": true,
+      "notes": "RCON is enabled and reachable. Build ++Wardogs+Live-CL-501228."
+    },
+    {
+      "id": "bot",
+      "name": "Bot hosting",
+      "what": "Runs the Discord bot, core and the Postgres database",
+      "provider": "Railway",
+      "plan": "Hobby",
+      "monthlyUsd": 5,
+      "confirmed": false,
+      "onBill": true,
+      "notes": "Hobby is $5/month and includes $5 of usage. Metered at $10/GB RAM and $20/vCPU after that, so the real figure depends on how much the bot and Postgres use. Check the Usage page after a full month and set monthlyUsd to what it actually bills."
+    },
+    {
+      "id": "domain",
+      "name": "Domain",
+      "what": "sixdogs.gg",
+      "provider": "Namecheap",
+      "plan": "Registration, billed yearly",
+      "monthlyUsd": 6,
+      "confirmed": false,
+      "onBill": true,
+      "notes": "A .gg domain is roughly $70/year, shown here as a per-month share. Replace with the real renewal price from the Namecheap invoice."
+    },
+    {
+      "id": "website",
+      "name": "Website hosting",
+      "what": "Serves sixdogs.gg and rebuilds it on every push",
+      "provider": "Cloudflare Pages",
+      "plan": "Free",
+      "monthlyUsd": 0,
+      "confirmed": true,
+      "onBill": true,
+      "notes": "Free plan covers this comfortably. DNS for the domain is also Cloudflare, also free."
+    }
+  ],
+  "pending": [
+    {
+      "id": "live-status",
+      "what": "live.sixdogs.gg: a Cloudflare Worker plus KV that stores the bot's status push so the website can show it",
+      "blocking": "The live tracker on the website stays hidden until this exists",
+      "cost": "Free on Cloudflare's free plan",
+      "howTo": "website/DEPLOY.md step 4"
+    },
+    {
+      "id": "server-ip",
+      "what": "A public IP and game port for the server, if xREALM will give one",
+      "blocking": "A one-click join link on the website. Without it the site shows the Server ID for Join by ID.",
+      "cost": "None"
+    }
+  ],
+  "decisions": [
+    "Railway over a plain VPS: no SSH for routine changes, settings are a web form, managed Postgres, and it redeploys on every push to main.",
+    "Cloudflare Pages over Railway for the website: free, purpose-built for static files, and the _redirects file and the live-status worker were already written for it.",
+    "Postgres on Railway rather than the embedded PGlite: PGlite measured about 500 MB resident, which is most of a small box.",
+    "Push straight to main, no pull requests: solo project, and main is what deploys."
+  ]
+}

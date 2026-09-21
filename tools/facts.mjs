@@ -1,4 +1,6 @@
-// Loads community.json (the one place for SIXDOGS facts) and fills templates with it.
+// Loads community.json (what players see) plus stack.json (what it all runs on and
+// costs) and fills templates with them. The `costs` block is derived from
+// stack.json, so the bill cannot drift from the real stack.
 // Used by the bot for the Discord posts and by tools/build.mjs for the website.
 //
 // Template syntax (the same in .md and .html):
@@ -11,10 +13,39 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const FACTS_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'community.json');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+export const FACTS_PATH = join(ROOT, 'community.json');
+export const STACK_PATH = join(ROOT, 'stack.json');
 
-export function loadFacts(path = FACTS_PATH) {
-  return JSON.parse(readFileSync(path, 'utf8'));
+const money = (n) => (n === 0 ? 'free' : `$${Number(n).toLocaleString('en-US')}`);
+
+/**
+ * Turn stack.json into the `costs` the templates already expect, so the bill on
+ * the website and in #support-the-community is generated from what SIXDOGS
+ * actually runs on. Add a service to stack.json and it shows up in both; there
+ * is no second list to remember.
+ *
+ * A figure that hasn't been checked against a real invoice is shown as "about",
+ * so nobody reads a guess as exact on a page asking for money.
+ */
+export function costsFromStack(stack) {
+  const billed = (stack.services ?? []).filter((s) => s.onBill !== false);
+  const items = billed.map((s) => ({
+    item: s.name,
+    monthly: s.confirmed || s.monthlyUsd === 0 ? money(s.monthlyUsd) : `about ${money(s.monthlyUsd)}`,
+  }));
+  const total = billed.reduce((sum, s) => sum + (Number(s.monthlyUsd) || 0), 0);
+  const anyEstimated = billed.some((s) => !s.confirmed && s.monthlyUsd !== 0);
+  return { items, total: `${anyEstimated ? 'about ' : ''}${money(total)}` };
+}
+
+export function loadFacts(path = FACTS_PATH, stackPath = STACK_PATH) {
+  const facts = JSON.parse(readFileSync(path, 'utf8'));
+  const stack = JSON.parse(readFileSync(stackPath, 'utf8'));
+  const { items, total } = costsFromStack(stack);
+  // `leftover` is wording and stays in community.json; the numbers come from the stack.
+  facts.costs = { ...(facts.costs ?? {}), items, total };
+  return facts;
 }
 
 const HTML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };

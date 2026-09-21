@@ -25,25 +25,7 @@
     "perk": "Donors get one of the six reserved slots on the server. Nobody gets an advantage in game."
   },
   "costs": {
-    "items": [
-      {
-        "item": "Game server",
-        "monthly": "$115"
-      },
-      {
-        "item": "Bot hosting",
-        "monthly": "about $10"
-      },
-      {
-        "item": "Domain",
-        "monthly": "about $6"
-      },
-      {
-        "item": "Website hosting",
-        "monthly": "free"
-      }
-    ],
-    "total": "about $131",
+    "_about": "The numbers come from stack.json (one source of truth). Only the wording below lives here.",
     "leftover": "The game server is the big one. The bot runs on a small host so it stays up around the clock, the domain is paid yearly and split out per month here, and the website costs nothing to serve. Anything left over stays in the pot for the next month."
   },
   "hardcore": {

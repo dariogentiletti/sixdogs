@@ -91,11 +91,38 @@ lobby; faction role = own listen channel only (Verified is explicitly denied the
 commander role = Speak in own channel. `guard.js` moves people out of voice channels they lost
 access to. test/permissions.test.js simulates Discord's overwrite rules per persona.
 
+## Project knowledge: stack.json
+
+`stack.json` is the operational source of truth: what SIXDOGS runs on, what each piece costs,
+what is still pending, and why the big choices were made. `community.json` is what PLAYERS see;
+`stack.json` is what the OWNER pays for and runs.
+
+**Keep it current as part of the work, not as a separate chore.** The moment the owner says they
+signed up for something, paid for something, changed plan, set up a service, or dropped one,
+edit `stack.json` in that same session. This already went wrong once: Railway Hobby was set up on
+Claude's own recommendation and never recorded, so an hour later the donation page was built with
+a guessed "about $10" for bot hosting instead of the real $5.
+
+The public bill is DERIVED from `services[]` by `costsFromStack` in `tools/facts.mjs`, which fills
+`costs.items` and `costs.total` for the website and `#support-the-community`. So:
+- Adding a service to `stack.json` puts it on the bill everywhere. There is no second list.
+- `confirmed: false` renders the figure as "about $5" and makes the total "about". Set it true
+  only against a real invoice.
+- `onBill: false` keeps something in the stack but off the public bill.
+- Only the `leftover` wording still lives in `community.json`.
+
+When the owner says something broad like "update the website and Discord with the new
+information", that means: re-read `stack.json`, work out what changed since those pages were
+written, and update the facts before touching wording. Do not wait to be told which facts.
+
+NEVER put a password, token or account credential in it. The repo is public, and a test checks.
+
 ## Community facts (community.json)
 
 `community.json` at the root is the single source for facts shown in several places: domain,
-Discord invite, founder letter, donation platform/link/wording, costs, Hardcore settings,
-server search name, live status URL. Consumers:
+Discord invite, founder letter, donation platform/link/wording, Hardcore settings, server search
+name, live status URL. The cost NUMBERS are not here: they are derived from `stack.json` (above).
+Consumers:
 - Discord posts: `content/*.md` use `{{key}}`, `{{#if}}`, `{{#each}}` (`tools/facts.mjs`),
   filled by `loadPosts` at bot start. A post whose template breaks is skipped and logged.
 - Website: `website-src/index.html` -> `node tools/build.mjs` -> `website/index.html` and
