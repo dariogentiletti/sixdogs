@@ -19,20 +19,20 @@
       "provider": "Railway",
       "plan": "Hobby, with a Postgres database attached",
       "monthlyUsd": 5,
-      "confirmed": false,
+      "confirmed": true,
       "onBill": true,
-      "notes": "Hobby is $5/month and includes $5 of usage. Metered at $10/GB RAM and $20/vCPU after that, and the Postgres service counts toward it, so the real figure depends on usage. Check the Usage page after a full month and set monthlyUsd to what it actually bills. CONFIRMED 2026-09-21 via /server: DATABASE_URL is set and core is on Railway Postgres, so links, ratings and match history survive restarts and deploys. 1 player linked."
+      "notes": "Hobby, $5/month including $5 of usage, confirmed by the owner. The Postgres service counts toward the same usage, so watch the Usage page if the bot grows. CONFIRMED 2026-09-21 via /server: DATABASE_URL is set and core is on Railway Postgres, so links, ratings and match history survive restarts and deploys."
     },
     {
       "id": "domain",
       "name": "Domain",
       "what": "sixdogs.gg",
       "provider": "Namecheap",
-      "plan": "Registration, billed yearly",
-      "monthlyUsd": 6,
-      "confirmed": false,
+      "plan": "Registration, $65 a year",
+      "confirmed": true,
       "onBill": true,
-      "notes": "A .gg domain is roughly $70/year, shown here as a per-month share. Replace with the real renewal price from the Namecheap invoice."
+      "notes": "Billed yearly and shown on the bill as a per-month share. Confirmed by the owner.",
+      "yearlyUsd": 65
     },
     {
       "id": "website",

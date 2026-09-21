@@ -17,7 +17,17 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const FACTS_PATH = join(ROOT, 'community.json');
 export const STACK_PATH = join(ROOT, 'stack.json');
 
-const money = (n) => (n === 0 ? 'free' : `$${Number(n).toLocaleString('en-US')}`);
+const money = (n) => {
+  if (!n) return 'free';
+  // Two decimals only when they say something: $115, not $115.00, but $5.42
+  // for a yearly bill divided by twelve.
+  const r = Math.round(Number(n) * 100) / 100;
+  return `$${r.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+};
+
+/** What one service costs per month, whether it is billed monthly or yearly. */
+export const monthlyCost = (s) =>
+  (typeof s.yearlyUsd === 'number' ? s.yearlyUsd / 12 : Number(s.monthlyUsd) || 0);
 
 /**
  * Turn stack.json into the `costs` the templates already expect, so the bill on
@@ -30,12 +40,12 @@ const money = (n) => (n === 0 ? 'free' : `$${Number(n).toLocaleString('en-US')}`
  */
 export function costsFromStack(stack) {
   const billed = (stack.services ?? []).filter((s) => s.onBill !== false);
-  const items = billed.map((s) => ({
-    item: s.name,
-    monthly: s.confirmed || s.monthlyUsd === 0 ? money(s.monthlyUsd) : `about ${money(s.monthlyUsd)}`,
-  }));
-  const total = billed.reduce((sum, s) => sum + (Number(s.monthlyUsd) || 0), 0);
-  const anyEstimated = billed.some((s) => !s.confirmed && s.monthlyUsd !== 0);
+  const items = billed.map((s) => {
+    const m = monthlyCost(s);
+    return { item: s.name, monthly: s.confirmed || m === 0 ? money(m) : `about ${money(m)}` };
+  });
+  const total = billed.reduce((sum, s) => sum + monthlyCost(s), 0);
+  const anyEstimated = billed.some((s) => !s.confirmed && monthlyCost(s) !== 0);
   return { items, total: `${anyEstimated ? 'about ' : ''}${money(total)}` };
 }
 

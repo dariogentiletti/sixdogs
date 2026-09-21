@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { costsFromStack, loadFacts, STACK_PATH } from '../../tools/facts.mjs';
+import { costsFromStack, loadFacts, monthlyCost, STACK_PATH } from '../../tools/facts.mjs';
 
 const stack = JSON.parse(readFileSync(STACK_PATH, 'utf8'));
 
@@ -11,8 +11,11 @@ test('every real service reaches the bill, and the total is their sum', () => {
   const { items, total } = costsFromStack(stack);
   const billed = stack.services.filter((s) => s.onBill !== false);
   assert.equal(items.length, billed.length, 'no service silently missing from the bill');
-  const sum = billed.reduce((n, s) => n + Number(s.monthlyUsd), 0);
-  assert.ok(total.includes(String(sum)), `total should contain ${sum}, got "${total}"`);
+  // Uses the same helper the bill does, so a yearly service is counted at its
+  // monthly share rather than skipped for having no monthlyUsd.
+  const sum = billed.reduce((n, s) => n + monthlyCost(s), 0);
+  const expected = (Math.round(sum * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  assert.ok(total.includes(expected), `total should contain ${expected}, got "${total}"`);
 });
 
 test('the thing that went wrong before: bot hosting is on the bill', () => {
@@ -85,4 +88,37 @@ test('the stack file stays free of anything secret', () => {
     }
   };
   walk(JSON.parse(readFileSync(STACK_PATH, 'utf8')));
+});
+
+test('a yearly bill is shown as its monthly share', () => {
+  // The domain is paid once a year; the bill is monthly.
+  assert.equal(monthlyCost({ yearlyUsd: 65 }).toFixed(2), '5.42');
+  assert.equal(monthlyCost({ monthlyUsd: 5 }), 5);
+  assert.equal(monthlyCost({}), 0);
+
+  const { items, total } = costsFromStack({
+    services: [
+      { name: 'Monthly thing', monthlyUsd: 115, confirmed: true },
+      { name: 'Yearly thing', yearlyUsd: 65, confirmed: true },
+    ],
+  });
+  assert.deepEqual(items, [
+    { item: 'Monthly thing', monthly: '$115' },
+    { item: 'Yearly thing', monthly: '$5.42' },
+  ]);
+  assert.equal(total, '$120.42', 'the yearly one is counted at its monthly share');
+});
+
+test('whole amounts do not grow decimals', () => {
+  const { items, total } = costsFromStack({
+    services: [{ name: 'A', monthlyUsd: 115, confirmed: true }, { name: 'B', monthlyUsd: 5, confirmed: true }],
+  });
+  assert.deepEqual(items.map((i) => i.monthly), ['$115', '$5']);
+  assert.equal(total, '$120');
+});
+
+test('the live bill has no guesses left in it', () => {
+  const { items, total } = costsFromStack(JSON.parse(readFileSync(STACK_PATH, 'utf8')));
+  assert.ok(!total.startsWith('about'), 'every figure is confirmed, so the total is stated plainly');
+  assert.ok(items.every((i) => !i.monthly.startsWith('about')), items.map((i) => i.monthly).join(', '));
 });
