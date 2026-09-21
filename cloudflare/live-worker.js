@@ -1,8 +1,10 @@
 // SIXDOGS live status, a Cloudflare Worker at https://live.sixdogs.gg
 // Paste this whole file into the Worker's code editor (see website/DEPLOY.md, step 4).
 //
-//   POST /status   the bot sends the latest summary (needs the PUSH_TOKEN secret)
-//   GET  /status   the website reads it
+// The whole subdomain exists for this one thing, so the root and /status are
+// the same endpoint. Open https://live.sixdogs.gg to eyeball it.
+//   POST /  or  /status   the bot sends the latest summary (needs PUSH_TOKEN)
+//   GET  /  or  /status   the website reads it
 //
 // Needs two settings on the Worker:
 //   STATUS      a KV namespace binding (stores the one latest summary)
@@ -22,7 +24,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
-    if (url.pathname !== '/status') return json({ error: 'not found' }, 404);
+    // Treat the root and /status as one endpoint. The bot already pushes to
+    // /status, so accepting both means no setting has to change.
+    const path = url.pathname.replace(/\/+$/, '') || '/';
+    if (path !== '/' && path !== '/status') return json({ error: 'not found' }, 404);
 
     if (request.method === 'GET') {
       const saved = await env.STATUS.get('latest');

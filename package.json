@@ -11,6 +11,6 @@
     "postinstall": "node tools/postinstall.mjs",
     "start": "node run.mjs",
     "build": "node tools/build.mjs",
-    "test": "npm --prefix core test && npm --prefix bot test"
+    "test": "node --test cloudflare/test/*.test.js && npm --prefix core test && npm --prefix bot test"
   }
 }

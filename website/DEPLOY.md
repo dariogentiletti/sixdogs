@@ -56,7 +56,8 @@ small public summary to a Cloudflare Worker every 2 minutes, and the website rea
 5. **Settings** → **Variables and Secrets** → **Add** → type **Secret**, name `PUSH_TOKEN`,
    value: a long random password you make up (30+ letters and numbers). Keep a copy.
 6. **Settings** → **Domains & Routes** → **Add** → **Custom domain** → `live.sixdogs.gg`.
-7. Open https://live.sixdogs.gg/status. You should see `{"v":1,"state":"unknown"}`.
+7. Open https://live.sixdogs.gg. You should see `{"v":1,"state":"unknown"}`.
+   (`/status` shows the same thing; the Worker answers on both.)
 8. Add two variables to the bot on Railway (service → **Variables**):
    ```
    STATUS_PUSH_URL=https://live.sixdogs.gg/status
