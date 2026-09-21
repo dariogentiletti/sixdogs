@@ -20,6 +20,40 @@ Because it's plain HTTP, reaching it across the internet means the password trav
 Prefer running SIXDOGS on a machine in the same datacentre/network as the game server, or ask
 your host about a private network / IP allow-list.
 
+## What the live SIXDOGS server actually serves
+
+Read off `GET /v1/capabilities` on build `++Wardogs+Live-CL-501228` (API 1, Sept 2026) via the
+bot's `/server` command. This is observed, not from the unofficial reference:
+
+```
+DELETE /v1/bans/{steamId}
+GET  /v1/audit                              GET  /v1/config
+GET  /v1/bans                               GET  /v1/health
+GET  /v1/capabilities                       GET  /v1/players
+GET  /v1/catalog/experiences                GET  /v1/reserved-slots
+GET  /v1/catalog/lightings                  GET  /v1/rotation
+GET  /v1/catalog/maps                       GET  /v1/server-id
+GET  /v1/catalog/maps/{map}/alternators     GET  /v1/status
+GET  /v1/catalog/maps/{map}/experiences     GET  /v1/sponsor
+PATCH /v1/players/{id}                      POST /v1/match/map
+POST /v1/bans                               POST /v1/match/restart
+POST /v1/broadcast                          POST /v1/players/{id}/kick
+POST /v1/config/validate                    POST /v1/players/{id}/kill
+POST /v1/match/end                          POST /v1/players/{id}/message
+PUT  /v1/config                             PUT  /v1/world/lighting
+```
+
+**Path parameters are named `{id}` for players, but `{steamId}` for bans.** The API is not
+consistent with itself, and neither matches the `{steamId}` the reference documents for players.
+This is why `RconClient.has()` normalises parameter names before comparing: matching the strings
+exactly reported private messages, kick and move as unsupported, which would have silently
+disabled `/verify`.
+
+`/v1/status` on an idle, empty server returned only: `alternator`, `experiences`,
+`factionScores`, `lighting`, `map`, `players`, `rotation`, `scoreTick`, `serverName`. No
+`matchSeconds` and no `scoreCap`, both of which the reference documents. They may only appear
+during a live match; the code treats both as optional either way.
+
 ## Routes used by SIXDOGS
 
 | Route | Returns / body |

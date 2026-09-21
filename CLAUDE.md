@@ -17,6 +17,10 @@ Work from the real API, not memory: `docs/wardogs-rcon.md` (and `docs/wardogs-op
 - The RCON listener is plain HTTP. Never rewrite the scheme to https; it refuses.
 - The bearer token IS the full-access RCON password. Server-side only. Never logged.
 - Branch on GET /v1/capabilities (`routes` is a list of "METHOD /path" strings). Don't catch 404s.
+- Route parameter names are NOT stable: the live build says `/v1/players/{id}/...` but
+  `/v1/bans/{steamId}`, and the reference documents `{steamId}` for both. `RconClient.has()`
+  normalises `{anything}` and `:anything` before comparing. Never compare capability strings
+  exactly; that once read private messages as unsupported and would have killed `/verify`.
 - PUT /v1/config replaces the ENTIRE document. GET, edit that text, PUT back with If-Match.
   A pre-existing bad value blocks unrelated edits — read errors[] and name the key.
 - Config arrays use Unreal operators: !Key=ClearArray empties, .Key=value appends.
@@ -38,6 +42,14 @@ Read off `/server` on the real SIXDOGS server, so these are facts now, not guess
 - The real faction colours are Lonestar `#4CB1EF`, Valkyra `#FA503E`, Manticore `#1DD65C`
   (not the Discord brand colours). `colorKeyFromHex` classifies all three correctly, and
   `gameFactionFor` maps blue/red/green back to Lonestar/Valkyra/Manticore.
+- All five actions are served: message, broadcast, kick, move (`PATCH /v1/players/{id}`) and
+  end match. The full observed route list is in `docs/wardogs-rcon.md`.
+- Also served but unused so far: `GET`/`PUT /v1/config` + `POST /v1/config/validate` (server
+  settings), `/v1/bans`, `/v1/match/map`, `/v1/match/restart`, `PUT /v1/world/lighting`,
+  `/v1/rotation`, the `/v1/catalog/*` lists, `/v1/audit`, `POST /v1/players/{id}/kill`.
+- `/v1/status` on an idle server omits `matchSeconds` and `scoreCap`. Both are already treated
+  as optional (`typeof === 'number'` guards); match detection then leans on map, rotation index
+  and the score reset.
 
 ## Still unverified — check against a live server before relying on them
 
