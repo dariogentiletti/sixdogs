@@ -5,6 +5,8 @@
 
 # Support the community
 color: gold
+{{founder.greeting}}
+
 I am *{{founder.name}}* and {{founder.opening}}
 
 {{founder.letter}}
@@ -20,6 +22,11 @@ I am *{{founder.name}}* and {{founder.opening}}
 
 ## Where the money goes
 {{costs.leftover}}
+
+## What you get back
+{{#each donate.tiers}}**{{when}}**: {{gets}}
+{{/each}}
+{{donate.perk}}
 
 ## How to donate
 {{#if donate.url}}Press **{{donate.button}}** below. {{else}}The {{donate.platform}} link is coming soon. {{/if}}{{donate.how}}

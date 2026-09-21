@@ -173,6 +173,11 @@ h2{font:800 clamp(40px,5.4vw,68px)/.95 BC;text-transform:uppercase}
 .side .btn.big{display:flex;justify-content:center;width:100%;margin-top:20px}
 .side .fine{font-size:15px}
 .side .perk{margin-top:12px;border-left:4px solid var(--gold);padding-left:12px;font-size:16px}
+/* what you get back, by amount */
+.tiers{margin-top:16px}
+.tiers > div{padding:10px 0;border-top:1px dashed var(--rule)}
+.tiers dt{font:800 15px/1.2 BC;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+.tiers dd{margin-top:4px;font-size:16px;color:var(--ink-2)}
 
 footer{position:relative;z-index:1;border-top:4px solid var(--ink);background:var(--paper)}
 footer .wrap{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-between;align-items:center;padding-top:26px;padding-bottom:30px;font:500 15px/1.5 B;color:var(--ink-2)}
@@ -341,6 +346,7 @@ footer b{font:800 18px/1 BC;letter-spacing:.12em;color:var(--ink)}
     <div>
       <h2>Who runs this</h2>
       <div class="letter">
+        <p>{{founder.greeting}}</p>
         <p>I am <em>{{founder.name}}</em> and {{founder.opening}}</p>
 {{#each founder.letter}}        <p>{{this}}</p>
 {{/each}}        <p class="sig">{{founder.name}}</p>
@@ -355,6 +361,9 @@ footer b{font:800 18px/1 BC;letter-spacing:.12em;color:var(--ink)}
       </dl>
 {{#if donate.url}}      <a class="btn gold big" href="{{donate.url}}" rel="noopener">{{donate.button}}</a>
       <p class="fine">{{donate.how}}</p>
+      <dl class="tiers">
+{{#each donate.tiers}}        <div><dt>{{when}}</dt><dd>{{gets}}</dd></div>
+{{/each}}      </dl>
       <p class="perk">{{donate.perk}}</p>
 {{else}}      <p class="soon">{{donate.platform}} link coming soon</p>
 {{/if}}    </aside>

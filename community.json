@@ -11,18 +11,29 @@
   },
   "founder": {
     "name": "fortyone",
+    "greeting": "Hello 6ers. I am writing this message personally to you (yes, without any AI tool, believe it or not).",
+    "opening": "I built SIXDOGS to create a way to play WARDOGS as a team.",
     "letter": [
       "The developers openly discussed that they are not going to add commanders anytime soon. We believe strategic planning and coordination can make the gaming experience exponentially more fun, if done well and with the support of all the teammates.",
       "My goal is to create a gamemode and a community that can experience such tactical, memorable, and fun matches. I have so many ideas and features in the roadmap, and I am looking to build this community with you."
-    ],
-    "opening": "I built SIXDOGS to create a way to play WARDOGS as a team."
+    ]
   },
   "donate": {
     "platform": "Ko-fi",
     "url": "https://ko-fi.com/sixdogs",
     "button": "Donate on Ko-fi",
     "how": "It takes cards, PayPal, Apple Pay and Google Pay from any country, and you don't need an account. Give once or monthly, any amount.",
-    "perk": "Donors get one of the six reserved slots on the server. Nobody gets an advantage in game."
+    "perk": "Nobody gets an advantage in game. Ever.",
+    "tiers": [
+      {
+        "when": "Any amount",
+        "gets": "The ★ Supporter role in Discord"
+      },
+      {
+        "when": "$10 or more",
+        "gets": "A reserved slot on the server for that month, so you always get in"
+      }
+    ]
   },
   "costs": {
     "_about": "The numbers come from stack.json (one source of truth). Only the wording below lives here.",

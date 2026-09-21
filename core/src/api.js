@@ -6,6 +6,7 @@ import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { VerifyError } from './verify.js';
 import { RconError } from './rcon.js';
+import { looksEphemeral } from './db.js';
 import { commanderTerms, ratedTerms, roundPoints } from './ratings.js';
 
 const MAX_BODY = 16 * 1024;
@@ -134,6 +135,28 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
     return { ok: true, result: r };
   });
 
+  /**
+   * Which database is really in use, and how much is in it. The answer matters:
+   * on a host that rebuilds the container, the built-in database is wiped on
+   * every deploy and every verified player with it.
+   */
+  async function databaseInfo() {
+    const kind = pool.kind ?? (config.databaseUrl ? 'postgres' : 'pglite');
+    const persistent = kind === 'postgres';
+    let links = null;
+    try {
+      const { rows } = await pool.query('SELECT count(*)::int AS n FROM links');
+      links = rows[0]?.n ?? null;
+    } catch { /* counting is a nicety, never a reason to fail the call */ }
+    return {
+      kind,
+      persistent,
+      where: pool.where ?? (persistent ? 'a Postgres server' : config.dataDir),
+      ephemeralHost: looksEphemeral(),
+      links,
+    };
+  }
+
   // ---- actions on the game server ----
   // All capability-gated in rcon.js: an unsupported build comes back as a 502
   // with a readable sentence, which the bot shows the admin as-is.
@@ -245,6 +268,7 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       serverId: s.serverId,
       actions: rcon.supportedActions(),
       config: rcon.configInfo(),
+      database: await databaseInfo(),
       routes: [...(rcon.routes ?? [])].sort(),
       clockDirection: s.clockDirection,
       matchSeconds: s.status?.matchSeconds ?? null,

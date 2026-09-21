@@ -174,6 +174,11 @@ h2{font:800 clamp(40px,5.4vw,68px)/.95 BC;text-transform:uppercase}
 .side .btn.big{display:flex;justify-content:center;width:100%;margin-top:20px}
 .side .fine{font-size:15px}
 .side .perk{margin-top:12px;border-left:4px solid var(--gold);padding-left:12px;font-size:16px}
+/* what you get back, by amount */
+.tiers{margin-top:16px}
+.tiers > div{padding:10px 0;border-top:1px dashed var(--rule)}
+.tiers dt{font:800 15px/1.2 BC;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+.tiers dd{margin-top:4px;font-size:16px;color:var(--ink-2)}
 
 footer{position:relative;z-index:1;border-top:4px solid var(--ink);background:var(--paper)}
 footer .wrap{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-between;align-items:center;padding-top:26px;padding-bottom:30px;font:500 15px/1.5 B;color:var(--ink-2)}
@@ -345,6 +350,7 @@ footer b{font:800 18px/1 BC;letter-spacing:.12em;color:var(--ink)}
     <div>
       <h2>Who runs this</h2>
       <div class="letter">
+        <p>Hello 6ers. I am writing this message personally to you (yes, without any AI tool, believe it or not).</p>
         <p>I am <em>fortyone</em> and I built SIXDOGS to create a way to play WARDOGS as a team.</p>
         <p>The developers openly discussed that they are not going to add commanders anytime soon. We believe strategic planning and coordination can make the gaming experience exponentially more fun, if done well and with the support of all the teammates.</p>
         <p>My goal is to create a gamemode and a community that can experience such tactical, memorable, and fun matches. I have so many ideas and features in the roadmap, and I am looking to build this community with you.</p>
@@ -363,7 +369,11 @@ footer b{font:800 18px/1 BC;letter-spacing:.12em;color:var(--ink)}
       </dl>
       <a class="btn gold big" href="https://ko-fi.com/sixdogs" rel="noopener">Donate on Ko-fi</a>
       <p class="fine">It takes cards, PayPal, Apple Pay and Google Pay from any country, and you don&#39;t need an account. Give once or monthly, any amount.</p>
-      <p class="perk">Donors get one of the six reserved slots on the server. Nobody gets an advantage in game.</p>
+      <dl class="tiers">
+        <div><dt>Any amount</dt><dd>The ★ Supporter role in Discord</dd></div>
+        <div><dt>$10 or more</dt><dd>A reserved slot on the server for that month, so you always get in</dd></div>
+      </dl>
+      <p class="perk">Nobody gets an advantage in game. Ever.</p>
     </aside>
   </div>
 </section>

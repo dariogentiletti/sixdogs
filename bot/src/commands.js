@@ -99,6 +99,18 @@ export const commandDefinitions = [
     .setDefaultMemberPermissions(P.Administrator),
 ].map((c) => c.toJSON());
 
+/** One line saying where the verified players live, and whether that is safe. */
+export function dbLine(db) {
+  if (!db) return '**Players stored**: unknown';
+  const count = db.links === null ? '' : ` · ${db.links} linked`;
+  if (db.persistent) return `**Players stored**: 🟢 Postgres (survives restarts and deploys)${count}`;
+  if (db.ephemeralHost) {
+    return `**Players stored**: 🔴 built-in database inside the container${count}\n`
+      + '⚠️ This host replaces the container on every deploy, so every verified player is lost on the next push. Add a Postgres database and set `DATABASE_URL`.';
+  }
+  return `**Players stored**: 🟡 built-in database on disk${count}`;
+}
+
 /**
  * A ban can target someone who has already left, so a bare SteamID64 is taken
  * at face value here instead of being looked up in the online list.
@@ -254,6 +266,9 @@ export function makeHandlers({ core, commanders, ratings, config, log, verified 
       await log(`🏁 <@${i.user.id}> ended the match from Discord.`);
     },
 
+    // Where the verified players are actually stored. Worth saying plainly:
+    // on a host that rebuilds the container, the built-in database is wiped on
+    // every deploy, and every link with it.
     async server(i) {
       await i.deferReply({ flags: MessageFlags.Ephemeral });
       const d = await core.diagnostics();
@@ -261,6 +276,8 @@ export function makeHandlers({ core, commanders, ratings, config, log, verified 
       const lines = [
         `**Game server**: ${d.rconOk ? '🟢 connected' : '🔴 not reachable'}${d.lastError ? ` (${d.lastError})` : ''}`,
         `API ${d.apiVersion ?? '?'}, build \`${d.build ?? '?'}\`, server ID \`${d.serverId ?? '?'}\``,
+        '',
+        dbLine(d.database),
         '',
         '**What it lets the bot do**',
         `${yn(d.actions?.message)} private messages  ${yn(d.actions?.broadcast)} announcements  ${yn(d.actions?.kick)} kick`,
