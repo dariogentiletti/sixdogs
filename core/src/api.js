@@ -169,6 +169,21 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
 
   route('POST', '/internal/match/end', async () => ({ ok: true, result: await rcon.endMatch() }));
 
+  // Read-only for now. PUT /v1/config replaces the entire document and a bad
+  // value blocks unrelated edits, so writing is not wired up until we have seen
+  // a real one. See CLAUDE.md.
+  route('GET', '/internal/config', async () => {
+    const c = await rcon.getConfig();
+    return {
+      ok: true,
+      revision: c?.revision ?? null,
+      writable: c?.writable ?? null,
+      warnings: c?.warnings ?? [],
+      sections: c?.sections ?? [],
+      text: typeof c?.text === 'string' ? c.text : '',
+    };
+  });
+
   // What this particular server build can do, plus the raw numbers behind the
   // three things CLAUDE.md lists as unverified (clock direction, the score
   // field inside factionScores[], the real player.faction strings). Lets an
@@ -184,6 +199,7 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       build: rcon.capabilities?.build ?? null,
       serverId: s.serverId,
       actions: rcon.supportedActions(),
+      config: rcon.configInfo(),
       routes: [...(rcon.routes ?? [])].sort(),
       clockDirection: s.clockDirection,
       matchSeconds: s.status?.matchSeconds ?? null,

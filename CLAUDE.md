@@ -174,6 +174,23 @@ run it and paste the output before tightening any of them.
 
 The mock serves all of these; `MOCK_NO_ACTIONS=1` makes it pretend to be a read-only build.
 
+## Server settings (read-only so far)
+
+`rcon.getConfig()` + `GET /internal/config` + `/settings [section]` read the settings document.
+`rcon.configInfo()` reports `{readable, writable, validatable, document}`; `writable` needs BOTH
+`capabilities.config.writable` and the `PUT /v1/config` route.
+
+`bot/src/serverconfig.js` parses the Unreal-style text for display: `parseConfigText` returns
+sections of `{key, value, kind}` where kind is `set`, `clear` (`!Key=ClearArray`) or `append`
+(`.Key=value`). The clear directive is NEVER reported as a value of Key — that is the whole point
+of the `kind` field, and there is a test for it.
+
+WRITING IS NOT IMPLEMENTED. Before adding it: `PUT /v1/config` replaces the entire document and
+needs `If-Match: "<revision>"`, one pre-existing bad value blocks unrelated edits (read
+`errors[]` and name the key), and a wrong write breaks a live server. Read the real document
+first, validate with `POST /v1/config/validate` before any PUT, and edit one key in the existing
+text rather than rebuilding it.
+
 ## Post-match ratings
 
 Core: `rating_rounds` / `rating_voters` / `rating_votes`, scoring in `core/src/ratings.js`

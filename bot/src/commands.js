@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits as P, MessageFlags } from 'discord.js';
 import { FACTIONS, byKey, gameFactionFor } from './factions.js';
 import { runSetup } from './setup.js';
+import { parseConfigText, findSection, summarise, renderSection } from './serverconfig.js';
 import { syncPosts } from './posts.js';
 import { isMenuMessage } from './rolemenu.js';
 
@@ -60,6 +61,9 @@ export const commandDefinitions = [
     .setDefaultMemberPermissions(P.Administrator),
   new SlashCommandBuilder().setName('server').setDescription('ADMIN: what the game server reports and what it lets the bot do')
     .setDefaultMemberPermissions(P.ManageRoles),
+  new SlashCommandBuilder().setName('settings').setDescription("ADMIN: read the game server's settings")
+    .addStringOption((o) => o.setName('section').setDescription('Show one section in full').setMaxLength(100))
+    .setDefaultMemberPermissions(P.Administrator),
 ].map((c) => c.toJSON());
 
 /**
@@ -231,6 +235,34 @@ export function makeHandlers({ core, commanders, ratings, config, log, verified 
         (d.routes ?? []).join('\n').slice(0, 800),
         '```',
       ];
+      await i.editReply(lines.join('\n').slice(0, 1990));
+    },
+
+    async settings(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const c = await core.serverConfig();
+      const sections = parseConfigText(c.text);
+      const wanted = i.options.getString('section');
+
+      if (wanted) {
+        const sec = findSection(sections, wanted);
+        if (!sec) {
+          const names = sections.map((x) => x.name).filter(Boolean);
+          return i.editReply(`No section called **${wanted}**. There is: ${names.join(', ') || '(none)'}`);
+        }
+        return i.editReply(`**[${sec.name}]** — ${summarise(sec)}\n\`\`\`ini\n${renderSection(sec)}\n\`\`\``);
+      }
+
+      const lines = [
+        `**Server settings** (revision \`${c.revision ?? '?'}\`, ${c.writable ? 'writable' : 'read-only'})`,
+        '',
+        ...sections.map((sec) => `\`${sec.name || '(top)'}\` — ${summarise(sec)}`),
+        '',
+        'Use `/settings section:<name>` to see one in full.',
+      ];
+      if (c.warnings?.length) {
+        lines.push('', `⚠️ The server reports ${c.warnings.length} warning(s):`, '```', c.warnings.map((w) => (typeof w === 'string' ? w : JSON.stringify(w))).join('\n').slice(0, 500), '```');
+      }
       await i.editReply(lines.join('\n').slice(0, 1990));
     },
 

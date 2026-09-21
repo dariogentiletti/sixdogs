@@ -51,6 +51,7 @@ export class CoreClient {
   setFaction(steamId, faction) { return this.request('POST', `/internal/players/${steamId}/faction`, { faction }); }
   endMatch() { return this.request('POST', '/internal/match/end', {}); }
   diagnostics() { return this.request('GET', '/internal/diagnostics'); }
+  serverConfig() { return this.request('GET', '/internal/config'); }
   matchCommanders(matchId) { return this.request('GET', `/internal/matches/${matchId}/commanders`); }
   matchParticipants(matchId) { return this.request('GET', `/internal/matches/${matchId}/participants`); }
   ratingPlan(matchId, body) { return this.request('POST', `/internal/matches/${matchId}/rating-plan`, body); }

@@ -145,6 +145,30 @@ export class RconClient {
     return this.request('POST', '/v1/match/end');
   }
 
+  // ---- server settings ----
+  // The config is one plain-text document (ServerSettings.ini style), not JSON.
+  // Reading is safe; writing replaces the WHOLE document and is not done here
+  // yet. See CLAUDE.md before adding it.
+
+  /** What /v1/capabilities says about the config document, if anything. */
+  configInfo() {
+    const c = this.capabilities?.config ?? {};
+    return {
+      readable: this.has('GET', '/v1/config'),
+      writable: c.writable === true && this.has('PUT', '/v1/config'),
+      validatable: this.has('POST', '/v1/config/validate'),
+      document: c.document ?? null,
+    };
+  }
+
+  /** @returns {Promise<{revision, writable, text, sections, warnings}>} */
+  getConfig() {
+    if (!this.has('GET', '/v1/config')) {
+      throw new RconError('This server build does not expose its settings.', { code: 'unsupported' });
+    }
+    return this.request('GET', '/v1/config');
+  }
+
   /** Which of the things SIXDOGS knows how to do this build actually serves. */
   supportedActions() {
     return {

@@ -55,7 +55,7 @@ address. This keeps the traffic on Railway's private network.
 Railway redeploys on its own when you add variables. Open the **Deployments**
 tab and watch the log.
 
-You want to see `registered 19 slash commands`.
+You want to see `registered 20 slash commands`.
 
 That is it. The bot is live and stays live.
 

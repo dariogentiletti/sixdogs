@@ -45,6 +45,7 @@ const json = (res, status, body) => {
 const ROUTES = [
   'GET /v1/capabilities', 'GET /v1/status', 'GET /v1/players', 'GET /v1/health', 'GET /v1/server-id',
   'POST /v1/players/{steamId}/message', 'POST /v1/broadcast',
+  'GET /v1/config',
   ...(process.env.MOCK_NO_ACTIONS === '1' ? [] : [
     'POST /v1/players/{steamId}/kick',
     'PATCH /v1/players/{steamId}',
@@ -61,6 +62,24 @@ function newMatch() {
   list.forEach((pl, i) => { pl.faction = FACTIONS[i % 3]; pl.kills = 0; pl.deaths = 0; });
   console.log('[mock] new match started, factions reshuffled');
 }
+
+const CONFIG_TEXT = `; SIXDOGS mock server settings
+[/Script/Wardogs.ServerSettings]
+ServerName=SIXDOGS | Command net in Discord (MOCK)
+MaxPlayers=99
+bKillCam=False
+bReducedHUD=True
+bFirstPersonVehicles=True
+bDestruction=True
+
+[/Script/Wardogs.MapRotation]
+bEnabled=True
+!Maps=ClearArray
+.Maps=Harbor
+.Maps=Ridge
+.Maps=Foundry
+`;
+let configRevision = 7;
 
 async function body(req) {
   const chunks = [];
@@ -112,7 +131,7 @@ http.createServer(async (req, res) => {
     return json(res, 200, {
       apiVersion: '1', build: 'mock', auth: { scheme: 'bearer', header: 'Authorization' },
       limits: { maxBodyBytes: 65536, maxRequestsPerMinutePerIp: 600 },
-      config: { writable: false, document: 'ServerSettings.ini' }, routes: ROUTES,
+      config: { writable: true, document: 'ServerSettings.ini' }, routes: ROUTES,
     });
   }
   if (req.method === 'GET' && p === '/v1/status') {
@@ -168,6 +187,15 @@ http.createServer(async (req, res) => {
     pl.faction = b.faction;
     console.log(`[mock] moved ${pl.name} to ${b.faction}`);
     return json(res, 200, { ok: true, faction: pl.faction });
+  }
+  if (req.method === 'GET' && p === '/v1/config') {
+    return json(res, 200, {
+      revision: String(configRevision),
+      writable: true,
+      text: CONFIG_TEXT,
+      sections: ['/Script/Wardogs.ServerSettings', '/Script/Wardogs.MapRotation'],
+      warnings: [],
+    });
   }
   if (req.method === 'POST' && p === '/v1/match/end') {
     if (!ROUTES.includes('POST /v1/match/end')) return json(res, 404, { error: { code: 'not_found', message: 'no such route' } });
