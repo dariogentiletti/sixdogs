@@ -175,6 +175,7 @@ against your real server. The bot recognises factions by the colour the server r
 | | `/move <player> <faction>` | Move someone to another team |
 | | `/endmatch confirm:True` | End the match now |
 | | `/server` | What the game server reports, and what it lets the bot do |
+| | `/healthcheck` | Can a new player verify and get their roles? Names the broken link if not |
 | | `/settings [section]` | Read the game server's settings document |
 | | `/settings find:<text>` | Search every section for a setting by name |
 | | `/settings section: key: value: [confirm]` | Change one setting. Shows the before/after and saves nothing until `confirm:True` |

@@ -4,6 +4,7 @@ import { runSetup } from './setup.js';
 import { parseConfigText, findSection, summarise, renderSection } from './serverconfig.js';
 import { syncPosts } from './posts.js';
 import { isMenuMessage } from './rolemenu.js';
+import { assignedRoles, healthReport, playerHealth, roleHealth } from './health.js';
 
 const factionChoice = (o) => o.setName('faction').setDescription('Which faction').setRequired(true)
   .addChoices(...FACTIONS.map((f) => ({ name: f.label, value: f.key })));
@@ -64,6 +65,8 @@ export const commandDefinitions = [
     .addBooleanOption((o) => o.setName('confirm').setDescription('Yes, end it for everyone playing').setRequired(true))
     .setDefaultMemberPermissions(P.Administrator),
   new SlashCommandBuilder().setName('server').setDescription('ADMIN: what the game server reports and what it lets the bot do')
+    .setDefaultMemberPermissions(P.ManageRoles),
+  new SlashCommandBuilder().setName('healthcheck').setDescription('ADMIN: can a new player verify and be given their roles?')
     .setDefaultMemberPermissions(P.ManageRoles),
   new SlashCommandBuilder().setName('reserved').setDescription('ADMIN: who holds a reserved slot, and give or take one')
     .addUserOption((o) => o.setName('grant').setDescription('Give this member a reserved slot (they must be verified)'))
@@ -267,6 +270,47 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
         return;
       }
       await i.editReply(await seeding.describe());
+    },
+
+    // Walks the whole new-player chain and says which link is broken. Written
+    // because a friend of the owner's joined, got no code, no team role and no
+    // commander offer, and nothing anywhere said why: each step had failed
+    // safely into the console.
+    async healthcheck(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const guild = i.guild;
+      await guild.roles.fetch();
+
+      let state = null;
+      let coreError = null;
+      try {
+        state = await core.state();
+      } catch (err) {
+        coreError = err.message;
+      }
+      let actions = { message: false };
+      try {
+        actions = (await core.diagnostics()).actions ?? actions;
+      } catch { /* covered by the core line */ }
+
+      const me = guild.members.me ?? await guild.members.fetchMe().catch(() => null);
+      const roles = roleHealth({
+        required: assignedRoles(config),
+        roles: new Map(guild.roles.cache.map((r) => [r.name, r])),
+        botTop: me?.roles?.highest?.position ?? 0,
+        canManageRoles: me?.permissions?.has(P.ManageRoles) ?? false,
+      });
+
+      await i.editReply(healthReport({
+        core: { ok: !coreError, error: coreError, serverOk: Boolean(state?.ok) },
+        actions,
+        roles,
+        players: playerHealth({
+          players: state?.players ?? [],
+          members: new Set(guild.members.cache.keys()),
+        }),
+        verifiedRoleName: config.verifiedRoleName,
+      }).slice(0, 1990));
     },
 
     async unlink(i) {

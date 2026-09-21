@@ -49,7 +49,7 @@ async function log(text) {
 const commanders = new CommanderManager({ core, config, log });
 const ratings = new Ratings({ core, config, log });
 const seeding = new Seeding({ core, config, log });
-const verified = new VerifiedRole({ roleName: config.verifiedRoleName });
+const verified = new VerifiedRole({ roleName: config.verifiedRoleName, onError: (text) => log(text) });
 const board = new LiveBoard({ core, commanders, config });
 const web = new WebStatus({ core, commanders, config });
 const handlers = makeHandlers({ core, commanders, ratings, seeding, config, log, verified });
@@ -65,6 +65,7 @@ let lastMatchId = null;
 let lastCoreError = null;
 let syncing = false;
 let lastCmdSig = null;
+let roleTroubleLogged = false;  // so a broken role list is reported once, not every 5s
 let outageSince = null;   // when we lost game data (core or game server unreachable)
 let outageCleared = false;
 
@@ -175,8 +176,18 @@ async function syncOnce() {
         if (toRemove.length) await member.roles.remove(toRemove, 'SIXDOGS faction sync');
         if (toAdd.length) await member.roles.add(toAdd, 'SIXDOGS faction sync');
         console.log(`[sync] ${member.user.tag}: ${want ?? 'no faction'}`);
+        roleTroubleLogged = false;
       } catch (err) {
-        console.warn(`[sync] couldn't update roles for ${member.user.tag}: ${err.message} (is my role above the faction roles?)`);
+        console.warn(`[sync] couldn't update roles for ${member.user.tag}: ${err.message}`);
+        // Once per outage, not once per tick: this runs every 5 seconds and
+        // would otherwise bury #admin-log. Silence was the old behaviour and it
+        // is how a broken role list went unnoticed until players complained.
+        if (!roleTroubleLogged) {
+          roleTroubleLogged = true;
+          await log(`❌ I can't hand out team roles: ${err.message}\n`
+            + 'Most likely my own role sits below them. Server Settings -> Roles, drag mine above the team roles, '
+            + 'then run `/healthcheck`.');
+        }
       }
     }
 

@@ -233,7 +233,17 @@ export class CommanderManager {
       await this.log(`⚠️ ${f.label}: couldn't give the commander role (role "${f.commanderRoleName}" missing, or member left).`);
       return false;
     }
-    await member.roles.add(role, `SIXDOGS: ${f.label} commander (${how})`);
+    try {
+      await member.roles.add(role, `SIXDOGS: ${f.label} commander (${how})`);
+    } catch (err) {
+      // Almost always the role sitting at or above the bot's own in the role
+      // list. Discord refuses that, and until now the throw went to the console
+      // and the person was left thinking they were commander with none of the
+      // access. Say it where an admin will see it.
+      await this.log(`❌ ${f.label}: couldn't give <@${discordId}> the **${f.commanderRoleName}** role. `
+        + `${err.message}\nMost likely my own role sits below it. Server Settings -> Roles, drag mine above it, then run \`/healthcheck\`.`);
+      return false;
+    }
     st.commanderId = discordId;
     st.vacantLogged = false;
     st.awaySince = null;

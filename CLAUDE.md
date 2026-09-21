@@ -445,6 +445,32 @@ mobile). It is not a bug and not worth debugging: it is the expected result of a
 changed a command's shape, and it clears itself. Tell the owner to reload rather than going
 looking for a cause.
 
+## When nothing happens for a new player
+
+`/healthcheck` (admin) walks the whole chain and names the broken link: core reachable, game
+server answering, in-game private messages supported, every role the bot hands out, and who is on
+the server right now with whether they are linked. `bot/src/health.js` holds the checks; they are
+pure, so the interesting cases are tested without a Discord server.
+
+Written because a friend of the owner joined and got nothing: no code, no team role, no commander
+offer. Every step had failed safely into `console.warn`, which on Railway nobody reads.
+
+Two things to know when this comes up again:
+
+- **Commander offers only go to LINKED players** (`state.players.filter(p => p.discordId)`). So a
+  failed `/verify` explains "no role AND no message AND no commander" all at once. Check
+  verification first; the rest is downstream of it.
+- **Discord refuses to let a bot hand out a role at or above its own highest role.** It is the
+  commonest cause of a bot appearing to do nothing, it is invisible (setup looks fine, the
+  assignment throws later), and dragging any role in the list is enough to cause it. `roleHealth`
+  checks position for every role the bot assigns. Roles given out by hand (Admin, Moderator,
+  Supporter) are deliberately NOT checked: the bot never touches them.
+
+Role failures now reach `#admin-log` rather than the console: the commander grant (which was not
+even wrapped in a try/catch, so it threw mid-grant and left someone thinking they were commander
+with none of the access), the faction sync (latched, so it reports once per outage rather than
+every 5 seconds), and the Verified role.
+
 ## Conventions
 
 - Scope each session to one runnable thing and stop there.

@@ -12,9 +12,11 @@ export function planVerified({ holders, linked, members }) {
 }
 
 export class VerifiedRole {
-  constructor({ roleName }) {
+  constructor({ roleName, onError = null }) {
     this.roleName = roleName;
     this.guild = null;
+    // async (text) => void, so a failure reaches #admin-log instead of a log file.
+    this.onError = onError;
   }
 
   attach(guild) { this.guild = guild; }
@@ -41,7 +43,12 @@ export class VerifiedRole {
       else await member.roles.remove(role, 'SIXDOGS: unlinked');
       return true;
     } catch (err) {
-      console.warn(`[verified] couldn't ${on ? 'give' : 'remove'} ${this.roleName} for ${member.user.tag}: ${err.message} (is my role above it?)`);
+      const why = `couldn't ${on ? 'give' : 'remove'} ${this.roleName} for ${member.user.tag}: ${err.message}`;
+      console.warn(`[verified] ${why} (is my role above it?)`);
+      // Someone who just verified and got no role is the most visible failure
+      // there is, so it goes where an admin will see it rather than the console.
+      await this.onError?.(`❌ ${why}\nMost likely my own role sits below **${this.roleName}**. `
+        + 'Server Settings -> Roles, drag mine above it, then run `/healthcheck`.');
       return false;
     }
   }
