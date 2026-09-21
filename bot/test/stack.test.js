@@ -75,7 +75,7 @@ test('the stack file stays free of anything secret', () => {
   const walk = (node, path = '') => {
     if (node && typeof node === 'object') {
       for (const [k, v] of Object.entries(node)) {
-        assert.doesNotMatch(k, /^(password|secret|token|api[_-]?key|credential)/i,
+        assert.doesNotMatch(k, /(password|passwd|secret|token|api[_-]?key|credential|private[_-]?key)/i,
           `${path}${k} looks like somewhere a secret would end up`);
         if (!k.startsWith('_') && k !== 'notes' && k !== 'what' && k !== 'howTo') {
           walk(v, `${path}${k}.`);
@@ -83,7 +83,11 @@ test('the stack file stays free of anything secret', () => {
       }
     } else if (typeof node === 'string') {
       // A long unbroken run of random-looking characters is what a leaked key
-      // looks like. Real values here are prices, names and short plan labels.
+      // looks like. Two things are deliberately not that: a UUID, which is an
+      // identifier by design (the server ID is printed on the website), and a
+      // URL. Everything else here is prices, names and short plan labels.
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuid.test(node) || /^https?:\/\//.test(node)) return;
       assert.doesNotMatch(node, /\b[A-Za-z0-9_-]{24,}\b/, `${path} holds something key-shaped`);
     }
   };
@@ -121,4 +125,30 @@ test('the live bill has no guesses left in it', () => {
   const { items, total } = costsFromStack(JSON.parse(readFileSync(STACK_PATH, 'utf8')));
   assert.ok(!total.startsWith('about'), 'every figure is confirmed, so the total is stated plainly');
   assert.ok(items.every((i) => !i.monthly.startsWith('about')), items.map((i) => i.monthly).join(', '));
+});
+
+test('the secret check still catches a real credential', () => {
+  // Guard on the guard: loosening it for UUIDs must not blind it to keys.
+  const walk = (node, path = '') => {
+    if (node && typeof node === 'object') {
+      for (const [k, v] of Object.entries(node)) {
+        assert.doesNotMatch(k, /(password|passwd|secret|token|api[_-]?key|credential|private[_-]?key)/i, `${path}${k}`);
+        if (!k.startsWith('_') && k !== 'notes' && k !== 'what' && k !== 'howTo') walk(v, `${path}${k}.`);
+      }
+    } else if (typeof node === 'string') {
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuid.test(node) || /^https?:\/\//.test(node)) return;
+      assert.doesNotMatch(node, /\b[A-Za-z0-9_-]{24,}\b/, `${path} holds something key-shaped`);
+    }
+  };
+  // A UUID and a URL are fine.
+  assert.doesNotThrow(() => walk({ serverId: '41186c61-6d6b-4149-ace0-375bacdee3f8', url: 'https://ko-fi.com/sixdogs' }));
+  // A pasted token is not.
+  assert.throws(() => walk({ note: 'fKJDMF3cVb4bWiWRUR20z42FCoOAbZtdxhMy' }), /key-shaped/);
+  // Nor is a key-ish field name, wherever the word sits in it.
+  for (const bad of ['PUSH_TOKEN', 'STATUS_PUSH_TOKEN', 'rconPassword', 'apiKey', 'privateKey']) {
+    assert.throws(() => walk({ [bad]: 'x' }), new RegExp(bad), bad);
+  }
+  // A name that merely contains an innocent word is still fine.
+  assert.doesNotThrow(() => walk({ plan: 'Hobby', provider: 'Railway' }));
 });

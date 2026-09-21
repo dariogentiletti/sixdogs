@@ -4,12 +4,11 @@
   "domain": "sixdogs.gg",
   "discordInvite": "https://discord.gg/7KJynyejRJ",
   "steamStore": "https://store.steampowered.com/app/1867240/WARDOGS/",
-  "steamAppId": "1867240",
   "liveStatusUrl": "https://live.sixdogs.gg/status",
   "server": {
     "search": "SIXDOGS",
-    "address": "64.87.44.73:20016",
-    "_addressNote": "The public game address, given by the owner. Shown so people can paste it into WARDOGS directly instead of searching.",
+    "id": "41186c61-6d6b-4149-ace0-375bacdee3f8",
+    "_idNote": "What players type into Community servers -> Join by ID. Comes from RCON /v1/server-id and is stable across restarts.",
     "reservedSlots": 6
   },
   "founder": {

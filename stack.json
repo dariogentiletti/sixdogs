@@ -10,8 +10,9 @@
       "monthlyUsd": 115,
       "confirmed": true,
       "onBill": true,
-      "notes": "RCON is enabled and reachable. Build ++Wardogs+Live-CL-501228. Public address 64.87.44.73:20016. CONFIRMED 2026-09-21: /server reports the RCON host as 64.87.44.73, the same machine, so the address points at the right box.",
-      "address": "64.87.44.73:20016"
+      "notes": "RCON is enabled and reachable. Build ++Wardogs+Live-CL-501228. Public address 64.87.44.73:20016. CONFIRMED 2026-09-21: /server reports the RCON host as 64.87.44.73, the same machine, so the address points at the right box. The public address is kept here for reference but is no longer shown on the website: players use the Server ID with Join by ID.",
+      "address": "64.87.44.73:20016",
+      "serverId": "41186c61-6d6b-4149-ace0-375bacdee3f8"
     },
     {
       "id": "bot",
@@ -70,12 +71,12 @@
     "2026-09-21: the database is Railway Postgres, not the built-in one. /server reports it green, so a deploy does not wipe verified players.",
     "2026-09-21: RCON serves all five actions (message, broadcast, kick, move, end match) plus config, bans, map, lighting, rotation, catalogs and audit.",
     "2026-09-21: the public address 64.87.44.73:20016 is the same machine as the RCON host, checked with /server.",
-    "2026-09-21: steam://connect/<ip:port> alone does nothing, because it names no game. The website now uses steam://run/1867240//+connect <address>, which still needs testing.",
     "2026-09-21: the live status pipeline works end to end. bot -> live.sixdogs.gg -> KV, read back as state:live with map, teams and player counts.",
     "2026-09-21: real map names look like 'Bakurani'. Server name is 'SIXDOGS.gg | *NEW* Commander Mode | Hardcore  (Join Discord)', max players 100.",
     "2026-09-21: the live build does not send matchSeconds or scoreCap even while a match is open, not just when idle. The board falls back to when the bot first saw the match, which is only meaningful once players are on.",
     "2026-09-21: the browser CAN read live.sixdogs.gg from sixdogs.gg (CORS fine, state live, fresh). The live tracker was missing only because the deployed page was stale.",
-    "2026-09-21: the Pages project was a Direct Upload, which is why no website change reached visitors all day. Replaced with a Git-connected project."
+    "2026-09-21: the Pages project was a Direct Upload, which is why no website change reached visitors all day. Replaced with a Git-connected project.",
+    "2026-09-21: WARDOGS does not answer steam:// links at all. Neither steam://connect/<ip:port> nor steam://run/1867240//+connect <ip:port> launches the game into the server, so there is no one-click join. The website shows the Server ID for Community servers -> Join by ID instead."
   ],
   "rules": [
     "Never move players between teams automatically during a match. The owner has ruled this out: /move stays an admin command only, and no balancing rule may ever call it on its own.",

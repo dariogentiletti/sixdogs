@@ -65,6 +65,8 @@ Read off `/server` on the real SIXDOGS server, so these are facts now, not guess
 
 - `/code` (relaying tower digits): in-game TEAM chat already does this.
 - `/squad` callsigns: the API has no squad data.
+- One-click join links. WARDOGS ignores steam:// entirely, with or without the app id, so both
+  the site and the board show the Server ID for Join by ID. Do not add a join button.
 - Kicking people who aren't in Discord.
 - AUTOBALANCING TEAMS. The owner has ruled it out: never move a player between factions
   automatically, during a match or between them. `/move` is an admin command and nothing may
