@@ -190,6 +190,67 @@ STATUS_PUSH_URL with STATUS_PUSH_TOKEN; `cloudflare/live-worker.js` (KV binding 
 PUSH_TOKEN, custom domain live.sixdogs.gg) stores it and serves GET /status with CORS. The site
 hides #live unless the data is under 10 minutes old.
 
+The LEADERBOARD rides along on that same payload (`leaderboard:` from `publicLeaderboard`), so
+there is one endpoint, one token and one thing that can be stale. Deliberate consequences:
+- The Worker needs no change and the owner never pastes it again. It stores the blob whole and
+  rejects anything over 20000 characters, so `push()` drops the leaderboard and pushes without it
+  rather than letting a refused POST take the live board down silently. A realistic board is
+  ~2.5k and there is a test pinning that.
+- It is sent while the game server is OFFLINE too. It is history, not a reading, and an offline
+  server is exactly when somebody on the site has time to read it.
+- The page shows it for up to 24h (LB_STALE), not the live board's 10 minutes, because a 30-day
+  board is still true two hours later.
+
+## Leaderboard
+
+`core/src/leaderboard.js` (the SQL and the numbers) + `bot/src/leaderboard.js` (the words) +
+`GET /internal/leaderboard?days=&top=`. One edited message in #leaderboard (found by its
+"Leaderboard" footer, skipped by `syncPosts`) and the same boards on sixdogs.gg.
+
+**`BOARDS` in bot/src/leaderboard.js is the ONE definition** of every board's title, its
+explanation and its number format. `leaderboardPost` (Discord) and `publicLeaderboard` (website)
+both render from it, so the two cannot drift into describing the same number two different ways,
+and there is a test asserting the website's `note` is the start of the Discord field. Add a board
+there, not in two places.
+
+Eight boards, not one blended score: a single weighted number is impossible to argue with and
+impossible to chase, because nobody can work out what to do differently about it.
+
+- The game gives kills/deaths/cash/faction and NOTHING else — no supplies, captures, revives or
+  events — so nothing here claims to count them. The owner asked for "supplies delivered"; it
+  does not exist and was said so plainly rather than approximated.
+- **Ground** (score gained per minute while on the field) is a TEAM number and the board says so.
+  Identical values across a whole side are correct, not a join bug; that was investigated in the
+  raw data once already.
+- **Swing** (on-field rate minus off-field rate) is the individual one, and it is `null` — not
+  zero — for anyone who never left: with nothing to compare against there is no number. Needs
+  `offMinutes >= minMinutes / 2`, so the board is empty until people come and go, and it says on
+  itself that it fills in on its own rather than looking broken.
+- Only score GAINS count (`GREATEST(score - LAG(score), 0)`): a drop is a reset or a cap, not
+  something the players did.
+- `fight` groups by match+player and NOT by faction, so a side-switcher's kills aren't doubled.
+- kills/deaths reset per match, so a total is the sum of per-match peaks. `cash` is collected and
+  NOT ranked: nobody has confirmed what moves it.
+- Rate boards need LEADERBOARD_MIN_MINUTES (20). Without it one lucky ten minutes tops a table
+  for a month.
+- `people: true` marks the two boards keyed on Discord instead of the game. Each carries its own
+  `anon` label for somebody who has left the guild, because "A commander" on the seeding board
+  was plain wrong (found by the end-to-end check, not by a unit test).
+
+**"Got matches going" is the point of the community half.** It counts seeding call-ins, is the
+only board the game cannot see, and needs no minutes played at all — the whole point is that it
+credits what somebody did while they were NOT in the server. `seed_credits` is written by the
+call-in itself, in the SAME statement that clears the list
+(`WITH cleared AS (DELETE ... RETURNING ...) INSERT INTO seed_credits ...`), because the list is
+what holds the names and a separate write could lose them.
+
+The website section is a 4x2 grid whose cards take their rows from the grid
+(`grid-template-rows: subgrid`), so headings and explanations line up across a row at every
+window width. A `min-height` cannot do it: the same explanation is two lines in one column and
+five in another, and guessing an em value costs a round per breakpoint. There is an
+`@supports not` fallback with the old min-heights. The card class is `.why`, not `.note`: the
+hero already uses `.note` and was quietly making them flex containers.
+
 ## Channel posts
 
 `content/<channel>.md` -> the bot's post in `#<channel>` (`bot/src/posts.js`), posted or edited
@@ -230,7 +291,7 @@ with the others: give every heading the same `min-height` when that happens.
 `render_panels.py` finds the Chromium already on the machine (newest `/opt/pw-browsers/chromium-*`,
 or `PW_CHROME`): Playwright pins an exact revision and otherwise tells you to download a second
 copy of a browser that is already there.
-#server-info and #start-a-match are skipped: both are live boards the bot keeps itself
+#server-info, #start-a-match and #leaderboard are skipped: all three are live boards the bot keeps itself
 (`skip` in `syncPosts`). #server-info is the live board (`bot/src/liveboard.js`, one message found by its
 "Live board" footer, edited every LIVE_BOARD_MINUTES and on match/commander change). WARDOGS
 has no direct-join URL and Discord link buttons can't use steam://, so the board shows the
@@ -396,7 +457,9 @@ isn't answering or when `playersOn >= target` (the match is already on).
 `SEED_PLEDGE_MINUTES` is 180, not 45: collecting 45 clicks takes hours, and a short window means
 the target is never reached. If the target is raised, raise this too.
 
-Tables `seed_pledges` / `seed_pings`. Core routes `GET /internal/seed`,
+Tables `seed_pledges` / `seed_pings` / `seed_credits` (who was on the list when a call fired —
+see the leaderboard section; the call clears the list, so nothing else remembers).
+Core routes `GET /internal/seed`,
 `POST /internal/seed/pledge`, `POST /internal/seed/ping` (`{kind, force}`). Core, not the bot,
 decides whether a message really goes out: the cooldown is enforced by the INSERT itself, so two
 ticks landing together cannot ping twice.

@@ -156,6 +156,39 @@ h2{font:800 clamp(40px,5.4vw,68px)/.95 BC;text-transform:uppercase}
 .live-foot p{margin-top:10px;font-size:17px;color:var(--ink-2)}
 .board-off{padding:22px 18px;font-size:18px;color:var(--ink-2)}
 
+/* leaderboard (same push as the live board; hidden until there is something on it) */
+#leaderboard[hidden]{display:none}
+/* Eight boards, four across: two even rows, no orphan cell at the end. */
+.lb{display:grid;grid-template-columns:repeat(4,1fr);margin-top:36px;border:3px solid var(--ink);background:var(--paper-hi)}
+/* Each card is three stacked rows (heading, explanation, list) and takes those
+   rows from the grid itself, so every card in a row gets the same heading
+   height and the same explanation height and the rules line up. Doing it with
+   a min-height instead needs a different guess at every window width: the
+   explanations are two lines in one column and five in another. */
+.lb > section{padding:20px 20px 24px;border-right:2px dashed var(--rule);border-bottom:2px dashed var(--rule);
+  display:grid;grid-template-rows:subgrid;grid-row:span 3;align-content:start}
+.lb > section:nth-child(4n){border-right:0}
+.lb > section:nth-last-child(-n+4){border-bottom:0}
+.lb h3{font:800 25px/1.05 BC;text-transform:uppercase}
+/* The explanation is the point of the strategic boards, so it is not fine print. */
+.lb .why{margin-top:8px;font-size:16px;line-height:1.4;color:var(--ink-2)}
+/* Without subgrid the cards just don't line up, which is how this looked
+   before. Close enough, rather than broken. */
+@supports not (grid-template-rows:subgrid){
+  .lb > section{display:flex;flex-direction:column}
+  .lb h3{min-height:2.1em}
+  .lb .why{min-height:5.7em}
+}
+.lb ol{list-style:none;margin-top:14px;border-top:2px solid var(--ink)}
+.lb li{display:grid;grid-template-columns:1.6em 1fr auto;gap:0 10px;align-items:baseline;padding:8px 0;border-bottom:1px dashed var(--rule)}
+.lb li:last-child{border-bottom:0}
+.lb .r{font:800 18px/1.2 BC;color:var(--olive)}
+.lb li b{font:600 17px/1.25 B;overflow-wrap:anywhere}
+.lb .v{font:700 17px/1.2 M;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lb .s{grid-column:2/-1;font:500 14px/1.3 M;color:var(--olive)}
+.lb .none{margin-top:14px;padding-top:14px;border-top:2px solid var(--ink);font-size:16px;color:var(--olive)}
+.lb-foot{margin-top:16px;font:500 16px/1.5 B;color:var(--ink-2)}
+
 /* support */
 .support .wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:clamp(24px,4vw,56px);align-items:start}
 .letter{margin-top:22px;color:var(--ink-2);font-size:19px;max-width:36em}
@@ -204,6 +237,12 @@ footer b{font:800 18px/1 BC;letter-spacing:.12em;color:var(--ink)}
   .live-meta > div:nth-child(3){grid-column:1/-1;border-left:0;border-top:2px dashed var(--rule)}
   .steps{grid-template-columns:1fr}
   .steps li,.steps li + li{padding:24px 0 10px;border-left:0;border-bottom:2px dashed var(--rule)}
+  .lb{grid-template-columns:1fr 1fr}
+  .lb > section:nth-child(4n){border-right:2px dashed var(--rule)}
+  .lb > section:nth-child(2n){border-right:0}
+  .lb > section:nth-last-child(-n+4){border-bottom:2px dashed var(--rule)}
+  .lb > section:nth-last-child(-n+2){border-bottom:0}
+  @supports not (grid-template-rows:subgrid){ .lb h3{min-height:0} .lb .why{min-height:4.3em} }
   .support .wrap{grid-template-columns:1fr}
   .live-foot{grid-template-columns:1fr}
   .live-foot > div + div{border-left:0;border-top:3px solid var(--ink)}
@@ -218,6 +257,10 @@ footer b{font:800 18px/1 BC;letter-spacing:.12em;color:var(--ink)}
   .hc > div + div{border-left:0;border-top:1px solid var(--line)}
   .item{grid-template-columns:56px 1fr}
   .item .ic{width:48px;height:48px}.item .ic svg{width:40px;height:40px}
+  .lb{grid-template-columns:1fr}
+  .lb > section,.lb > section:nth-child(4n){border-right:0}
+  .lb > section{border-bottom:2px dashed var(--rule)}
+  .lb > section:last-child{border-bottom:0}
 }
 @media (prefers-reduced-motion:no-preference){
   .route{stroke-dasharray:640;stroke-dashoffset:640;animation:draw 1.6s .3s cubic-bezier(.16,1,.3,1) forwards}
@@ -244,6 +287,7 @@ footer b{font:800 18px/1 BC;letter-spacing:.12em;color:var(--ink)}
       <a href="#hardcore">Hardcore</a>
       <a href="#join">How to join</a>
       <a href="#seed">Server quiet?</a>
+      <a href="#leaderboard" id="navlb" hidden>Leaderboard</a>
       <a class="btn" href="/discord"><svg aria-hidden="true"><use href="#discord"/></svg><span>Join Discord</span></a>
     </nav>
   </div>
@@ -362,6 +406,18 @@ footer b{font:800 18px/1 BC;letter-spacing:.12em;color:var(--ink)}
   </div>
 </section>
 
+<!-- Leaderboard. Filled by the same script as the live board, from the same
+     push, and hidden until somebody has actually played. Each board carries its
+     own explanation because the strategic ones are meaningless without it. -->
+<section class="sec" id="leaderboard" hidden aria-live="polite">
+  <div class="wrap">
+    <h2>Leaderboard</h2>
+    <p class="sub">Several boards, not one score out of ten. A blended number tells you nothing about what to do differently, so each of these says plainly what it measures and how to climb it.</p>
+    <div class="lb" id="lbgrid"></div>
+    <p class="lb-foot" id="lbfoot"></p>
+  </div>
+</section>
+
 <section class="sec support" id="support">
   <div class="wrap">
     <div>
@@ -410,11 +466,16 @@ new IntersectionObserver(function(e){bar.classList.toggle('on',!e[0].isIntersect
 // until there is fresh data, so visitors never see an empty board.
 (function(){
 var sec=document.getElementById('live'),box=document.getElementById('board'),nav=document.getElementById('navlive');
+var lbsec=document.getElementById('leaderboard'),lbgrid=document.getElementById('lbgrid'),lbfoot=document.getElementById('lbfoot'),navlb=document.getElementById('navlb');
 var src=box&&box.getAttribute('data-src'),search=box&&box.getAttribute('data-search');
 if(!src||!window.fetch){console.warn('[SIXDOGS] live board off: '+(src?'this browser has no fetch':'no status URL is set (liveStatusUrl in community.json)'));return}
 var stamp=(document.querySelector('meta[name=sixdogs-build]')||{}).content||'unknown';
 console.log('[SIXDOGS] page build '+stamp+', reading '+src);
 var COL={blue:'#3a7bd5',red:'#d13b3b',green:'#3aa655'},STALE=10*60000,data=null;
+// The live board goes stale in ten minutes because it claims to be now. The
+// leaderboard covers the last month, so a couple of hours old is still true;
+// a week old is not, and by then the bot has been down long enough to say so.
+var LB_STALE=24*3600000;
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function ago(ms){var m=Math.round(ms/60000);return m<1?'just now':m===1?'1 min ago':m<60?m+' min ago':Math.round(m/60)+' h ago'}
 function clock(ms){var t=Math.max(0,Math.floor(ms/1000)),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s).padStart(2,'0')}
@@ -460,9 +521,31 @@ function draw(){
     '<div class="live-teams">'+teams+'</div>'+
     '<div class="live-foot"><div><span class="lab">Top this match</span>'+top+'</div><div><span class="lab">Join</span>'+join+'</div></div>';
   show(true)}
+// The leaderboard, drawn from the same payload but on its own: it is history,
+// so it survives the game server being down and outlives the live board's
+// ten-minute cutoff. The wording of every board comes from the bot
+// (bot/src/leaderboard.js) so Discord and this page can't describe a number
+// two different ways.
+function drawLB(){
+  var d=data,lb=d&&d.leaderboard,now=Date.now();
+  var problem=!lb?'the status push carries no leaderboard (the bot needs updating, or core is not answering)'
+    :!d.updatedAt?'the reply had no updatedAt, so it is not the status JSON'
+    :now-Date.parse(d.updatedAt)>LB_STALE?'the data is '+ago(now-Date.parse(d.updatedAt))+', older than the 24 hour cutoff'
+    :!lb.players?'nobody has played in the last '+lb.days+' days, so there is nothing to rank':null;
+  if(problem){console.warn('[SIXDOGS] leaderboard hidden: '+problem);lbsec.hidden=true;navlb.hidden=true;return}
+  lbgrid.innerHTML=(lb.boards||[]).map(function(b){
+    var rows=(b.rows||[]).length
+      ?'<ol>'+b.rows.map(function(r,n){return'<li><span class="r">'+(n+1)+'</span><b>'+esc(r.name)+'</b><span class="v">'+esc(r.value)+'</span>'+
+        (r.sub?'<span class="s">'+esc(r.sub)+'</span>':'')+'</li>'}).join('')+'</ol>'
+      :'<p class="none">'+esc(b.empty)+'</p>';
+    return'<section><h3>'+esc(b.title)+'</h3><p class="why">'+esc(b.note)+'</p>'+rows+'</section>'}).join('');
+  lbfoot.textContent='Last '+lb.days+' days. '+lb.players+' player'+(lb.players===1?'':'s')+' seen, '+lb.counted+
+    ' with the '+lb.minMinutes+'+ minutes played needed to rank on the per-minute boards.';
+  lbsec.hidden=false;navlb.hidden=false}
 document.addEventListener('click',function(e){var b=e.target.closest('button[data-copy]');if(!b||!navigator.clipboard)return;
   navigator.clipboard.writeText(b.getAttribute('data-copy')).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1500)})});
-function load(){fetch(src,{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(d){data=d;draw()}).catch(function(){data=null;draw()})}
+function load(){fetch(src,{cache:'no-store'}).then(function(r){return r.ok?r.json():null})
+  .then(function(d){data=d;draw();drawLB()}).catch(function(){data=null;draw();drawLB()})}
 load();setInterval(load,60000);
 setInterval(function(){var el=document.getElementById('lt');if(el)el.textContent=timeText()},1000);
 })();

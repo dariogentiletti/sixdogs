@@ -86,7 +86,8 @@ everything**: that's how Discord's Administrator permission works and a channel 
 so test with a normal account.
 
 **Channel layout.** On every start the bot keeps INFO in this order: `#rules`, `#get-verified`,
-`#how-to-play`, `#roles`, `#server-info`, `#support-the-community`, `#announcements`. All are
+`#how-to-play`, `#roles`, `#server-info`, `#leaderboard`, `#start-a-match`,
+`#support-the-community`, `#announcements`. All are
 read-only (only the bot posts), `#announcements` is Admin-only, `#clips` becomes
 `#clips-screenshots`, and `#looking-for-squad` is removed. In the faction voice channels everyone
 on the team can watch Activities (the wardogs.tech live map); only the commander can talk.
@@ -118,6 +119,12 @@ button goes.
 a small Cloudflare Worker at live.sixdogs.gg (see `website/DEPLOY.md`). Only public things are
 sent: map, clock, scores, team sizes, commanders' names and the top players' in-game names. No
 Discord IDs. The website hides the section until fresh data arrives.
+
+The **leaderboard** rides along in the same push, so there is one endpoint, one token and one
+thing that can be stale. It is history rather than a live reading, so it keeps being sent while
+the game server is down, and the site shows it for up to 24 hours rather than the live board's 10
+minutes. Commanders and match-starters are looked up to their Discord display names before the
+payload leaves; the ids are dropped, same as everywhere else here.
 
 **Live map (Wardogs Tech).** A free, fan-made Discord Activity: a shared WARDOGS map people draw
 on together inside a voice channel. An admin installs it once from https://wardogs.tech/add.
@@ -295,6 +302,51 @@ When a match ends, every commander who led for 5+ minutes gets rated by their ow
 
 It needs the game server (it knows who played where from the match data), so it's inactive in
 Discord-only mode.
+
+## Leaderboard
+
+One message the bot keeps in `#leaderboard`, and the same boards on sixdogs.gg under the live
+tracker. Eight short lists over the last 30 days, not one blended score: a single number out of
+ten is impossible to argue with and impossible to chase, because nobody can tell what to do
+differently about it.
+
+**What the game actually gives us is the whole constraint here.** `/v1/players` returns a name, a
+SteamID, a faction, kills, deaths, cash and a ping, and nothing else. There are no supply
+deliveries, no zone captures, no revives, and no events of any kind, so nothing on here claims to
+count them. What we do have is a poll every five seconds, written down, which lets the strategic
+boards be worked out from how the numbers move rather than read off a field:
+
+| Board | What it means |
+|---|---|
+| **Kills** | Most kills. Turning up counts. |
+| **Kill / death** | Best ratio, with 20+ minutes played behind it |
+| **Stayed alive** | Deaths per 10 minutes, fewest first. Holding a position rather than pushing alone |
+| **Ground held** | How fast your side's objective score climbed while you were on the field. A **team** number: everyone out there shares it, and the board says so |
+| **Swing** | How much faster your side scored with you on than without you. The individual one |
+| **Commanders** | Their post-match rating, from the section above |
+| **Time on the server** | The people who actually keep it alive |
+| **Got matches going** | How many matches started because they put their name down in `#start-a-match` while the server was quiet |
+
+Two of those are worth explaining properly.
+
+**Swing** is the honest way to get an individual number out of team data. Everyone on the field at
+the same moment shares the same objective score, so the only thing that separates two players is
+how their side did while they were *not* on. Somebody whose team scores 5/min with them and 2/min
+without them is +3. It needs both on-field and off-field time in the same match, so it stays empty
+until people come and go — and when there is nothing to compare against there is **no number**,
+not a zero. Calling it zero would flatter or punish people depending on how their team happened to
+do without them.
+
+**Got matches going** is the only board the game cannot see, and on a server this size it is the
+one that matters most. A quiet server stays quiet unless somebody says they want a game, so
+everyone on the seeding list when a call-in goes out is credited with that match. It needs no
+minutes played at all: the whole point is that it counts what you did while you were *not* in the
+server.
+
+Kills and deaths reset each match on this build, so a total is the sum of per-match peaks. `cash`
+is a persistent wallet and nobody has confirmed what moves it, so it is collected but **not
+ranked**. Rate boards need `LEADERBOARD_MIN_MINUTES` (20) behind them, or one lucky ten minutes
+tops a table forever.
 
 ## Reserved slots for donors
 

@@ -10,6 +10,7 @@
 //   POST /mock/leave    {steamId}
 //   POST /mock/faction  {steamId, faction}
 //   POST /mock/new-match                -> resets clock, reshuffles factions
+//   GET  /mock/fight                    -> bump everyone's kills/deaths a little
 
 import http from 'node:http';
 
@@ -25,6 +26,15 @@ const FACTIONS = ['Lonestar', 'Valkyra', 'Manticore'];
 const FACTION_COLORS = ['#2f6fd6', '#d13b3b', '#3aa655'];
 
 let matchStart = Date.now();
+// The live build sends a numeric score per faction (confirmed on the real
+// server), and it climbs as a side holds the zone. Without it here, anything
+// that measures objective play rather than kills cannot be exercised.
+let scores = [0, 0, 0];
+const advanceScores = () => {
+  // One side is doing better than the others, so a board built on this has
+  // something to actually rank.
+  scores = scores.map((v, i) => v + Math.round(Math.random() * (3 - i)));
+};
 let map = 'Harbor';
 let lighting = 'Day';
 let rotationIndex = 0;
@@ -69,6 +79,7 @@ const ROUTES = [
 // control page and by RCON's POST /v1/match/end.
 function newMatch() {
   matchStart = Date.now();
+  scores = [0, 0, 0];
   rotationIndex++;
   const list = [...players.values()].sort(() => Math.random() - 0.5);
   list.forEach((pl, i) => { pl.faction = FACTIONS[i % 3]; pl.kills = 0; pl.deaths = 0; });
@@ -164,6 +175,14 @@ http.createServer(async (req, res) => {
 
   if (p.startsWith('/mock/')) {
     const b = req.method === 'POST' && (req.headers['content-type'] ?? '').includes('json') ? await body(req) : {};
+    // Give everyone some kills and deaths, for testing boards that rank them.
+    if (p === '/mock/fight') {
+      for (const pl of players.values()) {
+        pl.kills += Math.floor(Math.random() * 3);
+        pl.deaths += Math.floor(Math.random() * 2);
+      }
+      return json(res, 200, { ok: true });
+    }
     if (p === '/mock/messages') return json(res, 200, messages);
     if (p === '/mock/broadcasts') return json(res, 200, broadcasts);
     if (p === '/mock/join') { add(b.name, String(b.steamId), b.faction); return json(res, 200, { ok: true }); }
@@ -190,11 +209,12 @@ http.createServer(async (req, res) => {
   }
   if (req.method === 'GET' && p === '/v1/status') {
     const secs = Math.floor((Date.now() - matchStart) / 1000);
+    if (players.size) advanceScores();
     return json(res, 200, {
       serverName: 'SIXDOGS | Command net in Discord (MOCK)', map, experiences: [], lighting, alternator: 'A',
       scoreTick: { current: 30, min: 10, max: 60 }, scoreCap: 100, matchSeconds: secs,
       players: { current: players.size, max: 99 },
-      factionScores: FACTIONS.map((name, i) => ({ name, colorHex: FACTION_COLORS[i] })),
+      factionScores: FACTIONS.map((name, i) => ({ name, colorHex: FACTION_COLORS[i], score: scores[i] })),
       rotation: { nowIndex: rotationIndex, nextIndex: rotationIndex + 1 },
     });
   }

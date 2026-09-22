@@ -9,6 +9,10 @@ import { RconError } from './rcon.js';
 import { looksEphemeral } from './db.js';
 import { commanderTerms, ratedTerms, roundPoints } from './ratings.js';
 import { seedDecision } from './seeding.js';
+import {
+  COMMANDERS_SQL, STARTERS_SQL, TOTALS_SQL,
+  boards, commanderStats, playerStats, starterStats,
+} from './leaderboard.js';
 import { ConfigEditError, explainConfigErrors, getConfigValue, listConfigMembers, setConfigListMember, setConfigValue } from './configedit.js';
 
 const MAX_BODY = 16 * 1024;
@@ -602,11 +606,49 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
     // A call has done its job, so the list starts again: the next match needs
     // people who want THAT one, not names left over from this one. A nudge
     // changes nothing, since its whole point is to grow the same list.
-    if (kind === 'call') await pool.query('DELETE FROM seed_pledges');
+    //
+    // The same statement writes down who was on it. One statement, so the names
+    // cannot be lost between clearing the list and recording it — and getting a
+    // quiet server busy is the one contribution the game itself cannot see.
+    if (kind === 'call') {
+      await pool.query(
+        `WITH cleared AS (DELETE FROM seed_pledges RETURNING discord_id)
+         INSERT INTO seed_credits (ping_id, discord_id)
+         SELECT $1::bigint, discord_id FROM cleared
+         ON CONFLICT DO NOTHING`,
+        [rows[0].id]);
+    }
     return {
       ok: true, fired: true, kind, ready: summary.ready, playersOn: summary.playersOn,
       target: summary.target, needed: summary.needed, nudgeAt: summary.nudgeAt,
       pledges: summary.pledges, pingedAt: new Date(rows[0].pinged_at).toISOString(),
+    };
+  });
+
+  /**
+   * Leaderboards over the last `days`.
+   *
+   * Everything here is derived from the 5-second samples: the game exposes no
+   * supply, capture or revive counters to read instead. See leaderboard.js for
+   * what each number actually means.
+   */
+  route('GET', '/internal/leaderboard', async (_p, _b, url) => {
+    const days = Math.min(365, Math.max(1, Number(url?.searchParams?.get('days')) || config.leaderboardWindowDays));
+    const top = Math.min(25, Math.max(1, Number(url?.searchParams?.get('top')) || 5));
+    const [{ rows: totals }, { rows: cmd }, { rows: seeded }] = await Promise.all([
+      pool.query(TOTALS_SQL, [days]),
+      pool.query(COMMANDERS_SQL, [days]),
+      pool.query(STARTERS_SQL, [days]),
+    ]);
+    const players = playerStats(totals, { pollSeconds: Math.round(config.pollIntervalMs / 1000) });
+    return {
+      ok: true,
+      days,
+      generatedAt: new Date().toISOString(),
+      ...boards(players, commanderStats(cmd), starterStats(seeded), {
+        minMinutes: config.leaderboardMinMinutes,
+        top,
+      }),
     };
   });
 
@@ -777,7 +819,7 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
         // without it every revoke would quietly stay a dry run. An empty body
         // reads as {}, so the routes that send nothing are unaffected.
         const body = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) ? await readJson(req) : {};
-        const out = await r.handler(params, body);
+        const out = await r.handler(params, body, url);
         if (Array.isArray(out)) return send(res, out[0], out[1]);
         return send(res, 200, out);
       } catch (err) {

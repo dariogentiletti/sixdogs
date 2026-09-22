@@ -119,3 +119,16 @@ CREATE TABLE IF NOT EXISTS seed_pings (
   kind      TEXT NOT NULL DEFAULT 'call'
 );
 ALTER TABLE seed_pings ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'call';
+
+-- Who was on the list when a call-in went out. The call clears the list, so
+-- without this there is no record of the people whose names got a match going
+-- and no way to put them on a board. Nothing in the game measures this, and it
+-- is the behaviour a community server most depends on. Written in the SAME
+-- statement that clears the list, so a match can never be credited to nobody.
+CREATE TABLE IF NOT EXISTS seed_credits (
+  ping_id     BIGINT NOT NULL REFERENCES seed_pings(id) ON DELETE CASCADE,
+  discord_id  TEXT NOT NULL,
+  credited_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (ping_id, discord_id)
+);
+CREATE INDEX IF NOT EXISTS seed_credits_when ON seed_credits (credited_at);

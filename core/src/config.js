@@ -48,6 +48,12 @@ export const config = {
   verifyCodeTtlSec: num('VERIFY_CODE_TTL_SEC', 600),
   verifyCodeDigits: num('VERIFY_CODE_DIGITS', 3), // shorter is friendlier to type; see MAX_ATTEMPTS in verify.js
   ratingWindowDays: num('RATING_WINDOW_DAYS', 60),
+  // Leaderboards. A month is long enough to be worth chasing and short enough
+  // that somebody who stops playing eventually drops off it.
+  leaderboardWindowDays: Math.max(1, num('LEADERBOARD_DAYS', 30)),
+  // Below this, a per-minute board is noise and whoever played one good ten
+  // minutes would sit on top of it forever.
+  leaderboardMinMinutes: Math.max(0, num('LEADERBOARD_MIN_MINUTES', 20)),
   // Seeding: pledges in Discord that add up to a "come and play" ping.
   // How many people have to want in before a match can actually start.
   seedTarget: Math.max(2, num('SEED_TARGET', 45)),

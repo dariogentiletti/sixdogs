@@ -5,6 +5,7 @@ import { FACTIONS, factionKeyFor } from './factions.js';
 import { FactionTracker } from './tracker.js';
 import { VerifiedRole } from './verified.js';
 import { LiveBoard } from './liveboard.js';
+import { Leaderboard } from './leaderboard.js';
 import { WebStatus } from './webstatus.js';
 import { checkVoice, tidyGetVerified } from './guard.js';
 import { CommanderManager } from './commander.js';
@@ -51,6 +52,7 @@ const ratings = new Ratings({ core, config, log });
 const seeding = new Seeding({ core, config, log });
 const verified = new VerifiedRole({ roleName: config.verifiedRoleName, onError: (text) => log(text) });
 const board = new LiveBoard({ core, commanders, config });
+const leaderboard = new Leaderboard({ core, config });
 const web = new WebStatus({ core, commanders, config });
 const handlers = makeHandlers({ core, commanders, ratings, seeding, config, log, verified });
 const autocomplete = makeAutocomplete({ core });
@@ -222,6 +224,7 @@ client.once(Events.ClientReady, async (c) => {
   seeding.attach(guild);
   verified.attach(guild);
   board.attach(guild);
+  leaderboard.attach(guild);
   logChannel = guild.channels.cache.find((ch) => ch.isTextBased() && ch.name === config.logChannelName) ?? null;
   if (!logChannel) console.warn(`[bot] no #${config.logChannelName} channel yet — run /setup-server`);
 
@@ -276,7 +279,7 @@ client.once(Events.ClientReady, async (c) => {
   // Channel posts from the content/ folder (#rules, #server-info, #announcements).
   try {
     const isMenu = (m) => isMenuMessage(m, client.user.id, config.rolesChannelName);
-    for (const line of await syncPosts(guild, { isMenu, skip: [config.liveBoardChannel, config.seedChannel] })) {
+    for (const line of await syncPosts(guild, { isMenu, skip: [config.liveBoardChannel, config.seedChannel, config.leaderboardChannel] })) {
       if (line.startsWith('!')) console.warn(`[posts] ${line.slice(2)}`);
       else console.log(`[posts] ${line.slice(2)}`);
     }
@@ -300,6 +303,9 @@ client.once(Events.ClientReady, async (c) => {
   // Live board in #server-info.
   await board.update();
   setInterval(() => board.update(), config.liveBoardMinutes * 60_000);
+  // The leaderboard is a heavier query than the live board, so it runs slower.
+  await leaderboard.update();
+  setInterval(() => leaderboard.update(), config.leaderboardMinutes * 60_000);
   web.start(guild);
   setInterval(syncOnce, config.syncIntervalMs);
   if (!config.coreDisabled) setInterval(() => ratings.notifyDue().catch(() => {}), 60_000);

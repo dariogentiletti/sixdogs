@@ -109,6 +109,7 @@ export function channelPlan({ verifiedRoleName = 'Verified', logChannelName = 'a
         { name: 'how-to-play' },
         { name: rolesChannelName },
         { name: 'server-info' },   // live board: the bot edits one message every few minutes
+        { name: 'leaderboard' },   // the bot edits one message every LEADERBOARD_MINUTES
         // Seeding: the bot's board with the "I'd play right now" buttons. Buttons work
         // in a read-only channel (a click is an interaction, not a message), so this
         // needs no extra permission for anyone.

@@ -51,6 +51,12 @@ export class CoreClient {
   setFaction(steamId, faction) { return this.request('POST', `/internal/players/${steamId}/faction`, { faction }); }
   endMatch() { return this.request('POST', '/internal/match/end', {}); }
   diagnostics() { return this.request('GET', '/internal/diagnostics'); }
+  leaderboard({ days, top } = {}) {
+    const q = new URLSearchParams();
+    if (days) q.set('days', String(days));
+    if (top) q.set('top', String(top));
+    return this.request('GET', `/internal/leaderboard${q.size ? `?${q}` : ''}`);
+  }
   serverConfig() { return this.request('GET', '/internal/config'); }
   /** apply:false (the default) says what would change without changing it. */
   setServerSetting(section, key, value, apply = false) {

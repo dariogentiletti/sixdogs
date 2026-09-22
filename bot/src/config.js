@@ -60,6 +60,11 @@ export function loadConfig() {
     seedPingRoleName: str('SEED_PING_ROLE_NAME', 'Match Alerts'),
     // Scheduled ops (OPERATIONS channels + Operator role). Off while this is a 24/7 server.
     operationsEnabled: process.env.OPERATIONS_ENABLED === 'true',
+    // Leaderboard in #leaderboard. The window and the minimum time to rank on a
+    // rate board are core's settings (LEADERBOARD_DAYS, LEADERBOARD_MIN_MINUTES).
+    leaderboardChannel: str('LEADERBOARD_CHANNEL_NAME', 'leaderboard'),
+    leaderboardDays: num('LEADERBOARD_DAYS', 30),
+    leaderboardMinutes: Math.max(5, num('LEADERBOARD_MINUTES', 15)),
     // Live board in #server-info.
     liveBoardChannel: 'server-info',
     liveBoardMinutes: Math.max(1, num('LIVE_BOARD_MINUTES', 5)),

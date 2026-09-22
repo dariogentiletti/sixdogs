@@ -69,10 +69,10 @@
     },
     {
       "id": "nowhere-to-ask-for-help",
-      "what": "An unverified player has nowhere to ask for help. @everyone can only WRITE in #get-verified, and guard.js deletes anything posted there that isn't a slash command. #general needs the Verified role. So the one person who most needs help, somebody who cannot get verified, cannot ask for it anywhere.",
-      "blocking": "Not blocking anything yet, but it is a hole in onboarding and it only shows up when somebody is already stuck and gives up quietly.",
+      "what": "An unverified player has nowhere to ask a question and get an answer. #general is open to everyone now, which mostly covers it, but @everyone is denied links and files there and nobody is watching it, so somebody stuck on /verify still has no way to show a screenshot of what went wrong.",
+      "blocking": "Not blocking anything, and much smaller than it was before #general opened. It only shows up when somebody is already stuck and gives up quietly.",
       "cost": "None",
-      "howTo": "Owner's call, since it means changing the access model. Either let @everyone write in one help channel, or let the tidy-up in guard.js keep messages that look like a question, or tell people in the guide to message an admin directly and make sure the Admin role is visible in the member list."
+      "howTo": "Either allow AttachFiles in #general for everyone (which is most of the scam vector, so probably not), add one help channel where they can, or tell people in the guide to message an admin directly and make sure the Admin role is visible in the member list."
     }
   ],
   "decisions": [
@@ -103,11 +103,14 @@
     "2026-09-21: /settings reads the live settings document and the build reports it as writable, so the server settings CAN be changed from Discord once the write path is built. The six section names are listed in docs/wardogs-rcon.md, not here, so there is one copy of them.",
     "2026-09-21: read the real settings keys off the live server. The match-start setting is MinimumRequiredPlayers in the MatchState.PreMatch section and it was 20. The reserved slots turned out to be a config array capped at 6, not a writable route, which is what had the donor-slot promise blocked. Key names and values: docs/wardogs-rcon.md. No AFK or idle-kick setting appears in either section read so far.",
     "2026-09-21: reserved slots can now be given out from Discord. They are an array in the settings document capped by a MaxReservedSlots key in the same section, which is why the read-only route could never deliver the donation page's promise. /reserved grant:@member and revoke:@member do it, dry run first.",
-    "2026-09-21: the settings write path works against the LIVE server, not just the mock. MinimumRequiredPlayers changed from 20 to 45 through /settings, the server accepted it, and the change was logged to #admin-log. So matches now start at 45 (three teams of 15) and seeding reads that same number."
+    "2026-09-21: the settings write path works against the LIVE server, not just the mock. MinimumRequiredPlayers changed from 20 to 45 through /settings, the server accepted it, and the change was logged to #admin-log. So matches now start at 45 (three teams of 15) and seeding reads that same number.",
+    "2026-09-22: the leaderboard is live in #leaderboard and on sixdogs.gg. Eight boards over 30 days: kills, K:D, stayed alive, ground held, swing, commanders, time on the server and got matches going. Checked end to end against a real database filled by real polling of the mock server, including the seeding credit surviving the call-in that clears the list. Confirmed while building it that the game reports no supply, capture or revive counters, so the strategic boards are worked out from how the objective score moves over the 5-second polls instead."
   ],
   "rules": [
     "Never move players between teams automatically during a match. The owner has ruled this out: /move stays an admin command only, and no balancing rule may ever call it on its own.",
     "Reserved slots: any donation gets the Supporter role, $10 or more gets a reserved slot for that month. There are six. If more than six donors want in at once they wait; do not add caveats about this to the public wording.",
-    "Nobody is pinged who didn't ask to be. The seeding call-in mentions the opt-in Match Alerts role only, and the bot never uses @everyone or @here."
+    "Nobody is pinged who didn't ask to be. The seeding call-in mentions the opt-in Match Alerts role only, and the bot never uses @everyone or @here.",
+    "The leaderboard is SEVERAL boards, never one blended \"SIXDOGS score\". A single weighted number is impossible to argue with and impossible to chase, because nobody can work out what to do differently about it. Do not combine them however tidy it looks.",
+    "Nothing on the leaderboard may measure something the game does not report. WARDOGS gives kills, deaths, cash and which side you are on, and no events at all: no supply deliveries, no captures, no revives. A derived number says on the board itself what it is derived from, and a number with nothing to compare against is left blank rather than called zero."
   ]
 }

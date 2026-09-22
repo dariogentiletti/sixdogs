@@ -14,12 +14,11 @@
 
 # What's new: 22 September 2026
 color: gold
-Two changes.
+## There's a leaderboard now
+{#leaderboard} has eight boards for the last 30 days, and they're on the website too.
 
-## #general is open to everyone now
-You don't have to be verified to talk in there. Links, files and screenshots still need the **Verified** role, so `/verify` is worth doing.
+Kills and K:D are there, but so are the ones you can't farm: how fast your side's score climbed while you were on the field, how much faster it climbed with you on than without you, how long you've stayed alive, and how many matches started because you put your name down in {#start-a-match} when the server was quiet.
 
-## Matches start at 45 players
-Three full teams of 15, each with a commander. If the server is quiet, put your name down in {#start-a-match} instead of waiting in an empty match.
+Each board says on itself what it measures. Nothing counts against you for playing badly on a night you turned up.
 
 footer: Questions? Ask an admin.

@@ -733,7 +733,7 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
       });
       await i.guild.channels.fetch();
       const isMenu = (m) => isMenuMessage(m, i.client.user.id, config.rolesChannelName);
-      report.push(...await syncPosts(i.guild, { isMenu, skip: [config.liveBoardChannel, config.seedChannel] }));
+      report.push(...await syncPosts(i.guild, { isMenu, skip: [config.liveBoardChannel, config.seedChannel, config.leaderboardChannel] }));
       const text = report.join('\n');
       await i.editReply((`Done.\n${text}`).slice(0, 1900) +
         '\n\nNext: drag my own role (**SIXDOGS** or whatever the bot is called) above the faction and commander roles in Server Settings → Roles, or I can\'t hand them out.');
