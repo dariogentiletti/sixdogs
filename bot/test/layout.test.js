@@ -43,6 +43,9 @@ function fakeGuild() {
   const guild = {
     roles: { everyone, cache: { map: (fn) => roles.map(fn) } },
     members: { me: { id: 'BOT' } },
+    // Discord's server-wide gate on brand-new accounts.
+    verificationLevel: 0,
+    setVerificationLevel: async (n) => { calls.push(['verification', n]); guild.verificationLevel = n; },
     channels: {
       cache: { find: (fn) => channels.find(fn) },
       fetch: async () => {},
@@ -71,7 +74,9 @@ test('first start: everything set to the plan; second start: nothing to do', asy
     'permissions set on #rules', 'permissions set on #general',
     'permissions set on 🔊Blue Command (listen)', 'permissions set on #admin-log',
     'put the INFO channels in order',
+    'verification level set to high',
   ]) assert.ok(first.includes(line), line);
+  assert.deepEqual(w.calls.filter((c) => c[0] === 'verification'), [['verification', 3]], 'high is level 3');
   const info = w.channels.filter((c) => c.parentId === 'INFO').sort((a, b) => a.rawPosition - b.rawPosition).map((c) => c.name);
   assert.deepEqual(info, ['rules', 'get-verified', 'how-to-play', 'roles', 'server-info', 'start-a-match', 'support-the-community', 'announcements']);
   assert.equal(w.channels.find((c) => c.name === 'get-verified').rateLimitPerUser, 10);
@@ -89,4 +94,31 @@ test('first start: everything set to the plan; second start: nothing to do', asy
   w.calls.length = 0;
   assert.deepEqual(await enforceLayout(w.guild), []);
   assert.deepEqual(w.calls, []);
+});
+
+// ---- the gate on brand-new accounts ----
+
+import { applyVerificationLevel, verificationLevelFrom, VERIFICATION_LEVELS } from '../src/setup.js';
+
+test('verification levels are read by name, and a typo changes nothing', () => {
+  assert.equal(verificationLevelFrom('high'), VERIFICATION_LEVELS.high);
+  assert.equal(verificationLevelFrom('HIGH'), 3);
+  assert.equal(verificationLevelFrom('very high'), 4);
+  assert.equal(verificationLevelFrom('very_high'), 4);
+  assert.equal(verificationLevelFrom('none'), 0, 'turning it off is a real choice, not a typo');
+  // A typo must not silently pick a level; leaving the server as it is, is safe.
+  for (const bad of ['hgih', '', null, undefined, '3']) assert.equal(verificationLevelFrom(bad), null, String(bad));
+});
+
+test('a level that is already right is not set again', async () => {
+  const guild = { verificationLevel: 3, setVerificationLevel: async () => { throw new Error('should not be called'); } };
+  assert.equal(await applyVerificationLevel(guild, { guildVerificationLevel: 'high' }), null);
+});
+
+test('an unknown level is reported and left alone, not guessed at', async () => {
+  let touched = false;
+  const guild = { verificationLevel: 0, setVerificationLevel: async () => { touched = true; } };
+  const line = await applyVerificationLevel(guild, { guildVerificationLevel: 'hgih' });
+  assert.match(line, /not a level I know/);
+  assert.equal(touched, false);
 });

@@ -31,8 +31,9 @@ export const commandDefinitions = [
     .addBooleanOption((o) => o.setName('call-now').setDescription('Call everyone in right now, without waiting for the target'))
     .setDefaultMemberPermissions(P.ManageRoles),
 
-  new SlashCommandBuilder().setName('reroll').setDescription('ADMIN: pick a new commander for a faction')
+  new SlashCommandBuilder().setName('set-commander').setDescription('ADMIN: put someone in command, or pick someone new at random')
     .addStringOption(factionChoice)
+    .addUserOption((o) => o.setName('member').setDescription('Who. Leave it empty and the bot picks someone at random instead'))
     .setDefaultMemberPermissions(P.ManageRoles),
   new SlashCommandBuilder().setName('link').setDescription('ADMIN: link a member to a SteamID without the in-game code')
     .addUserOption((o) => o.setName('member').setDescription('Discord member').setRequired(true))
@@ -83,20 +84,15 @@ export const commandDefinitions = [
 
   // ---- match and world control ----
   new SlashCommandBuilder().setName('map').setDescription('ADMIN: change the map now')
-    .addStringOption((o) => o.setName('map').setDescription('Map name (see /maps)').setRequired(true).setMaxLength(100))
-    .addStringOption((o) => o.setName('lighting').setDescription('Day, Night, ... (see /maps)').setMaxLength(60))
+    .addStringOption((o) => o.setName('map').setDescription('Which map').setRequired(true).setMaxLength(100).setAutocomplete(true))
+    .addStringOption((o) => o.setName('lighting').setDescription('Time of day').setMaxLength(60).setAutocomplete(true))
     .setDefaultMemberPermissions(P.Administrator),
-  new SlashCommandBuilder().setName('maps').setDescription('ADMIN: list the maps and lightings this server offers')
-    .setDefaultMemberPermissions(P.ManageRoles),
   new SlashCommandBuilder().setName('lighting').setDescription('ADMIN: change the time of day')
-    .addStringOption((o) => o.setName('lighting').setDescription('Day, Night, ... (see /maps)').setRequired(true).setMaxLength(60))
+    .addStringOption((o) => o.setName('lighting').setDescription('Time of day').setRequired(true).setMaxLength(60).setAutocomplete(true))
     .setDefaultMemberPermissions(P.Administrator),
   new SlashCommandBuilder().setName('restart').setDescription('ADMIN: restart the current match')
     .addBooleanOption((o) => o.setName('confirm').setDescription('Yes, restart it for everyone playing').setRequired(true))
     .setDefaultMemberPermissions(P.Administrator),
-  new SlashCommandBuilder().setName('rotation').setDescription('ADMIN: what the map rotation is set to')
-    .setDefaultMemberPermissions(P.ManageRoles),
-
   // ---- moderation ----
   new SlashCommandBuilder().setName('ban').setDescription('ADMIN: ban a player from the game server')
     .addStringOption((o) => o.setName('player').setDescription('In-game name (if on now), or their SteamID64').setRequired(true).setMaxLength(100))
@@ -107,12 +103,6 @@ export const commandDefinitions = [
     .setDefaultMemberPermissions(P.BanMembers),
   new SlashCommandBuilder().setName('bans').setDescription('ADMIN: who is banned from the game server')
     .setDefaultMemberPermissions(P.BanMembers),
-  new SlashCommandBuilder().setName('kill').setDescription('ADMIN: kill a player in-game (they respawn)')
-    .addStringOption(playerChoice)
-    .addBooleanOption((o) => o.setName('confirm').setDescription('Yes, kill them now').setRequired(true))
-    .setDefaultMemberPermissions(P.Administrator),
-  new SlashCommandBuilder().setName('audit').setDescription("ADMIN: the game server's own log of recent admin actions")
-    .setDefaultMemberPermissions(P.Administrator),
 ].map((c) => c.toJSON());
 
 /** One line saying where the verified players live, and whether that is safe. */
@@ -223,7 +213,30 @@ export function makeAutocomplete({ core, ttlMs = 30_000 }) {
     .slice(0, 25)
     .map((n) => ({ name: n, value: n }));
 
+  // The game server's own lists, cached: autocomplete fires on every keystroke.
+  let catalogs = { at: 0, maps: [], lightings: [] };
+  const catalog = async (kind) => {
+    if (Date.now() - catalogs.at > ttlMs) {
+      const [maps, lightings] = await Promise.all([
+        core.catalog('maps').catch(() => []),
+        core.catalog('lightings').catch(() => []),
+      ]);
+      const name = (x) => (typeof x === 'string' ? x : x?.name ?? x?.id ?? '');
+      catalogs = { at: Date.now(), maps: maps.map(name).filter(Boolean), lightings: lightings.map(name).filter(Boolean) };
+    }
+    return catalogs[kind];
+  };
+
   return {
+    async map(i) {
+      const focused = i.options.getFocused(true);
+      return i.respond(choices(await catalog(focused.name === 'lighting' ? 'lightings' : 'maps'), focused.value));
+    },
+
+    async lighting(i) {
+      return i.respond(choices(await catalog('lightings'), i.options.getFocused()));
+    },
+
     async settings(i) {
       const focused = i.options.getFocused(true);
       const all = await sections();
@@ -460,19 +473,6 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
       await log(`🗺️ <@${i.user.id}> changed the map to **${map}**${lighting ? ` (${lighting})` : ''}.`);
     },
 
-    async maps(i) {
-      await i.deferReply({ flags: MessageFlags.Ephemeral });
-      const [maps, lightings] = await Promise.all([
-        core.catalog('maps').catch(() => []),
-        core.catalog('lightings').catch(() => []),
-      ]);
-      const name = (x) => (typeof x === 'string' ? x : x?.name ?? x?.id ?? JSON.stringify(x));
-      const lines = [
-        `**Maps** (${maps.length})`, '```', maps.map(name).join('\n').slice(0, 900) || '(none reported)', '```',
-        `**Lightings** (${lightings.length})`, '```', lightings.map(name).join(', ').slice(0, 400) || '(none reported)', '```',
-      ];
-      await i.editReply(lines.join('\n').slice(0, 1990));
-    },
 
     async lighting(i) {
       await i.deferReply({ flags: MessageFlags.Ephemeral });
@@ -492,18 +492,6 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
       await log(`🔄 <@${i.user.id}> restarted the match.`);
     },
 
-    async rotation(i) {
-      await i.deferReply({ flags: MessageFlags.Ephemeral });
-      const r = await core.rotation();
-      const entries = Array.isArray(r?.entries) ? r.entries : [];
-      const lines = [
-        `**Rotation**: ${r?.enabled ? 'on' : 'off'}${r?.mode ? `, mode \`${r.mode}\`` : ''}`,
-        '```',
-        entries.map((e, n) => `${n + 1}. ${typeof e === 'string' ? e : e?.map ?? JSON.stringify(e)}`).join('\n').slice(0, 1500) || '(no entries)',
-        '```',
-      ];
-      await i.editReply(lines.join('\n').slice(0, 1990));
-    },
 
     // ---- moderation ----
 
@@ -534,25 +522,7 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
       await i.editReply(`**Banned** (${list.length})\n\`\`\`\n${list.map(row).join('\n').slice(0, 1700)}\n\`\`\``);
     },
 
-    async kill(i) {
-      if (!i.options.getBoolean('confirm', true)) {
-        return i.reply(ephemeral('Nothing done. Run it again with **confirm: True**.'));
-      }
-      await i.deferReply({ flags: MessageFlags.Ephemeral });
-      const { player, error } = findPlayer((await core.state()).players ?? [], i.options.getString('player', true));
-      if (error) return i.editReply(error);
-      await core.kill(player.steamId);
-      await i.editReply(`💀 Killed **${player.name}** in-game. They respawn normally.`);
-      await log(`💀 <@${i.user.id}> killed **${player.name}** in-game.`);
-    },
 
-    async audit(i) {
-      await i.deferReply({ flags: MessageFlags.Ephemeral });
-      const entries = await core.audit();
-      if (!entries.length) return i.editReply('The game server has no recent admin actions logged.');
-      const row = (e) => (typeof e === 'string' ? e : [e.at ?? e.timestamp, e.action ?? e.type, e.actor, e.target, e.detail].filter(Boolean).join('  '));
-      await i.editReply(`**Server audit log** (${entries.length})\n\`\`\`\n${entries.map(row).join('\n').slice(0, 1700)}\n\`\`\``);
-    },
 
     // Donors at $10 or more are promised a reserved slot, so an admin needs to
     // see who currently has one. Read only: the build offers no route to grant
@@ -706,12 +676,32 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
       await i.editReply(lines.join('\n').slice(0, 1990));
     },
 
-    async reroll(i) {
+    // With a member: that person commands, whoever the rules would have picked.
+    // Without: the bot picks someone new at random, which is the old /reroll.
+    // One command, because "replace this commander" and "make THIS person
+    // commander" are the same job with and without a name attached.
+    async 'set-commander'(i) {
       const faction = i.options.getString('faction', true);
+      const member = i.options.getUser('member');
       await i.deferReply({ flags: MessageFlags.Ephemeral });
-      await log(`🎲 <@${i.user.id}> re-rolled ${byKey(faction).label} command.`);
-      await commanders.adminReroll(faction);
-      await i.editReply(`Re-rolled ${byKey(faction).label}.\n${commanders.summary()}`);
+
+      if (!member) {
+        await log(`🎲 <@${i.user.id}> asked for a new ${byKey(faction).label} commander.`);
+        await commanders.adminReroll(faction);
+        return i.editReply(`Picked again for ${byKey(faction).label}.\n${commanders.summary()}`);
+      }
+
+      const r = await commanders.assign(faction, member.id);
+      if (!r.ok) return i.editReply(r.message);
+      await log(`🎖️ <@${i.user.id}> made <@${member.id}> ${byKey(faction).label} commander.`);
+      // Say so if they aren't actually there: the role works either way, but an
+      // admin who mistyped a name should find out now rather than mid-match.
+      const on = (await core.state().catch(() => null))?.players
+        ?.find((p) => p.discordId === member.id);
+      const note = on
+        ? ''
+        : "\n⚠️ They aren't on the game server right now, so they'll lose it again shortly unless they join.";
+      return i.editReply(`${r.message}${note}\n${commanders.summary()}`);
     },
 
     async link(i) {

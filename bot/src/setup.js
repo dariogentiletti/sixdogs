@@ -34,6 +34,37 @@ export function rolePlan(poolRoleName = 'Commander Pool', { operationsEnabled = 
   ];
 }
 
+/**
+ * Discord's own gate on who may talk at all, set server-wide.
+ *
+ *   low       a verified email
+ *   medium    registered with Discord for over 5 minutes
+ *   high      a member of THIS server for over 10 minutes
+ *   veryhigh  a verified phone number
+ *
+ * `high` is the one worth having now that #general is open to everyone: the
+ * accounts that turn up to paste a scam link are minutes old and move on
+ * immediately, so ten minutes of waiting costs them more than it costs a real
+ * person. It is not a spam filter and it does not pretend to be; it raises the
+ * cost of the drive-by, which is the cheap attack.
+ */
+export const VERIFICATION_LEVELS = { none: 0, low: 1, medium: 2, high: 3, veryhigh: 4 };
+
+/** @returns {number|null} null for anything unrecognised, so a typo changes nothing. */
+export function verificationLevelFrom(name) {
+  const key = String(name ?? '').trim().toLowerCase().replace(/[\s_-]/g, '');
+  return Object.hasOwn(VERIFICATION_LEVELS, key) ? VERIFICATION_LEVELS[key] : null;
+}
+
+/** Set it if it is not already there. Returns a report line, or null. */
+export async function applyVerificationLevel(guild, { guildVerificationLevel = 'high' } = {}) {
+  const want = verificationLevelFrom(guildVerificationLevel);
+  if (want === null) return `! GUILD_VERIFICATION_LEVEL "${guildVerificationLevel}" is not a level I know, so I left it alone`;
+  if (guild.verificationLevel === want) return null;
+  await guild.setVerificationLevel(want, 'SIXDOGS: brand-new accounts wait before they can post');
+  return `verification level set to ${guildVerificationLevel}`;
+}
+
 const allow = (...p) => ({ allow: p, deny: [] });
 const deny = (...p) => ({ allow: [], deny: p });
 const both = (a, d) => ({ allow: a, deny: d });
@@ -89,14 +120,24 @@ export function channelPlan({ verifiedRoleName = 'Verified', logChannelName = 'a
     },
     {
       category: 'COMMUNITY',
-      // Everyone reads; only verified people write, react and start threads.
+      // Everyone can TALK here, verified or not: making people verify before
+      // they can say hello loses the ones who were only half sure.
+      //
+      // What they cannot do is post links, files or embeds. That is the scam
+      // vector, near enough all of it: the drive-by accounts are here to paste
+      // a URL, and a wall of text is not worth their time. It also leaves
+      // verifying with a point, since pictures and links are the reward.
       ow: {
-        '@everyone': both([V, H], [S, ...THREADS, P.AddReactions]),
+        '@everyone': both([V, H, S, P.AddReactions], [...THREADS, P.EmbedLinks, P.AttachFiles, P.UseExternalEmojis]),
         [VER]: allow(V, H, S, P.SendMessagesInThreads, P.CreatePublicThreads, P.AddReactions, P.EmbedLinks, P.AttachFiles, P.UseExternalEmojis),
         Moderator: allow(V, H, S, P.ManageMessages, P.ManageThreads),
         '@bot': bot(),
       },
-      channels: [{ name: 'general' }, { name: 'clips-screenshots' }],
+      channels: [
+        { name: 'general' },
+        // Whole point of the channel is pictures, so it stays verified-only.
+        { name: 'clips-screenshots', ow: { '@everyone': both([V, H], [S, ...THREADS, P.AddReactions]) } },
+      ],
     },
     // Scheduled ops: only when OPERATIONS_ENABLED=true (weekend events later).
     ...(operationsEnabled ? [
@@ -177,7 +218,7 @@ function sameOverwrites(channel, wanted) {
  *  - #clips renamed to #clips-screenshots (history kept), #looking-for-squad removed
  * Only what the plan names is touched. Channels you add yourself are left alone.
  */
-export async function enforceLayout(guild, { verifiedRoleName = 'Verified', logChannelName = 'admin-log', rolesChannelName = 'roles', operationsEnabled = false } = {}) {
+export async function enforceLayout(guild, { verifiedRoleName = 'Verified', logChannelName = 'admin-log', rolesChannelName = 'roles', operationsEnabled = false, guildVerificationLevel = 'high' } = {}) {
   const report = [];
   const text = (name) => guild.channels.cache.find((c) => c.type === ChannelType.GuildText && c.name === name);
 
@@ -233,6 +274,15 @@ export async function enforceLayout(guild, { verifiedRoleName = 'Verified', logC
         report.push(`slowmode ${ch.slowmode}s on ${label}`);
       }
     }
+  }
+
+  // Server-wide gate on brand-new accounts. Only matters now that #general is
+  // open to everyone, so it lives here rather than in /setup-server alone.
+  try {
+    const line = await applyVerificationLevel(guild, { guildVerificationLevel });
+    if (line) report.push(line);
+  } catch (err) {
+    report.push(`! couldn't set the verification level: ${err.message}`);
   }
 
   // Keep INFO in the planned order (as listed in channelPlan).

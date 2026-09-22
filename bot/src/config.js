@@ -43,6 +43,10 @@ export function loadConfig() {
     commanderPoolRoleName: str('COMMANDER_POOL_ROLE_NAME', 'Commander Pool'),
     verifiedRoleName: str('VERIFIED_ROLE_NAME', 'Verified'),
     rolesChannelName: str('ROLES_CHANNEL_NAME', 'roles'),
+    // Discord's own gate: 'high' means a member has to have been in the server
+    // for 10 minutes before they can post. Worth having now that #general is
+    // open to everyone. 'none' turns it off. See setup.js.
+    guildVerificationLevel: str('GUILD_VERIFICATION_LEVEL', 'high'),
     // Post-match commander ratings.
     ratingMinServeMin: num('RATING_MIN_SERVE_MIN', 5),   // commanded at least this long to be rated
     ratingMinPlayMin: num('RATING_MIN_PLAY_MIN', 5),     // played on that faction this long to vote

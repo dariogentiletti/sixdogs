@@ -56,7 +56,6 @@ export class CoreClient {
   setServerSetting(section, key, value, apply = false) {
     return this.request('PUT', '/internal/config/value', { section, key, value, apply });
   }
-  kill(steamId) { return this.request('POST', `/internal/players/${steamId}/kill`, {}); }
   restartMatch() { return this.request('POST', '/internal/match/restart', {}); }
   setMap(body) { return this.request('POST', '/internal/match/map', body); }
   setLighting(lighting) { return this.request('PUT', '/internal/world/lighting', { lighting }); }
@@ -64,12 +63,10 @@ export class CoreClient {
   ban(steamId, reason) { return this.request('POST', '/internal/bans', { steamId, reason }); }
   unban(steamId) { return this.request('DELETE', `/internal/bans/${steamId}`); }
   catalog(kind) { return this.request('GET', `/internal/catalog/${kind}`).then((r) => r.items); }
-  rotation() { return this.request('GET', '/internal/rotation').then((r) => r.rotation); }
   reservedSlots() { return this.request('GET', '/internal/reserved-slots'); }
   reserved() { return this.request('GET', '/internal/reserved'); }
   grantReserved(steamId, apply = false) { return this.request('POST', '/internal/reserved', { steamId, apply }); }
   revokeReserved(steamId, apply = false) { return this.request('DELETE', `/internal/reserved/${steamId}`, { apply }); }
-  audit() { return this.request('GET', '/internal/audit').then((r) => r.entries); }
   matchCommanders(matchId) { return this.request('GET', `/internal/matches/${matchId}/commanders`); }
   matchParticipants(matchId) { return this.request('GET', `/internal/matches/${matchId}/participants`); }
   ratingPlan(matchId, body) { return this.request('POST', `/internal/matches/${matchId}/rating-plan`, body); }

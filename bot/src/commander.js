@@ -358,6 +358,33 @@ export class CommanderManager {
     return { ok: true, message: `You're ${f.label} commander. You can now speak in ${f.voiceChannelName}.` };
   }
 
+  /**
+   * An admin puts a specific person in the chair, whoever the rules would have
+   * picked. No offer, no waiting for them to accept: they asked for this person.
+   *
+   * The normal rules still apply from the next tick, so someone assigned who
+   * then leaves the server or switches sides is removed the usual way.
+   */
+  async assign(faction, discordId) {
+    const st = this.state[faction];
+    if (st.commanderId === discordId) {
+      return { ok: false, message: `<@${discordId}> is already commanding ${byKey(faction).label}.` };
+    }
+    if (st.offer) {
+      clearTimeout(st.offer.timer);
+      st.offer = null;
+    }
+    if (st.commanderId) await this.remove(faction, 'replaced by an admin', { cooldown: 'reroll', reselect: false });
+    // An admin picking someone overrides any cooldown that person was under.
+    st.passed.delete(discordId);
+    st.vacantLogged = false;
+    this.core.commanderLog(this.matchId, faction, discordId, 'claimed');
+    const given = await this.grant(faction, discordId, 'set by an admin');
+    return given
+      ? { ok: true, message: `<@${discordId}> is now ${byKey(faction).label} commander.` }
+      : { ok: false, message: `Couldn't give them the ${byKey(faction).commanderRoleName} role. Check #admin-log.` };
+  }
+
   async adminReroll(faction) {
     const st = this.state[faction];
     if (st.offer) {

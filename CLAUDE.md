@@ -88,6 +88,17 @@ add/remove; startup catch-up only adds. Class roles are informational for now (m
 
 ## Channel layout
 
+**#general is open to everyone, verified or not**, but @everyone is denied `EmbedLinks`,
+`AttachFiles` and `UseExternalEmojis` there. Making people verify before they can say hello loses
+the ones who were only half sure; the link and file ban is very nearly the whole scam vector,
+since a drive-by account is there to paste a URL and will not bother with a wall of text. It also
+leaves verifying with a point. #clips-screenshots stays verified-only, because pictures are what
+it is for. `test/permissions.test.js` pins all of that per persona.
+
+`applyVerificationLevel` sets Discord's own server-wide gate (`GUILD_VERIFICATION_LEVEL`, default
+`high` = a member for 10 minutes before they can post). It runs in `enforceLayout`, so every
+start. An unrecognised name changes NOTHING and reports itself rather than guessing at a level.
+
 `enforceLayout` in `bot/src/setup.js` runs on every start: INFO channels created if missing,
 ordered (rules, get-verified, how-to-play, roles, server-info, start-a-match, support-the-community, announcements) and locked (bot-only;
 #announcements Admin-only), #clips renamed to #clips-screenshots, #looking-for-squad deleted,
@@ -239,6 +250,15 @@ Core routes: `POST /internal/broadcast`, `POST /internal/players/:steamId/kick`,
 (useful: "unknown faction X"); 5xx is replaced with a generic line.
 
 Bot: `/say`, `/tell`, `/kick`, `/move`, `/endmatch` (needs `confirm:True`), `/server`.
+
+**29 commands, and that is a ceiling worth defending.** The owner asked for the list to be cut
+because it was filling up with things nobody would ever run. `/maps` (a lookup list) became
+autocomplete on `/map` and `/lighting`, which is where anyone wanted it. `/rotation` (read-only
+trivia), `/audit` (the game's own log, when `#admin-log` already records what the bot does) and
+`/kill` (a novelty next to `/kick`) were removed outright, along with their now-dead client
+methods. `/reroll` folded into `/set-commander`: with a member it puts that person in the chair,
+without one it picks someone new at random, because those are the same job with and without a
+name attached. Before adding a command, ask whether it is an option on one that exists.
 `findPlayer` in `commands.js` resolves a name or SteamID and REFUSES ambiguous matches rather
 than picking. `gameFactionFor` in `factions.js` turns blue/red/green into the server's own
 faction string by reading `factionScores[]` back through `factionKeyFor`; it returns null when

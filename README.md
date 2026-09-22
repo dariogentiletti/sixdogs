@@ -166,7 +166,7 @@ against your real server. The bot recognises factions by the colour the server r
 | | `/standdown` | Stop commanding; someone else is picked |
 | | `/claim` | Take command if nobody was picked (e.g. everyone passed) |
 | Admin | `/seed [call-now]` | Who's ready to play, why nobody's been called in yet, or call them in now |
-| | `/reroll <faction>` | Replace the current commander |
+| | `/set-commander <faction> [@member]` | Put someone in command. Leave the member out and the bot picks someone new at random |
 | | `/link @member <steamid>` / `/unlink-member @member` | Manual link fixes |
 | | `/setup-server [reapply-permissions]` | Build (or repair) the server layout |
 | | `/say <message>` | Announce something to everyone in-game |
@@ -181,10 +181,15 @@ against your real server. The bot recognises factions by the colour the server r
 | | `/settings section: key: value: [confirm]` | Change one setting. Shows the before/after and saves nothing until `confirm:True` |
 | | `/reserved` | Who holds a reserved slot, by Discord member |
 | | `/reserved grant:@member` / `revoke:@member` | Give or take back a donor's reserved slot. Shows the change first; saves on `confirm:True` |
+| | `/map <map> [lighting]` | Change the map now. Both boxes offer the server's own lists |
+| | `/lighting <lighting>` | Change the time of day without changing the map |
+| | `/restart confirm:True` | Restart the current match |
+| | `/ban <player> [reason]` / `/unban <steamid>` / `/bans` | Ban list on the game server |
 
-The last eight need a game server. Each one is checked against what your server
-build actually supports first, so an action it can't do comes back as a
-sentence saying so rather than a failure. `/server` lists which are available.
+That's the whole list: 29 commands, and nothing hidden. Anything that acts on
+the game is checked against what your server build actually supports first, so
+an action it can't do comes back as a sentence saying so rather than a failure.
+`/server` lists which are available.
 
 Everything the bot does is logged to `#admin-log`.
 

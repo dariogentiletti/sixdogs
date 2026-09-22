@@ -38,18 +38,38 @@ const BLUE = ['Verified', 'Blue'];
 const BLUE_CMD = ['Verified', 'Blue', 'Blue Commander'];
 const RED = ['Verified', 'Red'];
 
-test('not verified: read only, /verify in #get-verified, no voice', () => {
+test('not verified: can say hello in #general, but not post links or files', () => {
   for (const n of ['rules', 'how-to-play', 'roles', 'server-info', 'support-the-community', 'announcements', 'general', 'clips-screenshots']) {
     assert.ok(can(UNVERIFIED, n, P.ViewChannel), `sees #${n}`);
+  }
+  // Making people verify before they can say a word loses the ones who were
+  // only half sure, so #general is open to everyone.
+  assert.ok(can(UNVERIFIED, 'general', P.SendMessages), 'can talk in #general');
+  assert.ok(can(UNVERIFIED, 'general', P.AddReactions), 'and react');
+
+  // What they cannot do is post a link, a file or an embed, which is very
+  // nearly the whole scam vector: a drive-by account is here to paste a URL.
+  for (const p of [P.EmbedLinks, P.AttachFiles, P.UseExternalEmojis]) {
+    assert.ok(!can(UNVERIFIED, 'general', p), `no ${p} in #general`);
+  }
+  assert.ok(!can(UNVERIFIED, 'general', P.CreatePublicThreads));
+
+  // Everything else stays shut.
+  for (const n of ['rules', 'how-to-play', 'roles', 'server-info', 'support-the-community', 'announcements', 'clips-screenshots']) {
     assert.ok(!can(UNVERIFIED, n, P.SendMessages), `can't write in #${n}`);
   }
   assert.ok(can(UNVERIFIED, 'get-verified', P.SendMessages) && can(UNVERIFIED, 'get-verified', P.UseApplicationCommands), 'can type /verify');
-  assert.ok(!can(UNVERIFIED, 'general', P.AddReactions));
-  assert.ok(!can(UNVERIFIED, 'general', P.CreatePublicThreads));
   assert.ok(can(UNVERIFIED, 'Command Lobby', P.ViewChannel), 'sees the lobby');
   assert.ok(!can(UNVERIFIED, 'Command Lobby', P.Connect), "can't join it");
   for (const f of ['Blue', 'Red', 'Green']) assert.ok(!can(UNVERIFIED, `${f} Command (listen)`, P.ViewChannel));
   assert.ok(!can(UNVERIFIED, 'staff-chat', P.ViewChannel));
+});
+
+test('verifying is still worth doing: links, files and pictures', () => {
+  for (const p of [P.EmbedLinks, P.AttachFiles, P.UseExternalEmojis]) {
+    assert.ok(can(VERIFIED, 'general', p), 'verified people get the lot');
+  }
+  assert.ok(can(VERIFIED, 'clips-screenshots', P.SendMessages), 'and the screenshots channel');
 });
 
 test('verified: chat in COMMUNITY, talk in the lobby, no team channel without a team', () => {

@@ -5,40 +5,21 @@
 // edits one, because an edit notifies nobody and would slide the news in above
 // messages people have already read.
 //
-// So: this file holds the LATEST announcement only. Replace it wholesale when
-// there is something new, and PUT THE DATE IN THE TITLE. Write the real date by
-// hand rather than generating it: a date that changes by itself would make the
-// bot post again every time it restarts.
+// So: this file holds the LATEST announcement only, and it should be SHORT.
+// Only what changed since the last one. Anything already announced is already
+// in the channel above it, and repeating it makes people stop reading these.
 //
-// The facts in {{ }} come from community.json.
+// PUT THE DATE IN THE TITLE, written by hand. A date that changes by itself
+// would make the bot post again every time it restarts.
 
-# What's new: 21 September 2026
+# What's new: 22 September 2026
 color: gold
-A few things changed this week.
+Two changes.
 
-## Nobody has to sit in an empty server
-{#start-a-match} has an **I want to play** button on it. Click it and your name goes on the list. It stays there whether you go and warm up in the server or go and do something else.
+## #general is open to everyone now
+You don't have to be verified to talk in there. Links, files and screenshots still need the **Verified** role, so `/verify` is worth doing.
 
-At 10 people the list gets a shout so others can join in. At 45, which is three teams of 15, everyone gets called in and we play.
-
-Want those pings? Take **Match Alerts** with 📣 in {#roles}. It goes to nobody else.
-
-## Matches now start at 45 players
-The server used to open a match at 20, which on a map built for a hundred is a long walk and not much else. Forty five is three full teams with a commander each.
-
-## Verification is quicker
-The code you get in game is now three digits instead of six. Same steps, less typing. If you've already linked your account you don't need to do anything.
-
-## The server tells everyone who's commanding
-When a commander is picked, the whole server sees it in game, and again every time it changes. No more guessing who to listen to.
-
-## Supporters get their reserved slot
-Chip in $10 or more and an admin can give you a reserved slot on the game server, so a full server never keeps you out. There are six. Everyone who donates gets the **★ Supporter** role.
-
-## Where the money goes
-{#support-the-community} lists every cost, not just the game server. Bot hosting, the domain and the website are all in there, with the monthly total.
-
-## The website
-**{{domain}}** shows what's happening on the server right now: score, both commanders, the top players this match and how to join. It updates by itself while a match is running.
+## Matches start at 45 players
+Three full teams of 15, each with a commander. If the server is quiet, put your name down in {#start-a-match} instead of waiting in an empty match.
 
 footer: Questions? Ask an admin.
