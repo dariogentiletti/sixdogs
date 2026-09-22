@@ -143,6 +143,18 @@ export function channelPlan({ verifiedRoleName = 'Verified', logChannelName = 'a
         // channel. Let people chat over it and it gets buried, falls out of that
         // window, and the bot posts a second one. So nobody but the bot writes
         // here, and the category's Verified and Moderator grants are taken back.
+        // Match nights. Same treatment as the leaderboard: it lives where people
+        // hang around, but it is a board the bot keeps, so nobody else writes
+        // in it. The RSVP buttons work fine in a read-only channel, because a
+        // click is an interaction and not a message.
+        {
+          name: 'operations',
+          ow: {
+            '@everyone': both([V, H], [S, ...THREADS, P.AddReactions]),
+            [VER]: both([V, H], [S, ...THREADS]),
+            Moderator: both([V, H, P.ManageMessages], [S]),
+          },
+        },
         {
           name: 'leaderboard',
           ow: {

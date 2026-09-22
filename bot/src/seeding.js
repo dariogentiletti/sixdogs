@@ -37,10 +37,12 @@ const joinLine = (serverId) => (serverId
  * mentions, because the board is edited often and a mention that gets edited
  * over and over is a good way to annoy people.
  */
-export function seedBoard(s, { names = [], serverId = null } = {}) {
+export function seedBoard(s, { names = [], serverId = null, lobbyId = null } = {}) {
   const ready = s?.ready ?? 0;
   const target = s?.target ?? 45;
   const onServer = s?.playersOn ?? 0;
+  const waiting = s?.waiting ?? 0;
+  const heading = s?.heading ?? ready;
   const playing = onServer >= target;
   const down = !s?.serverOk;
   const lines = [];
@@ -69,6 +71,11 @@ export function seedBoard(s, { names = [], serverId = null } = {}) {
     lines.push('', `**${ready} of ${target} want to play**`);
     if (names.length) lines.push(nameList(names));
     else if (!down) lines.push('Nobody yet. Say so and the rest will follow.');
+    // Anybody already standing in the server counts towards the same match, so
+    // the board has to say so or the numbers look like they do not add up.
+    if (waiting > 0) {
+      lines.push(`Plus **${waiting}** already waiting in the server, so **${heading} of ${target}**.`);
+    }
   }
 
   // The list is emptied by a call-in, so without this the board would drop back
@@ -83,8 +90,24 @@ export function seedBoard(s, { names = [], serverId = null } = {}) {
     description: lines.join('\n'),
     footer: { text: `${SEED_FOOTER} · your name comes off by itself after ${Math.round((s?.pledgeMinutes ?? 180) / 60)} hours` },
   };
-  const join = joinLine(serverId);
-  if (join) embed.fields = [{ name: playing ? 'How to join' : 'Going in early?', value: join }];
+  if (playing) {
+    const join = joinLine(serverId);
+    if (join) embed.fields = [{ name: 'How to join', value: join }];
+  } else if (!down) {
+    // This field used to be "Going in early?" with the Server ID under it, which
+    // pointed people straight at a lobby where nothing happens. Below the target
+    // WARDOGS does not start a match at all: you spawn in your team's lobby, you
+    // can walk around, and the game mode does nothing. Somebody who goes in to
+    // "help" has a dead ten minutes and leaves, and they do not come back. So
+    // the board now says that plainly instead of inviting them in.
+    embed.fields = [{
+      name: 'Why not just go and wait in the server?',
+      value: `Because below **${target}** the match does not start. You spawn in your team's lobby, `
+        + 'you can walk around an empty map, and that is all that happens. Put your name down here '
+        + 'instead and get on with your evening.'
+        + (lobbyId ? `\n\nIf you would rather wait with company, <#${lobbyId}> is open.` : ''),
+    }];
+  }
 
   // No buttons once the match is running: the honest action is to join, not to
   // add your name to a list for something that is already happening.
@@ -166,6 +189,15 @@ export class Seeding {
     return this.guild?.roles.cache.find((r) => r.name === this.config.seedPingRoleName) ?? null;
   }
 
+  /**
+   * The voice channel to wait in. Waiting alone on a dead map is what makes
+   * people give up; waiting with company is just hanging about with friends.
+   */
+  lobbyId() {
+    return this.guild?.channels.cache.find(
+      (c) => c.type === ChannelType.GuildVoice && c.name === 'Command Lobby')?.id ?? null;
+  }
+
   names(pledges) {
     return (pledges ?? []).map((p) => this.guild?.members.cache.get(p.discordId)?.displayName)
       .filter(Boolean);
@@ -241,7 +273,7 @@ export class Seeding {
       this.message = null;
       this.lastSig = null;
     }
-    const payload = seedBoard(summary, { names: this.names(summary.pledges), serverId: this.serverId });
+    const payload = seedBoard(summary, { names: this.names(summary.pledges), serverId: this.serverId, lobbyId: this.lobbyId() });
     const sig = signature(payload);
     const existing = await this.findBoard(channel);
     if (!existing) {
@@ -322,7 +354,7 @@ export class Seeding {
     const on = i.customId === 'seed:in';
     const summary = await this.core.seedPledge(i.user.id, on);
     this.message = i.message;
-    const payload = seedBoard(summary, { names: this.names(summary.pledges), serverId: this.serverId });
+    const payload = seedBoard(summary, { names: this.names(summary.pledges), serverId: this.serverId, lobbyId: this.lobbyId() });
     this.lastSig = signature(payload);
     await i.update(payload);
     // The board shows the count; this says plainly what just happened to you.

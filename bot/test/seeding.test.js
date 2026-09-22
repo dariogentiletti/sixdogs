@@ -209,3 +209,37 @@ test('a missing picture file is a warning, not a crash or an empty post', async 
   assert.equal(ch.sent.length, 0, 'nothing is posted');
   assert.equal(ch.deleted.length, 0, 'and nothing already there is removed');
 });
+
+// --- what the board tells you to do ----------------------------------------
+// This field used to read "Going in early?" with the Server ID under it, which
+// sent people into a lobby where the game does nothing below the target. The
+// owner confirmed it: you spawn in your team's lobby, walk around, and that is
+// all that happens.
+
+test('the board does NOT send people into a server that cannot start a match', () => {
+  const p = seedBoard({ ok: true, serverOk: true, ready: 4, target: 45, playersOn: 4 },
+    { serverId: 'ABC-123' });
+  const text = JSON.stringify(p.embeds[0]);
+  assert.ok(!text.includes('ABC-123'), 'the Server ID is not offered below the target');
+  assert.match(text, /the match does not start/);
+  assert.match(text, /walk around an empty map/);
+});
+
+test('but once the match is really on, it says how to join', () => {
+  const p = seedBoard({ ok: true, serverOk: true, ready: 0, target: 45, playersOn: 45 },
+    { serverId: 'ABC-123' });
+  assert.match(JSON.stringify(p.embeds[0]), /ABC-123/);
+});
+
+test('it offers somewhere to wait with company instead', () => {
+  const p = seedBoard({ ok: true, serverOk: true, ready: 4, target: 45, playersOn: 0 },
+    { lobbyId: '999' });
+  assert.match(JSON.stringify(p.embeds[0]), /<#999>/);
+});
+
+test('people already waiting in the server are on the board, and in the total', () => {
+  const p = seedBoard({ ok: true, serverOk: true, ready: 25, waiting: 20, heading: 45, target: 45, playersOn: 20 });
+  const text = JSON.stringify(p.embeds[0]);
+  assert.match(text, /\*\*20\*\* already waiting/);
+  assert.match(text, /\*\*45 of 45\*\*/);
+});

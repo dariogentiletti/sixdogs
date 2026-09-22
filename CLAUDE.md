@@ -103,7 +103,7 @@ start. An unrecognised name changes NOTHING and reports itself rather than guess
 ordered (rules, get-verified, how-to-play, roles, server-info, start-a-match, support-the-community, announcements) and locked (bot-only;
 #announcements Admin-only), #clips renamed to #clips-screenshots, #looking-for-squad deleted,
 faction listen channels allow UseEmbeddedActivities (wardogs.tech map) but not Speak.
-COMMUNITY is #general, #clips-screenshots and #leaderboard. The leaderboard is there rather
+COMMUNITY is #general, #clips-screenshots, #leaderboard and #operations (match nights). The leaderboard is there rather
 than in INFO because it is something to come back FOR, not a notice read once, but it is still
 read-only and the category's Verified and Moderator write grants are taken back per channel:
 the board is one message found again by its heading in the last 50, so chat would bury it and
@@ -208,6 +208,51 @@ there is one endpoint, one token and one thing that can be stale. Deliberate con
   server is exactly when somebody on the site has time to read it.
 - The page shows it for up to 24h (LB_STALE), not the live board's 10 minutes, because a 30-day
   board is still true two hours later.
+
+## Match nights (events / "operations")
+
+`core/src/events.js` (pure rules + the timezone arithmetic) + `bot/src/events.js` (board, notices)
++ `/event` + the `events` / `event_rsvps` / `event_notices` tables. One edited board in
+`#operations` (COMMUNITY, read-only, skipped by `syncPosts`), found by its "Operations board"
+footer.
+
+**THE FACT EVERYTHING HERE FOLLOWS FROM**, confirmed by the owner: under the server's
+MinimumRequiredPlayers, WARDOGS does not start a match at all. You spawn in your team's lobby, can
+walk around, and the game mode does nothing. Therefore:
+- Half a server is damage, not progress: somebody arriving at 12 players has a dead ten minutes
+  and does not come back.
+- There is no trickle-in growth path, and the in-game browser (sorted by population) cannot be a
+  discovery channel until the server can already fill.
+- The entire problem is SYNCHRONISATION. Nothing else matters.
+
+An event's one important property: **the count is known BEFORE anybody has to be in the server.**
+Do not add anything that sends people in to find out.
+
+- **A no-go is a feature.** Short list an hour out -> call it off. Calling it off costs nothing;
+  twenty people in a dead lobby costs twenty people. The no-go **pings nobody**: telling people to
+  do nothing is how a ping role gets muted, and then the call-ins stop working too.
+- **The go fires as soon as the target is met**, not at the deadline. People arrange an evening
+  around "it's on", not around a number creeping up. It also revives a called-off night if the
+  numbers arrive late.
+- **Maybes are never counted.** An event that runs on maybes turns up half empty.
+- `event_notices` is the lock: the INSERT is what makes a notice happen exactly once, so two ticks
+  landing together cannot announce twice. Same trick as `seed_pings`. There is **no "finished"
+  notice** — by then the event has dropped off the upcoming list and nothing would send it.
+- `eventRow` takes only `{action, reason, needed, minutesAway}` from `eventStage`. Spreading the
+  whole thing put the stage's `yes` COUNT over the event's `yes` LIST and broke every board that
+  asks how many names are on it. Found by `tools/check-events.mjs`, not by a unit test.
+
+**Timezones live in exactly one place.** `/event create` sends the date, time and zone as typed;
+`zonedTimeToUtc` in core converts. The offset is looked up TWICE on purpose — using the offset at
+the wrong instant puts the evening an hour out across a daylight-saving change, which is exactly
+the weekend people would turn up to an empty server. Everyone else is shown `<t:epoch:F>`, which
+each client renders in that person's own time, so no timezone is ever written out in prose.
+
+`/event` is gated on `ManageMessages`, NOT `ManageRoles`: the Moderator role has the former and
+not the latter, and the owner asked for moderators to be able to run match nights.
+
+**`node tools/check-events.mjs`** walks the whole life against a real database in seconds by
+moving `starts_at` instead of waiting days. Run it after touching any of this.
 
 ## Leaderboard
 
@@ -340,7 +385,7 @@ with the others: give every heading the same `min-height` when that happens.
 `render_panels.py` finds the Chromium already on the machine (newest `/opt/pw-browsers/chromium-*`,
 or `PW_CHROME`): Playwright pins an exact revision and otherwise tells you to download a second
 copy of a browser that is already there.
-#server-info, #start-a-match and #leaderboard are skipped: all three are live boards the bot keeps itself
+#server-info, #start-a-match, #leaderboard and #operations are skipped: all three are live boards the bot keeps itself
 (`skip` in `syncPosts`). #server-info is the live board (`bot/src/liveboard.js`, one message found by its
 "Live board" footer, edited every LIVE_BOARD_MINUTES and on match/commander change). WARDOGS
 has no direct-join URL and Discord link buttons can't use steam://, so the board shows the
@@ -361,7 +406,7 @@ Core routes: `POST /internal/broadcast`, `POST /internal/players/:steamId/kick`,
 
 Bot: `/say`, `/tell`, `/kick`, `/move`, `/endmatch` (needs `confirm:True`), `/server`.
 
-**29 commands, and that is a ceiling worth defending.** The owner asked for the list to be cut
+**30 commands, and that is a ceiling worth defending.** The owner asked for the list to be cut
 because it was filling up with things nobody would ever run. `/maps` (a lookup list) became
 autocomplete on `/map` and `/lighting`, which is where anyone wanted it. `/rotation` (read-only
 trivia), `/audit` (the game's own log, when `#admin-log` already records what the bot does) and
@@ -505,6 +550,14 @@ isn't answering or when `playersOn >= target` (the match is already on).
 
 `SEED_PLEDGE_MINUTES` is 180, not 45: collecting 45 clicks takes hours, and a short window means
 the target is never reached. If the target is raised, raise this too.
+
+**Anybody already standing in the server counts towards the target** (`waiting` in
+`seedDecision`), because below it the game does not start and they are waiting for the same match.
+It is the ones NOT on the list, de-duplicated by the caller in `seedSummary`: the list deliberately
+keeps your name after you go and warm up, so adding the two raw numbers counted the same person
+twice. That is why it is a separate input and not just `playersOn`. The board also no longer offers
+the Server ID below the target — the field used to say "Going in early?" and pointed people at a
+lobby where nothing happens.
 
 Tables `seed_pledges` / `seed_pings` / `seed_credits` (who was on the list when a call fired —
 see the leaderboard section; the call clears the list, so nothing else remembers).

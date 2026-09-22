@@ -6,6 +6,7 @@ import { FactionTracker } from './tracker.js';
 import { VerifiedRole } from './verified.js';
 import { LiveBoard } from './liveboard.js';
 import { Leaderboard } from './leaderboard.js';
+import { Events } from './events.js';
 import { WebStatus } from './webstatus.js';
 import { checkVoice, tidyGetVerified } from './guard.js';
 import { CommanderManager } from './commander.js';
@@ -53,8 +54,9 @@ const seeding = new Seeding({ core, config, log });
 const verified = new VerifiedRole({ roleName: config.verifiedRoleName, onError: (text) => log(text) });
 const board = new LiveBoard({ core, commanders, config });
 const leaderboard = new Leaderboard({ core, config });
+const events = new Events({ core, config, log });
 const web = new WebStatus({ core, commanders, config });
-const handlers = makeHandlers({ core, commanders, ratings, seeding, config, log, verified });
+const handlers = makeHandlers({ core, commanders, ratings, seeding, events, config, log, verified });
 const autocomplete = makeAutocomplete({ core });
 
 // ---------------------------------------------------------------------------
@@ -114,6 +116,7 @@ async function syncOnce() {
     // server is down it says so rather than quietly collecting names for a
     // server nobody can join. Not awaited — it must never hold up role syncing.
     seeding.tick(state).catch((err) => console.warn(`[seed] ${err.message}`));
+    events.tick(state).catch((err) => console.warn(`[events] ${err.message}`));
 
     // Game server unreachable: change nothing for a while. Stripping everyone's
     // roles because the host hiccuped would be worse than a stale role. After
@@ -225,6 +228,7 @@ client.once(Events.ClientReady, async (c) => {
   verified.attach(guild);
   board.attach(guild);
   leaderboard.attach(guild);
+  events.attach(guild);
   logChannel = guild.channels.cache.find((ch) => ch.isTextBased() && ch.name === config.logChannelName) ?? null;
   if (!logChannel) console.warn(`[bot] no #${config.logChannelName} channel yet — run /setup-server`);
 
@@ -279,7 +283,7 @@ client.once(Events.ClientReady, async (c) => {
   // Channel posts from the content/ folder (#rules, #server-info, #announcements).
   try {
     const isMenu = (m) => isMenuMessage(m, client.user.id, config.rolesChannelName);
-    for (const line of await syncPosts(guild, { isMenu, skip: [config.liveBoardChannel, config.seedChannel, config.leaderboardChannel] })) {
+    for (const line of await syncPosts(guild, { isMenu, skip: [config.liveBoardChannel, config.seedChannel, config.leaderboardChannel, config.eventChannel] })) {
       if (line.startsWith('!')) console.warn(`[posts] ${line.slice(2)}`);
       else console.log(`[posts] ${line.slice(2)}`);
     }
@@ -390,6 +394,7 @@ client.on(Events.InteractionCreate, async (i) => {
     }
     if (i.isButton() && i.customId.startsWith('rate:')) return ratings.onButton(i);
     if (i.isButton() && i.customId.startsWith('seed:')) return seeding.onButton(i);
+    if (i.isButton() && i.customId.startsWith('event:')) return events.onButton(i);
     if (i.isButton() && i.customId.startsWith('cmd:')) {
       const [, action, , matchId] = i.customId.split(':');
       if (Number(matchId) !== commanders.matchId) {

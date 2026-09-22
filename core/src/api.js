@@ -9,6 +9,7 @@ import { RconError } from './rcon.js';
 import { looksEphemeral } from './db.js';
 import { commanderTerms, ratedTerms, roundPoints } from './ratings.js';
 import { seedDecision } from './seeding.js';
+import { NOTICES, eventStage, zonedTimeToUtc } from './events.js';
 import {
   COMMANDERS_SQL, STARTERS_SQL, TOTALS_SQL,
   boards, commanderStats, playerStats, starterStats,
@@ -525,10 +526,18 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
     const lastCallAt = at('call');
     const lastNudgeAt = at('nudge');
     const playersOn = (s.players ?? []).length;
+    // Below the target WARDOGS does not start a match, so anybody in there is
+    // standing in an empty lobby waiting for the same thing the list is waiting
+    // for. They count towards it — but only the ones who are NOT already on the
+    // list, or the person who clicked and then went to warm up would be counted
+    // twice. An unlinked player has no discordId and can never be on the list.
+    const pledged = new Set(pledges.map((p) => p.discordId));
+    const waiting = (s.players ?? []).filter((p) => !p.discordId || !pledged.has(p.discordId)).length;
     const target = await matchTarget();
     const decision = seedDecision({
       pledges,
       playersOn,
+      waiting,
       serverOk: s.ok,
       target,
       nudgeAt: config.seedNudgeAt,
@@ -544,6 +553,7 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       lastNudgeAt,
       lastPingAt: lastCallAt,
       playersOn,
+      waiting,
       serverOk: s.ok,
       target,
       targetFromServer: targetCache.value !== null,
@@ -623,6 +633,145 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       target: summary.target, needed: summary.needed, nudgeAt: summary.nudgeAt,
       pledges: summary.pledges, pingedAt: new Date(rows[0].pinged_at).toISOString(),
     };
+  });
+
+  // ---- scheduled matches ("operations") ----
+  //
+  // The point of an event is that the count is known BEFORE anyone has to be in
+  // the server: under the target WARDOGS does not start a match, so arriving
+  // early means standing on an empty map. See core/src/events.js.
+
+  /** One event with its answers and whatever it should be doing right now. */
+  async function eventRow(row, { now = Date.now() } = {}) {
+    const [{ rows: rsvps }, { rows: notices }] = await Promise.all([
+      pool.query('SELECT discord_id, answer FROM event_rsvps WHERE event_id = $1 ORDER BY answered_at', [row.id]),
+      pool.query('SELECT kind FROM event_notices WHERE event_id = $1', [row.id]),
+    ]);
+    const by = (a) => rsvps.filter((r) => r.answer === a).map((r) => r.discord_id);
+    const yes = by('yes');
+    const sent = notices.map((n) => n.kind);
+    const event = {
+      id: String(row.id),
+      startsAt: new Date(row.starts_at).toISOString(),
+      title: row.title,
+      target: row.target,
+      createdBy: row.created_by,
+      cancelledAt: row.cancelled_at ? new Date(row.cancelled_at).toISOString() : null,
+      cancelReason: row.cancel_reason ?? null,
+      yes,
+      maybe: by('maybe'),
+      no: by('no'),
+      sent,
+    };
+    // Only what the stage DECIDED. It also reports `yes` and `target` as
+    // counts, and spreading those over the event replaced the list of people
+    // coming with the number of them — which broke every board that asks how
+    // many names are on it.
+    const { action, reason, needed, minutesAway } = eventStage({
+      startsAt: event.startsAt,
+      cancelledAt: event.cancelledAt,
+      yes: yes.length,
+      target: row.target,
+      sent,
+      now,
+      goMinutes: config.eventGoMinutes,
+      remindMinutes: config.eventRemindMinutes,
+      closeMinutes: config.eventCloseMinutes,
+    });
+    return { ...event, action, reason, needed, minutesAway };
+  }
+
+  /** Everything not yet finished, soonest first. */
+  route('GET', '/internal/events', async () => {
+    const { rows } = await pool.query(
+      `SELECT * FROM events
+        WHERE starts_at > now() - make_interval(mins => $1)
+        ORDER BY starts_at`,
+      [config.eventCloseMinutes]);
+    return { ok: true, events: await Promise.all(rows.map((r) => eventRow(r))) };
+  });
+
+  route('GET', '/internal/events/:id', async ({ id }) => {
+    const { rows } = await pool.query('SELECT * FROM events WHERE id = $1', [id]);
+    if (!rows[0]) return [404, { error: { code: 'no_event', message: 'No event with that number.' } }];
+    return { ok: true, event: await eventRow(rows[0]) };
+  });
+
+  route('POST', '/internal/events', async (_p, body) => {
+    // Either an instant, or the wall clock an admin actually typed plus the
+    // zone it was typed in. The conversion lives here rather than in the bot so
+    // there is one implementation of the daylight-saving arithmetic.
+    let at;
+    if (body.date || body.time) {
+      try {
+        at = zonedTimeToUtc(body.date, body.time, body.timezone || 'UTC');
+      } catch (err) {
+        return [400, { error: { code: 'bad_time', message: err.message } }];
+      }
+    } else {
+      at = Date.parse(body.startsAt);
+    }
+    if (!Number.isFinite(at)) {
+      return [400, { error: { code: 'bad_request', message: 'startsAt, or date and time, required' } }];
+    }
+    if (at < Date.now()) {
+      return [400, { error: { code: 'in_the_past', message: 'That time has already gone by. Check the date and the timezone.' } }];
+    }
+    if (!isSnowflake(body.createdBy)) {
+      return [400, { error: { code: 'bad_request', message: 'createdBy required' } }];
+    }
+    // The default target is the game server's own minimum, for the same reason
+    // seeding reads it: two numbers that have to agree must not be kept twice.
+    const target = Number(body.target) > 1 ? Math.floor(Number(body.target)) : await matchTarget();
+    const title = String(body.title ?? '').trim().slice(0, 100) || 'Match night';
+    const { rows } = await pool.query(
+      `INSERT INTO events (starts_at, title, target, created_by)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [new Date(at).toISOString(), title, target, body.createdBy]);
+    return { ok: true, event: await eventRow(rows[0]) };
+  });
+
+  route('POST', '/internal/events/:id/cancel', async ({ id }, body) => {
+    const { rows } = await pool.query(
+      `UPDATE events SET cancelled_at = now(), cancel_reason = $2
+        WHERE id = $1 AND cancelled_at IS NULL RETURNING *`,
+      [id, String(body.reason ?? '').trim().slice(0, 200) || null]);
+    if (!rows[0]) return [404, { error: { code: 'no_event', message: 'No event with that number, or it was already called off.' } }];
+    return { ok: true, event: await eventRow(rows[0]) };
+  });
+
+  route('POST', '/internal/events/:id/rsvp', async ({ id }, body) => {
+    if (!isSnowflake(body.discordId)) {
+      return [400, { error: { code: 'bad_request', message: 'discordId required' } }];
+    }
+    const answer = ['yes', 'maybe', 'no'].includes(body.answer) ? body.answer : null;
+    if (!answer) return [400, { error: { code: 'bad_request', message: 'answer must be yes, maybe or no' } }];
+    const { rows } = await pool.query('SELECT * FROM events WHERE id = $1', [id]);
+    if (!rows[0]) return [404, { error: { code: 'no_event', message: 'No event with that number.' } }];
+    if (rows[0].cancelled_at) {
+      return [409, { error: { code: 'cancelled', message: 'That one was called off.' } }];
+    }
+    await pool.query(
+      `INSERT INTO event_rsvps (event_id, discord_id, answer) VALUES ($1, $2, $3)
+       ON CONFLICT (event_id, discord_id) DO UPDATE SET answer = EXCLUDED.answer, answered_at = now()`,
+      [id, body.discordId, answer]);
+    return { ok: true, answer, event: await eventRow(rows[0]) };
+  });
+
+  /**
+   * Claim a notice. Core decides whether it really goes out, not the bot: the
+   * INSERT is the lock, so two ticks landing together cannot announce twice.
+   */
+  route('POST', '/internal/events/:id/notice', async ({ id }, body) => {
+    const kind = NOTICES.includes(body.kind) ? body.kind : null;
+    if (!kind) return [400, { error: { code: 'bad_request', message: `kind must be one of ${NOTICES.join(', ')}` } }];
+    const { rows } = await pool.query('SELECT * FROM events WHERE id = $1', [id]);
+    if (!rows[0]) return [404, { error: { code: 'no_event', message: 'No event with that number.' } }];
+    const claim = await pool.query(
+      `INSERT INTO event_notices (event_id, kind) VALUES ($1, $2)
+       ON CONFLICT (event_id, kind) DO NOTHING RETURNING sent_at`,
+      [id, kind]);
+    return { ok: true, fired: claim.rows.length > 0, kind, event: await eventRow(rows[0]) };
   });
 
   /**

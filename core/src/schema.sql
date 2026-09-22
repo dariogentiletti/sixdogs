@@ -132,3 +132,40 @@ CREATE TABLE IF NOT EXISTS seed_credits (
   PRIMARY KEY (ping_id, discord_id)
 );
 CREATE INDEX IF NOT EXISTS seed_credits_when ON seed_credits (credited_at);
+
+-- Scheduled matches. Under MinimumRequiredPlayers the game does not start at
+-- all, so the only thing that matters is getting the target number of people to
+-- arrive at the same time. An event collects the answer BEFORE anybody has to
+-- be in the server (see core/src/events.js).
+CREATE TABLE IF NOT EXISTS events (
+  id            BIGSERIAL PRIMARY KEY,
+  starts_at     TIMESTAMPTZ NOT NULL,
+  title         TEXT NOT NULL,
+  target        INTEGER NOT NULL,
+  created_by    TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  cancelled_at  TIMESTAMPTZ,
+  cancel_reason TEXT
+);
+CREATE INDEX IF NOT EXISTS events_when ON events (starts_at);
+
+-- One row per person per event. 'yes' is a commitment, 'maybe' is not counted
+-- towards the target: an event that goes ahead on maybes is an event that turns
+-- up half empty, which is the exact failure this is here to avoid.
+CREATE TABLE IF NOT EXISTS event_rsvps (
+  event_id    BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  discord_id  TEXT NOT NULL,
+  answer      TEXT NOT NULL,
+  answered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (event_id, discord_id)
+);
+
+-- One row per notice sent. The INSERT is what makes a notice happen exactly
+-- once, so two ticks landing together cannot announce the same thing twice —
+-- the same trick as seed_pings, for the same reason.
+CREATE TABLE IF NOT EXISTS event_notices (
+  event_id BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  kind     TEXT NOT NULL,
+  sent_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (event_id, kind)
+);

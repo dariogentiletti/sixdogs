@@ -54,6 +54,11 @@ export const config = {
   // Below this, a per-minute board is noise and whoever played one good ten
   // minutes would sit on top of it forever.
   leaderboardMinMinutes: Math.max(0, num('LEADERBOARD_MIN_MINUTES', 20)),
+  // Scheduled matches. The go/no-go happens an hour out: long enough for people
+  // to change their evening, short enough that the count means something.
+  eventGoMinutes: Math.max(5, num('EVENT_GO_MINUTES', 60)),
+  eventRemindMinutes: Math.max(10, num('EVENT_REMIND_MINUTES', 24 * 60)),
+  eventCloseMinutes: Math.max(30, num('EVENT_CLOSE_MINUTES', 180)),
   // Seeding: pledges in Discord that add up to a "come and play" ping.
   // How many people have to want in before a match can actually start.
   seedTarget: Math.max(2, num('SEED_TARGET', 45)),

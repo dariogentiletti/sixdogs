@@ -96,3 +96,36 @@ test('an empty list is a safe nothing, not a crash', () => {
   assert.equal(r.action, null);
   assert.equal(r.ready, 0);
 });
+
+// --- people already standing in the empty server ---------------------------
+// Below the target WARDOGS does not start a match: you spawn in your team's
+// lobby and walk around an empty map. So anyone in there is waiting for exactly
+// what the list is waiting for, and not counting them meant a server with 20
+// people in it and 25 on the list called nobody.
+
+test('people waiting in the server count towards the target', () => {
+  const d = ask({ pledges: want(25), waiting: 20 });
+  assert.equal(d.heading, 45);
+  assert.equal(d.action, 'call');
+  assert.match(d.reason, /already waiting in the server/);
+});
+
+test('but they are the caller\'s job to de-duplicate, so the list is never double counted', () => {
+  // 25 on the list, all 25 of them now warming up in the server. The caller
+  // passes the ones NOT on the list, which is none of them.
+  const d = ask({ pledges: want(25), waiting: 0 });
+  assert.equal(d.heading, 25, 'not 50');
+  assert.notEqual(d.action, 'call', '25 is not a match');
+});
+
+test('waiting players count towards the early nudge too', () => {
+  const d = ask({ pledges: want(4), waiting: 6 });
+  assert.equal(d.action, 'nudge');
+});
+
+test('a short list still says how far off it is, counting everyone', () => {
+  const d = ask({ pledges: want(2), waiting: 3 });
+  assert.equal(d.action, null);
+  assert.equal(d.needed, 40);
+  assert.match(d.reason, /waiting in the server/);
+});

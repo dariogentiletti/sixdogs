@@ -81,6 +81,11 @@ export class CoreClient {
   ratingScores() { return this.request('GET', '/internal/ratings/scores'); }
   ratingsDue() { return this.request('GET', '/internal/ratings/due'); }
   ratingNotified(roundId) { return this.request('POST', `/internal/ratings/rounds/${roundId}/notified`, {}); }
+  events() { return this.request('GET', '/internal/events'); }
+  eventCreate(body) { return this.request('POST', '/internal/events', body); }
+  eventCancel(id, reason) { return this.request('POST', `/internal/events/${id}/cancel`, { reason }); }
+  eventRsvp(id, discordId, answer) { return this.request('POST', `/internal/events/${id}/rsvp`, { discordId, answer }); }
+  eventNotice(id, kind) { return this.request('POST', `/internal/events/${id}/notice`, { kind }); }
   seedState() { return this.request('GET', '/internal/seed'); }
   seedPledge(discordId, on) { return this.request('POST', '/internal/seed/pledge', { discordId, on }); }
   seedPing(kind = 'call', force = false) { return this.request('POST', '/internal/seed/ping', { kind, force }); }

@@ -48,6 +48,16 @@ export function livePledges(pledges, { now = Date.now(), pledgeMinutes = DEFAULT
 export function seedDecision({
   pledges = [],
   playersOn = 0,
+  // People already standing in the server who are NOT on the list. Below the
+  // target WARDOGS does not start a match at all — you spawn in your team's
+  // lobby and walk around an empty map — so these are the most impatient people
+  // there are, and they are heading for the same match. They count.
+  //
+  // It is the ones NOT on the list, counted by the caller, on purpose: the list
+  // deliberately keeps your name after you go and wait in the server, so adding
+  // the two raw numbers would count the same person twice. That bug is the
+  // reason this is a separate input rather than just `playersOn`.
+  waiting = 0,
   serverOk = true,
   target = DEFAULT_TARGET,
   nudgeAt = DEFAULT_NUDGE_AT,
@@ -59,9 +69,13 @@ export function seedDecision({
 } = {}) {
   const live = livePledges(pledges, { now, pledgeMinutes });
   const ready = live.length;
-  const needed = Math.max(0, target - ready);
+  // Everyone who would be in that match if it started now.
+  const heading = ready + Math.max(0, waiting);
+  const needed = Math.max(0, target - heading);
   const bar = Math.min(nudgeAt, target); // a nudge above the target could never fire
-  const out = (action, reason) => ({ action, reason, ready, needed, target, nudgeAt: bar, playersOn });
+  const out = (action, reason) => ({
+    action, reason, ready, waiting, heading, needed, target, nudgeAt: bar, playersOn,
+  });
 
   // Calling people to a server that isn't answering sends them to a black
   // screen, and they don't come back a second time.
@@ -75,26 +89,30 @@ export function seedDecision({
   const since = (at) => (at ? now - new Date(at).getTime() : Infinity);
   const left = (at) => Math.ceil((cooldownMs - since(at)) / 60_000);
 
-  if (ready >= target) {
+  if (heading >= target) {
     if (since(lastCallAt) < cooldownMs) {
       return out(null, `everyone was called in recently, ${left(lastCallAt)} min before the next one`);
     }
-    return out('call', `${ready} want to play`);
+    return out('call', waiting
+      ? `${ready} want to play and ${waiting} are already waiting in the server`
+      : `${ready} want to play`);
   }
 
-  if (ready >= bar) {
+  if (heading >= bar) {
     // Once per round. The list is emptied by a call, so a nudge newer than the
     // last call means this round has already been advertised.
     const nudgedThisRound = lastNudgeAt
       && (!lastCallAt || Date.parse(lastNudgeAt) > Date.parse(lastCallAt));
     if (nudgedThisRound) {
-      return out(null, `${ready} of ${target} want to play, and the role has already been told about this one`);
+      return out(null, `${heading} of ${target} want to play, and the role has already been told about this one`);
     }
     if (since(lastNudgeAt) < cooldownMs) {
-      return out(null, `${ready} of ${target} want to play, ${left(lastNudgeAt)} min before the role can be told again`);
+      return out(null, `${heading} of ${target} want to play, ${left(lastNudgeAt)} min before the role can be told again`);
     }
-    return out('nudge', `${ready} want to play, ${needed} to go`);
+    return out('nudge', `${heading} want to play, ${needed} to go`);
   }
 
-  return out(null, `${ready} of ${target} want to play`);
+  return out(null, waiting
+    ? `${ready} want to play and ${waiting} are waiting in the server, ${needed} short of ${target}`
+    : `${ready} of ${target} want to play`);
 }

@@ -48,7 +48,7 @@ project, add a Postgres database, paste in the two Discord settings above, and i
 There is nothing to install and no server to log into. Once it is running it stays running, and
 every change pushed to GitHub `main` redeploys it by itself.
 
-You want `registered 31 slash commands` in the Railway deployment log.
+You want `registered 30 slash commands` in the Railway deployment log.
 
 ## 3. Set up your Discord
 
@@ -62,10 +62,10 @@ With no game server configured yet the bot runs in **Discord-only mode**: `#role
 posts and the admin commands all work. `/verify`, faction roles and commander picks wait for a
 game server (section 4).
 
-**Operations are off for now.** This is a 24/7 server, so there are no scheduled ops: the bot
-doesn't create the OPERATIONS channels or the Operator role, and an existing OPERATIONS category
-is hidden from everyone but admins (nothing is deleted). To bring it back, set
-`OPERATIONS_ENABLED=true` and run `/setup-server` with `reapply-permissions`.
+**Match nights live in `#operations`** (see below). That is not the same thing as the old
+`OPERATIONS` *category* — an unused leftover with signup and briefing channels, still switched off
+and hidden from everyone but admins, nothing deleted. `OPERATIONS_ENABLED=true` and
+`/setup-server reapply-permissions` brings that one back if you ever want it.
 
 **Who can do what.** On every start the bot sets every channel's permissions to this plan (and
 creates anything missing), so you never have to fix them by hand:
@@ -92,8 +92,9 @@ read-only (only the bot posts), `#announcements` is Admin-only, `#clips` becomes
 `#clips-screenshots`, and `#looking-for-squad` is removed. In the faction voice channels everyone
 on the team can watch Activities (the wardogs.tech live map); only the commander can talk.
 
-**#leaderboard sits in COMMUNITY**, not INFO: it is something to come back for rather than a
-notice you read once, so it belongs with the places people hang around in. It is still read-only.
+**#leaderboard and #operations sit in COMMUNITY**, not INFO: they are things to come back for
+rather than notices you read once, so they belong with the places people hang around in. Both are
+still read-only (the buttons work anyway — a click is an interaction, not a message).
 The board is one message the bot finds again by its heading in the last 50 messages of the channel,
 so people chatting over it would bury it and end up with two boards.
 
@@ -307,6 +308,53 @@ When a match ends, every commander who led for 5+ minutes gets rated by their ow
 
 It needs the game server (it knows who played where from the match data), so it's inactive in
 Discord-only mode.
+
+## Match nights (`#operations`)
+
+**Under 45 players, WARDOGS does not start a match at all.** You spawn in your team's lobby, you
+can walk around an empty map, and the game mode does nothing. Everything below follows from that:
+
+- Half a server is not progress, it is damage. Somebody who arrives at 12 players has a dead ten
+  minutes and does not come back.
+- So there is no "trickle in and it builds" path, and the in-game server browser (which sorts by
+  population) cannot be how people find you until you can already fill.
+- The whole problem is getting 45 people to arrive **within a few minutes of each other**.
+
+`#start-a-match` solves that for right now. A match night solves it for Thursday, and its one
+important property is that **the count is known before anybody has to be in the server**. Nobody
+spawns onto an empty map to find out whether it was going to work.
+
+**Admins and moderators** put one up with `/event`:
+
+| Command | What |
+|---|---|
+| `/event create date:2026-10-02 time:20:00 [title] [target] [timezone]` | Puts it on the calendar |
+| `/event list` | What's on, who has answered, and what the bot is waiting for |
+| `/event cancel id:<n> [reason]` | Calls one off |
+
+The time is typed in **your** clock (set `EVENT_TIMEZONE` once, or pass `timezone:`). Everyone
+else sees a Discord timestamp, which their own app renders in their own time, so a community
+spread across countries never argues about when eight o'clock is. A typo in the date is refused
+with a sentence saying which bit is wrong, rather than quietly booking the wrong evening.
+
+Then the bot runs it by itself:
+
+1. **It goes up** in `#operations` with **I'm coming / Maybe / Can't make it**.
+2. **The moment enough say yes, it's on** — not at some deadline. People arrange an evening
+   around "it's on", not around a number creeping up.
+3. **A day before**, anyone who hasn't answered gets one reminder.
+4. **An hour before**, if the list is short, **it is called off.** That is the feature, not a
+   failure: calling it off costs nothing, and twenty people in a dead lobby costs you twenty
+   people. The no-go pings nobody — telling people to do nothing is how a ping role gets muted.
+5. **At the time**, Match Alerts gets pinged and everyone goes in together.
+
+If the numbers turn up late, a called-off night comes back on by itself.
+
+**Maybes are never counted** towards the target. An event that goes ahead on maybes turns up half
+empty, which is the exact failure this exists to avoid.
+
+`node tools/check-events.mjs` walks that whole life against a real database in a few seconds, by
+moving the clock instead of waiting days.
 
 ## Leaderboard
 

@@ -60,6 +60,11 @@ export function loadConfig() {
     seedPingRoleName: str('SEED_PING_ROLE_NAME', 'Match Alerts'),
     // Scheduled ops (OPERATIONS channels + Operator role). Off while this is a 24/7 server.
     operationsEnabled: process.env.OPERATIONS_ENABLED === 'true',
+    // Scheduled match nights. The timezone is whose clock an admin is typing in
+    // when they run /event create; everyone else is shown a Discord timestamp,
+    // which each client renders in that person's own time.
+    eventChannel: str('EVENT_CHANNEL_NAME', 'operations'),
+    eventTimezone: str('EVENT_TIMEZONE', 'UTC'),
     // Leaderboard in #leaderboard. The window and the minimum time to rank on a
     // rate board are core's settings (LEADERBOARD_DAYS, LEADERBOARD_MIN_MINUTES).
     leaderboardChannel: str('LEADERBOARD_CHANNEL_NAME', 'leaderboard'),

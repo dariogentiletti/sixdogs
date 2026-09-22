@@ -31,6 +31,21 @@ export const commandDefinitions = [
     .addBooleanOption((o) => o.setName('call-now').setDescription('Call everyone in right now, without waiting for the target'))
     .setDefaultMemberPermissions(P.ManageRoles),
 
+  // Admins AND moderators: gated on ManageMessages, which the Moderator role
+  // has and Verified does not. Running match nights is exactly a moderator job.
+  new SlashCommandBuilder().setName('event').setDescription('ADMIN/MOD: put a match night on the calendar')
+    .setDefaultMemberPermissions(P.ManageMessages)
+    .addSubcommand((c) => c.setName('create').setDescription('Put a match night up for people to sign up to')
+      .addStringOption((o) => o.setName('date').setDescription('YYYY-MM-DD, e.g. 2026-10-02').setRequired(true))
+      .addStringOption((o) => o.setName('time').setDescription('HH:MM on a 24 hour clock, e.g. 20:00').setRequired(true))
+      .addStringOption((o) => o.setName('title').setDescription('What to call it. Default: Match night'))
+      .addIntegerOption((o) => o.setName('target').setDescription("How many are needed. Default: the game server's own minimum").setMinValue(2).setMaxValue(200))
+      .addStringOption((o) => o.setName('timezone').setDescription('Whose clock the time is in. Default: the server timezone')))
+    .addSubcommand((c) => c.setName('list').setDescription("What's on the calendar, and who has answered"))
+    .addSubcommand((c) => c.setName('cancel').setDescription('Call one off')
+      .addStringOption((o) => o.setName('id').setDescription('The event number, from /event list').setRequired(true))
+      .addStringOption((o) => o.setName('reason').setDescription('What to tell people'))),
+
   new SlashCommandBuilder().setName('set-commander').setDescription('ADMIN: put someone in command, or pick someone new at random')
     .addStringOption(factionChoice)
     .addUserOption((o) => o.setName('member').setDescription('Who. Leave it empty and the bot picks someone at random instead'))
@@ -255,7 +270,7 @@ export function makeAutocomplete({ core, ttlMs = 30_000 }) {
   };
 }
 
-export function makeHandlers({ core, commanders, ratings, seeding, config, log, verified }) {
+export function makeHandlers({ core, commanders, ratings, seeding, events, config, log, verified }) {
   return {
     async verify(i) {
       await i.deferReply({ flags: MessageFlags.Ephemeral });
@@ -273,6 +288,67 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
 
     // Seeding: the "I'd play right now" list. The board in #start-a-match shows
     // the same numbers to everyone; this adds the reason it hasn't fired yet.
+    /**
+     * Match nights. The one thing that actually fills a server where the game
+     * will not start below the target: everybody agreeing a time days ahead,
+     * with the count known before anybody has to be in there.
+     */
+    async event(i) {
+      await i.deferReply({ flags: MessageFlags.Ephemeral });
+      const sub = i.options.getSubcommand();
+
+      if (sub === 'create') {
+        const zone = i.options.getString('timezone') || config.eventTimezone;
+        // The date, the time and the zone go to core as typed. Turning a wall
+        // clock into an instant is daylight-saving-shaped and belongs in one
+        // tested place, not in two.
+        let r;
+        try {
+          r = await core.eventCreate({
+            date: i.options.getString('date'),
+            time: i.options.getString('time'),
+            timezone: zone,
+            title: i.options.getString('title') ?? undefined,
+            target: i.options.getInteger('target') ?? undefined,
+            createdBy: i.user.id,
+          });
+        } catch (err) {
+          // A bad date is a typo, not a crash. Say which bit is wrong.
+          if (err.code === 'bad_time' || err.code === 'in_the_past') {
+            await i.editReply(`⚠️ ${err.message}`);
+            return;
+          }
+          throw err;
+        }
+        const e = r.event;
+        await events?.refresh();
+        await log(`📅 ${i.user} put up **${e.title}** for <t:${Math.floor(Date.parse(e.startsAt) / 1000)}:F> (needs ${e.target}).`);
+        await i.editReply(`📅 **${e.title}** is up for <t:${Math.floor(Date.parse(e.startsAt) / 1000)}:F>`
+          + ` (that's ${i.options.getString('time')} ${zone}), event #${e.id}.`
+          + `\nIt needs **${e.target}** people. Everyone gets told an hour before whether it's on.`);
+        return;
+      }
+
+      if (sub === 'cancel') {
+        const r = await core.eventCancel(i.options.getString('id'), i.options.getString('reason') ?? undefined);
+        await events?.refresh();
+        await log(`📅 ${i.user} called off **${r.event.title}**.`);
+        await i.editReply(`Called off **${r.event.title}**. The board says so and nobody is being pinged.`);
+        return;
+      }
+
+      const { events: list = [] } = await core.events();
+      if (!list.length) {
+        await i.editReply('Nothing on the calendar. `/event create` puts one up.');
+        return;
+      }
+      await i.editReply(list.map((e) => {
+        const at = `<t:${Math.floor(Date.parse(e.startsAt) / 1000)}:F>`;
+        const state = e.cancelledAt ? 'called off' : (e.sent ?? []).includes('go') ? 'ON' : `${e.yes.length}/${e.target}`;
+        return `**#${e.id}** ${e.title} — ${at} — ${state}\n-# ${e.reason}`;
+      }).join('\n').slice(0, 1900));
+    },
+
     async seed(i) {
       await i.deferReply({ flags: MessageFlags.Ephemeral });
       if (i.options.getBoolean('call-now')) {
@@ -733,7 +809,7 @@ export function makeHandlers({ core, commanders, ratings, seeding, config, log, 
       });
       await i.guild.channels.fetch();
       const isMenu = (m) => isMenuMessage(m, i.client.user.id, config.rolesChannelName);
-      report.push(...await syncPosts(i.guild, { isMenu, skip: [config.liveBoardChannel, config.seedChannel, config.leaderboardChannel] }));
+      report.push(...await syncPosts(i.guild, { isMenu, skip: [config.liveBoardChannel, config.seedChannel, config.leaderboardChannel, config.eventChannel] }));
       const text = report.join('\n');
       await i.editReply((`Done.\n${text}`).slice(0, 1900) +
         '\n\nNext: drag my own role (**SIXDOGS** or whatever the bot is called) above the faction and commander roles in Server Settings → Roles, or I can\'t hand them out.');
