@@ -66,6 +66,13 @@
       "blocking": "No such setting appears in either of the two sections read so far. Four sections have never been looked at, and it may not be a server setting on this build at all.",
       "cost": "None",
       "howTo": "/settings find:afk, then idle, kick and timeout. That searches every section at once. If nothing turns up, it is not a setting on this build and the answer is the host's control panel or nothing."
+    },
+    {
+      "id": "nowhere-to-ask-for-help",
+      "what": "An unverified player has nowhere to ask for help. @everyone can only WRITE in #get-verified, and guard.js deletes anything posted there that isn't a slash command. #general needs the Verified role. So the one person who most needs help, somebody who cannot get verified, cannot ask for it anywhere.",
+      "blocking": "Not blocking anything yet, but it is a hole in onboarding and it only shows up when somebody is already stuck and gives up quietly.",
+      "cost": "None",
+      "howTo": "Owner's call, since it means changing the access model. Either let @everyone write in one help channel, or let the tidy-up in guard.js keep messages that look like a question, or tell people in the guide to message an admin directly and make sure the Admin role is visible in the member list."
     }
   ],
   "decisions": [
