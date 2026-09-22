@@ -103,7 +103,15 @@ start. An unrecognised name changes NOTHING and reports itself rather than guess
 ordered (rules, get-verified, how-to-play, roles, server-info, start-a-match, support-the-community, announcements) and locked (bot-only;
 #announcements Admin-only), #clips renamed to #clips-screenshots, #looking-for-squad deleted,
 faction listen channels allow UseEmbeddedActivities (wardogs.tech map) but not Speak.
-COMMUNITY is #general and #clips-screenshots only. enforceLayout applies the WHOLE channelPlan
+COMMUNITY is #general, #clips-screenshots and #leaderboard. The leaderboard is there rather
+than in INFO because it is something to come back FOR, not a notice read once, but it is still
+read-only and the category's Verified and Moderator write grants are taken back per channel:
+the board is one message found again by its footer in the last 50, so chat would bury it and
+the bot would post a second one.
+**enforceLayout MOVES a channel that is in the wrong category** rather than leaving it there.
+Its channel lookup matches on name anywhere in the server, so before that a channel that
+changed category kept its new permissions and its old home (and runSetup, which looks inside
+the category, would have made a duplicate). Found the day #leaderboard left INFO. enforceLayout applies the WHOLE channelPlan
 (creates missing categories/channels, sets overwrites) every start. Access model: @everyone
 reads INFO + COMMUNITY and can only type in #get-verified (slash commands need a writable
 channel; `guard.js` deletes other messages there); Verified writes in COMMUNITY and joins the

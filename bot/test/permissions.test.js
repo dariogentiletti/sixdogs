@@ -65,6 +65,19 @@ test('not verified: can say hello in #general, but not post links or files', () 
   assert.ok(!can(UNVERIFIED, 'staff-chat', P.ViewChannel));
 });
 
+// It sits in COMMUNITY so people find it, but it is still one message the bot
+// edits and finds again by its footer. Chatting over it buries it out of the
+// window the bot looks in, and then there are two boards.
+test('#leaderboard is in COMMUNITY but nobody talks in it', () => {
+  for (const who of [UNVERIFIED, VERIFIED, ['Verified', 'Moderator']]) {
+    assert.ok(can(who, 'leaderboard', P.ViewChannel), `${who} sees it`);
+    assert.ok(!can(who, 'leaderboard', P.SendMessages), `${who} cannot post in it`);
+    assert.ok(!can(who, 'leaderboard', P.CreatePublicThreads), `${who} cannot start a thread`);
+  }
+  // A moderator still needs to be able to clear up if something does land.
+  assert.ok(can(['Verified', 'Moderator'], 'leaderboard', P.ManageMessages));
+});
+
 test('verifying is still worth doing: links, files and pictures', () => {
   for (const p of [P.EmbedLinks, P.AttachFiles, P.UseExternalEmojis]) {
     assert.ok(can(VERIFIED, 'general', p), 'verified people get the lot');

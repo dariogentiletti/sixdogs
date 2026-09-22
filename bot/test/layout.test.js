@@ -13,6 +13,7 @@ function fakeGuild() {
       id: type === 4 ? name : `c-${name}`, name, type, parentId, rawPosition: pos++, rateLimitPerUser,
       setName: async (n) => { calls.push(['rename', name, n]); ch.name = n; },
       setRateLimitPerUser: async (n) => { calls.push(['slowmode', ch.name, n]); ch.rateLimitPerUser = n; },
+      setParent: async (id) => { calls.push(['move', ch.name, ch.parentId, id]); ch.parentId = id; return ch; },
       delete: async () => { calls.push(['delete', ch.name]); channels.splice(channels.indexOf(ch), 1); },
       permissionOverwrites: {
         cache: ow,
@@ -61,7 +62,7 @@ function fakeGuild() {
       },
     },
   };
-  return { guild, calls, channels };
+  return { guild, calls, channels, mk };
 }
 
 test('first start: everything set to the plan; second start: nothing to do', async () => {
@@ -78,7 +79,11 @@ test('first start: everything set to the plan; second start: nothing to do', asy
   ]) assert.ok(first.includes(line), line);
   assert.deepEqual(w.calls.filter((c) => c[0] === 'verification'), [['verification', 3]], 'high is level 3');
   const info = w.channels.filter((c) => c.parentId === 'INFO').sort((a, b) => a.rawPosition - b.rawPosition).map((c) => c.name);
-  assert.deepEqual(info, ['rules', 'get-verified', 'how-to-play', 'roles', 'server-info', 'leaderboard', 'start-a-match', 'support-the-community', 'announcements']);
+  assert.deepEqual(info, ['rules', 'get-verified', 'how-to-play', 'roles', 'server-info', 'start-a-match', 'support-the-community', 'announcements']);
+  // The leaderboard is something to come back for, so it sits with the places
+  // people hang around in rather than with the notices they read once.
+  const community = w.channels.filter((c) => c.parentId === 'COMMUNITY').map((c) => c.name);
+  assert.ok(community.includes('leaderboard'), community.join(', '));
   assert.equal(w.channels.find((c) => c.name === 'get-verified').rateLimitPerUser, 10);
 
   const blue = w.channels.find((c) => c.name === 'Blue Command (listen)').permissionOverwrites.cache;
@@ -94,6 +99,20 @@ test('first start: everything set to the plan; second start: nothing to do', asy
   w.calls.length = 0;
   assert.deepEqual(await enforceLayout(w.guild), []);
   assert.deepEqual(w.calls, []);
+});
+
+// The day #leaderboard moved out of INFO, the old one would have been left
+// sitting there and a second one made under COMMUNITY. The bot finds its own
+// boards by channel name, so two of them is not a cosmetic problem.
+test('a channel in the wrong category is moved, not duplicated', async () => {
+  const w = fakeGuild();
+  w.mk('leaderboard', { parentId: 'INFO' });       // where it used to live
+  const report = await enforceLayout(w.guild);
+  assert.ok(report.includes('moved #leaderboard to COMMUNITY'), report.join(' | '));
+  const found = w.channels.filter((c) => c.name === 'leaderboard');
+  assert.equal(found.length, 1, 'exactly one of it');
+  assert.equal(found[0].parentId, 'COMMUNITY');
+  assert.ok(!report.some((l) => l.includes('created #leaderboard')), 'and none was created');
 });
 
 // ---- the gate on brand-new accounts ----

@@ -86,11 +86,16 @@ everything**: that's how Discord's Administrator permission works and a channel 
 so test with a normal account.
 
 **Channel layout.** On every start the bot keeps INFO in this order: `#rules`, `#get-verified`,
-`#how-to-play`, `#roles`, `#server-info`, `#leaderboard`, `#start-a-match`,
-`#support-the-community`, `#announcements`. All are
+`#how-to-play`, `#roles`, `#server-info`, `#start-a-match`, `#support-the-community`,
+`#announcements`. All are
 read-only (only the bot posts), `#announcements` is Admin-only, `#clips` becomes
 `#clips-screenshots`, and `#looking-for-squad` is removed. In the faction voice channels everyone
 on the team can watch Activities (the wardogs.tech live map); only the commander can talk.
+
+**#leaderboard sits in COMMUNITY**, not INFO: it is something to come back for rather than a
+notice you read once, so it belongs with the places people hang around in. It is still read-only.
+The board is one message the bot finds again by its footer in the last 50 messages of the channel,
+so people chatting over it would bury it and end up with two boards.
 
 **Channel posts.** The bot fills `#rules`, `#get-verified`, `#how-to-play` and `#announcements`
 from the files in `content/` (`rules.md` goes in `#rules`, and so on). The guides are wide

@@ -109,7 +109,6 @@ export function channelPlan({ verifiedRoleName = 'Verified', logChannelName = 'a
         { name: 'how-to-play' },
         { name: rolesChannelName },
         { name: 'server-info' },   // live board: the bot edits one message every few minutes
-        { name: 'leaderboard' },   // the bot edits one message every LEADERBOARD_MINUTES
         // Seeding: the bot's board with the "I'd play right now" buttons. Buttons work
         // in a read-only channel (a click is an interaction, not a message), so this
         // needs no extra permission for anyone.
@@ -138,6 +137,20 @@ export function channelPlan({ verifiedRoleName = 'Verified', logChannelName = 'a
         { name: 'general' },
         // Whole point of the channel is pictures, so it stays verified-only.
         { name: 'clips-screenshots', ow: { '@everyone': both([V, H], [S, ...THREADS, P.AddReactions]) } },
+        // The leaderboard lives in COMMUNITY because it is something to come back
+        // for, not a notice to read once. But it is still a BOARD: one message the
+        // bot edits, found again by its footer in the last 50 messages of the
+        // channel. Let people chat over it and it gets buried, falls out of that
+        // window, and the bot posts a second one. So nobody but the bot writes
+        // here, and the category's Verified and Moderator grants are taken back.
+        {
+          name: 'leaderboard',
+          ow: {
+            '@everyone': both([V, H], [S, ...THREADS, P.AddReactions]),
+            [VER]: both([V, H], [S, ...THREADS]),
+            Moderator: both([V, H, P.ManageMessages], [S]),
+          },
+        },
       ],
     },
     // Scheduled ops: only when OPERATIONS_ENABLED=true (weekend events later).
@@ -266,6 +279,16 @@ export async function enforceLayout(guild, { verifiedRoleName = 'Verified', logC
         report.push(`created ${label}`);
         continue;
       }
+      // Already exists, but under the wrong category: move it rather than
+      // leaving it where it was. This loop finds a channel by NAME anywhere in
+      // the server, so without this a channel that changes category keeps its
+      // new permissions and its old home, and the plan quietly stops being
+      // true. Found when #leaderboard moved out of INFO the day after it
+      // went up.
+      if (channel.parentId !== category.id && channel.setParent) {
+        await channel.setParent(category.id, { lockPermissions: false, reason: 'SIXDOGS: moved to the category it belongs in' });
+        report.push(`moved ${label} to ${cat.category}`);
+      }
       if (!sameOverwrites(channel, wanted)) {
         await channel.permissionOverwrites.set(wanted, 'SIXDOGS: server layout');
         report.push(`permissions set on ${label}`);
@@ -371,8 +394,21 @@ export async function runSetup(guild, { poolRoleName, logChannelName, rolesChann
       const type = ch.type === 'voice' ? ChannelType.GuildVoice : ChannelType.GuildText;
       // Channel overwrites = category overwrites + channel-specific ones.
       const ow = toOverwrites(guild, { ...cat.ow, ...(ch.ow ?? {}) }, roleIds);
-      let channel = guild.channels.cache.find((c) => c.parentId === category.id && c.name.toLowerCase() === ch.name.toLowerCase() && c.type === type);
-      if (!channel) {
+      const named = (c) => c.name.toLowerCase() === ch.name.toLowerCase() && c.type === type;
+      let channel = guild.channels.cache.find((c) => c.parentId === category.id && named(c));
+      // A channel that already exists under the WRONG category is moved, not
+      // duplicated. Without this, deciding a channel belongs somewhere else
+      // leaves the old one in place and makes a second one with the same name,
+      // and the bot's own boards are found by name. Found when #leaderboard
+      // moved out of INFO the day after it went up.
+      const stray = channel ? null : guild.channels.cache.find((c) => c.parentId !== category.id && named(c));
+      if (stray) {
+        // lockPermissions would silently replace the overwrites with the new
+        // category's, so we set them ourselves below (or on reapply).
+        channel = await stray.setParent(category.id, { lockPermissions: false, reason: 'SIXDOGS: moved to the category it belongs in' });
+        await channel.permissionOverwrites.set(ow, 'SIXDOGS: permissions for its new category');
+        report.push(`~ moved #${ch.name} to ${cat.category}`);
+      } else if (!channel) {
         channel = await guild.channels.create({ name: ch.name, type, parent: category.id, permissionOverwrites: ow, reason: 'SIXDOGS server setup' });
         report.push(`+ ${type === ChannelType.GuildVoice ? '🔊' : '#'}${ch.name}`);
       } else if (reapply) {
