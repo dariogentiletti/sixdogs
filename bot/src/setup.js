@@ -139,7 +139,7 @@ export function channelPlan({ verifiedRoleName = 'Verified', logChannelName = 'a
         { name: 'clips-screenshots', ow: { '@everyone': both([V, H], [S, ...THREADS, P.AddReactions]) } },
         // The leaderboard lives in COMMUNITY because it is something to come back
         // for, not a notice to read once. But it is still a BOARD: one message the
-        // bot edits, found again by its footer in the last 50 messages of the
+        // bot edits, found again by its heading in the last 50 messages of the
         // channel. Let people chat over it and it gets buried, falls out of that
         // window, and the bot posts a second one. So nobody but the bot writes
         // here, and the category's Verified and Moderator grants are taken back.

@@ -64,6 +64,9 @@ export function loadConfig() {
     // rate board are core's settings (LEADERBOARD_DAYS, LEADERBOARD_MIN_MINUTES).
     leaderboardChannel: str('LEADERBOARD_CHANNEL_NAME', 'leaderboard'),
     leaderboardDays: num('LEADERBOARD_DAYS', 30),
+    // The button under the board. Discord shows five rows per board; the
+    // website shows everything, so the board can stay short.
+    leaderboardUrl: str('LEADERBOARD_URL', 'https://sixdogs.gg/#leaderboard'),
     leaderboardMinutes: Math.max(5, num('LEADERBOARD_MINUTES', 15)),
     // Live board in #server-info.
     liveBoardChannel: 'server-info',

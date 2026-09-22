@@ -106,7 +106,7 @@ faction listen channels allow UseEmbeddedActivities (wardogs.tech map) but not S
 COMMUNITY is #general, #clips-screenshots and #leaderboard. The leaderboard is there rather
 than in INFO because it is something to come back FOR, not a notice read once, but it is still
 read-only and the category's Verified and Moderator write grants are taken back per channel:
-the board is one message found again by its footer in the last 50, so chat would bury it and
+the board is one message found again by its heading in the last 50, so chat would bury it and
 the bot would post a second one.
 **enforceLayout MOVES a channel that is in the wrong category** rather than leaving it there.
 Its channel lookup matches on name anywhere in the server, so before that a channel that
@@ -211,9 +211,50 @@ there is one endpoint, one token and one thing that can be stale. Deliberate con
 
 ## Leaderboard
 
-`core/src/leaderboard.js` (the SQL and the numbers) + `bot/src/leaderboard.js` (the words) +
-`GET /internal/leaderboard?days=&top=`. One edited message in #leaderboard (found by its
-"Leaderboard" footer, skipped by `syncPosts`) and the same boards on sixdogs.gg.
+`core/src/leaderboard.js` (the SQL and the numbers) + `bot/src/leaderboard.js` (the words and
+the drawing) + `GET /internal/leaderboard?days=&top=`. One edited message in #leaderboard
+(skipped by `syncPosts`) and the same boards on sixdogs.gg.
+
+### It is a SCOREBOARD, not another embed
+
+The first version was an embed with a list of names in it, which is what every other post the bot
+makes looks like, and the owner said so in those words. Three ways to get a scoreboard into
+Discord, and only one of them survives contact with this deploy:
+
+1. **A rendered picture.** Best looking by a mile and not available. Railway has no browser and
+   no font stack, and a board redrawn every 15 minutes cannot be a JPEG committed to the repo the
+   way the guide panels are. A native rasteriser in a service the owner cannot debug fails as
+   blank boxes with nothing in the logs. Do not reach for this without solving fonts first.
+2. **An `ansi` code block**, which Discord colours. REJECTED, and do not re-add it: colour
+   renders on desktop and web only, and depending on the phone's app version mobile shows either
+   no colour or the raw escape codes scattered through the text.
+3. **A plain code block** — monospace absolutely everywhere — inside a **Components V2**
+   container. That is what it does.
+
+`chart()` draws one board: rank, name padded to NAME_W, the value right-aligned, then a bar made
+of `█` on a `·` track. Rules that came out of looking at it:
+
+- **The bar goes LAST, after the number.** A code block does not wrap, it scrolls sideways, and a
+  narrow phone has room for about 25 characters. Something has to be the column that falls off
+  the edge and it must never be the score. Measured against a mock of Discord's dark theme, not
+  guessed; the first draft was 37 columns and lost the numbers at 420px.
+- **No bar without a `mag`.** Ground held has none on purpose: it is a shared team number, so
+  teammates cluster and every bar came out full, which says nothing. Swing is signed and
+  discipline is lower-is-better, so on both the longest bar would belong to the wrong person.
+- **The value column lands at the same offset on every board** (there is a test). That column
+  running straight down is what makes eight blocks read as one scoreboard.
+- `monoName` strips anything that is not single-width. One emoji in a Steam name would shear
+  every row under it.
+- `short` is the narrow form for that column; `value` keeps the unit for the website.
+
+Components V2 details worth not rediscovering: the message carries `flags: 1 << 15` and **cannot
+have `content` or `embeds`** (Discord refuses the whole message), the limit is **4000 characters
+across every text component** and 40 components, and a message keeps the shape it was sent with,
+so an old embed board **cannot be edited into** a V2 one — `update()` catches the failure, deletes
+and reposts, and `findBoard` deletes any leftover embed board on sight. With no embed there is no
+footer to hide a marker in, so the heading `TITLE` is the marker. A test builds the hand-written
+component JSON through discord.js's own `ContainerBuilder` so a shape it would refuse at send
+time fails in `npm test` instead of silently never appearing.
 
 **`BOARDS` in bot/src/leaderboard.js is the ONE definition** of every board's title, its
 explanation and its number format. `leaderboardPost` (Discord) and `publicLeaderboard` (website)

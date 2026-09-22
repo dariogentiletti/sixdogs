@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { leaderboardPost, publicLeaderboard, BOARDS, BOARD_FOOTER } from '../src/leaderboard.js';
+import {
+  leaderboardPost, publicLeaderboard, chart, monoName, componentText, BOARDS, TITLE,
+} from '../src/leaderboard.js';
 import { publicStatus } from '../src/webstatus.js';
+import { ActionRowBuilder, ContainerBuilder } from 'discord.js';
 
 const row = (name, over = {}) => ({
   name, steamId: name, matches: 4, minutes: 120, kills: 40, deaths: 20,
@@ -19,74 +22,190 @@ const lb = (over = {}) => ({
   starters: [{ discordId: '77', calls: 4, lastAt: '2026-09-20T00:00:00Z' }],
   ...over,
 });
-const text = (p) => JSON.stringify(p.embeds[0]);
+/** Everything the message says, whatever component it is buried in. */
+const said = (p) => componentText(p.components);
+/** The block under one board's heading. */
+const blockFor = (p, title) => {
+  const part = p.components[0].components.find((c) => c.content?.includes(title.toUpperCase()));
+  return part?.content ?? '';
+};
+const codeLines = (text) => (text.match(/```\n([\s\S]*?)\n```/)?.[1] ?? '').split('\n').filter(Boolean);
 
-test('the board is findable again after a restart', () => {
-  assert.equal(leaderboardPost(lb()).embeds[0].footer.text.startsWith(BOARD_FOOTER), true);
+// --- it has to read as a SCOREBOARD -----------------------------------------
+// The first version was an embed with a list of names in it, which is what
+// every other post the bot makes looks like, and the owner said so. The
+// monospace block and the bars are the whole point of this rewrite.
+
+test('the numbers are in a monospace block, so they line up as a table', () => {
+  const block = blockFor(leaderboardPost(lb()), 'Kills');
+  assert.ok(block.includes('```'), block);
 });
 
-test('every board is on it, and the fighting one is first', () => {
-  const names = leaderboardPost(lb()).embeds[0].fields.map((f) => f.name);
-  assert.match(names[0], /Kills/);
-  for (const want of ['Kill / death', 'Ground held', 'Swing', 'Stayed alive', 'Commanders',
-    'Time on the server', 'Got matches going']) {
-    assert.ok(names.some((n) => n.includes(want)), want);
+test('every row of a board is exactly the same width', () => {
+  const p = leaderboardPost(lb({
+    kills: [row('Rook'), row('A'), row('SomebodyWithAVeryLongName')],
+  }));
+  for (const part of p.components[0].components) {
+    const lines = codeLines(part.content ?? '');
+    if (!lines.length) continue;
+    const widths = new Set(lines.map((l) => l.length));
+    assert.equal(widths.size, 1, `ragged: ${[...widths].join(', ')}\n${lines.join('\n')}`);
   }
 });
 
-// The user-visible half of the seeding work: the one contribution the game
-// cannot see, credited on the same board as the shooting.
+// The bar is last and boards without one simply stop early, so total width
+// varies. What has to hold is that the NUMBER sits in the same column on every
+// board, because that column running straight down is what makes eight blocks
+// read as one scoreboard.
+test('the number lands in the same column on every board', () => {
+  const ends = new Set();
+  for (const part of leaderboardPost(lb()).components[0].components) {
+    for (const line of codeLines(part.content ?? '')) {
+      ends.add(line.replace(/[█·\s]+$/, '').length);
+    }
+  }
+  assert.equal(ends.size, 1, `value column wanders: ${[...ends].join(', ')}`);
+});
+
+test('a bar is drawn against the leader, so first place is full', () => {
+  const lines = codeLines(blockFor(leaderboardPost(lb({
+    kills: [row('Rook', { kills: 100 }), row('Vex', { kills: 50 })],
+  })), 'Kills'));
+  const blocks = (l) => (l.match(/█/g) ?? []).length;
+  const track = (l) => blocks(l) + (l.match(/·/g) ?? []).length;
+  assert.equal(blocks(lines[0]), track(lines[0]), 'the leader fills the bar');
+  assert.equal(blocks(lines[1]), Math.round(track(lines[1]) / 2), 'half the kills, half the bar');
+});
+
+// A bar that is always full says nothing. Ground is a shared team number, so
+// everybody on a side clusters and every bar came out maxed on the first try.
+test('the shared team board has no bar to be misleading with', () => {
+  assert.ok(!blockFor(leaderboardPost(lb()), 'Ground held').includes('█'));
+  assert.ok(!blockFor(leaderboardPost(lb()), 'Swing').includes('█'), 'nor the signed one');
+  assert.ok(!blockFor(leaderboardPost(lb()), 'Stayed alive').includes('█'), 'nor where less is better');
+});
+
+// One odd name must not shear every row under it.
+test('a name full of emoji cannot break the table', () => {
+  const w = monoName('Rook').length;
+  for (const odd of ['Ro🎮ok', '', '   ', 'WayPastTheColumnWidth', 'ｗｉｄｅ', 'a\nb']) {
+    assert.equal(monoName(odd).length, w, JSON.stringify(odd));
+  }
+  assert.ok(monoName('Ro🎮ok').startsWith('Rook'), 'and what is left is still readable');
+});
+
+test('an empty board has no block at all, just the reason', () => {
+  assert.equal(chart([]), null);
+  const swing = blockFor(leaderboardPost(lb({ swing: [] })), 'Swing');
+  assert.ok(!swing.includes('```'));
+});
+
+// --- the message itself -----------------------------------------------------
+
+test('it is a Components V2 container, with no embed to be refused for', () => {
+  const p = leaderboardPost(lb());
+  assert.equal(p.flags & (1 << 15), 1 << 15, 'IS_COMPONENTS_V2');
+  assert.equal(p.embeds, undefined, 'embeds are refused alongside the flag');
+  assert.equal(p.content, undefined, 'and so is content');
+  assert.equal(p.components[0].type, 17, 'a container');
+});
+
+test('the board is findable again after a restart, by its title', () => {
+  const p = leaderboardPost(lb());
+  assert.ok(said(p).includes(TITLE));
+  assert.ok(componentText(p.components).includes(TITLE), 'and through the same walk the bot uses');
+});
+
+test('every board is on it, and the fighting one is first', () => {
+  const p = leaderboardPost(lb());
+  const titles = p.components[0].components
+    .map((c) => c.content?.match(/\*\*.+?\s\s(.+?)\*\*/)?.[1]).filter(Boolean);
+  assert.equal(titles[0], 'KILLS');
+  for (const b of BOARDS) assert.ok(titles.includes(b.title.toUpperCase()), b.title);
+});
+
+test('a button sends people to the full version on the website', () => {
+  const p = leaderboardPost(lb(), { siteUrl: 'https://sixdogs.gg/#leaderboard' });
+  const button = p.components.at(-1).components[0];
+  assert.equal(button.style, 5, 'a link button');
+  assert.equal(button.url, 'https://sixdogs.gg/#leaderboard');
+  assert.equal(leaderboardPost(lb()).components.length, 1, 'and no dead button without a URL');
+});
+
+// The 4000 character limit is across every text component at once, and Discord
+// refuses the whole message rather than trimming it.
+test('a full board stays inside the 4000 characters Discord allows', () => {
+  const many = Array.from({ length: 25 }, (_, n) => row(`PlayerWithAVeryLongName${n}`));
+  const p = leaderboardPost(lb({
+    kills: many, kd: many, ground: many, swing: many, discipline: many, hours: many,
+  }));
+  assert.ok(said(p).length <= 4000, `${said(p).length} characters`);
+  assert.ok(p.components[0].components.length <= 40, 'and inside the component limit');
+});
+
+// Hand-written component JSON, so let discord.js validate it the same way it
+// will just before sending. A shape it refuses at send time would mean a board
+// that silently never appears.
+test('discord.js accepts the components as built', () => {
+  const p = leaderboardPost(lb(), { siteUrl: 'https://sixdogs.gg/#leaderboard' });
+  const container = new ContainerBuilder(p.components[0]).toJSON();
+  assert.equal(container.type, 17);
+  assert.ok(container.components.length > 8, 'a heading and a block per board');
+  assert.ok(new ActionRowBuilder(p.components[1]).toJSON().components[0].url);
+});
+
+// --- what the boards say ----------------------------------------------------
+
 test('getting a quiet server going is on the board, and says the server was quiet', () => {
-  const f = leaderboardPost(lb(), { nameOf: (id) => (id === '77' ? 'Bram' : 'someone') })
-    .embeds[0].fields.find((x) => x.name.includes('Got matches going'));
-  assert.match(f.value, /put their names down/);
-  assert.match(f.value, /while the server was quiet/);
-  assert.match(f.value, /\*\*Bram\*\* 4 matches/);
-  assert.ok(!f.value.includes('77'));
+  const f = blockFor(leaderboardPost(lb(), { nameOf: (id) => (id === '77' ? 'Bram' : 'someone') }), 'Got matches going');
+  assert.match(f, /put their names down/);
+  assert.match(f, /while the server was quiet/);
+  assert.match(f, /Bram/);
+  assert.ok(!f.includes('77'));
 });
 
 test('an empty starters board asks people to use the list', () => {
-  const f = leaderboardPost(lb({ starters: [] })).embeds[0].fields.find((x) => x.name.includes('Got matches'));
-  assert.match(f.value, /start-a-match/);
+  assert.match(blockFor(leaderboardPost(lb({ starters: [] })), 'Got matches going'), /start-a-match/);
 });
 
 // A number nobody understands motivates nobody, and the two derived boards are
 // the ones that need explaining most.
 test('each board says what it measures', () => {
-  const fields = leaderboardPost(lb()).embeds[0].fields;
-  const ground = fields.find((f) => f.name.includes('Ground'));
-  assert.match(ground.value, /objective score climbed while you were on/);
-  assert.match(ground.value, /team number/, 'and admits it is shared');
-  const swing = fields.find((f) => f.name.includes('Swing'));
-  assert.match(swing.value, /with you on than without you/);
-  assert.match(swing.value, /yours alone/, 'and that this one is individual');
+  const p = leaderboardPost(lb());
+  const ground = blockFor(p, 'Ground held');
+  assert.match(ground, /objective score climbed while you were on/);
+  assert.match(ground, /team number/, 'and admits it is shared');
+  const swing = blockFor(p, 'Swing');
+  assert.match(swing, /with you on than without you/);
+  assert.match(swing, /yours alone/, 'and that this one is individual');
 });
 
 // The swing board is empty until people come and go. Left unexplained that
 // looks broken, so it says why and that it fixes itself.
 test('an empty swing board explains itself instead of looking broken', () => {
-  const swing = leaderboardPost(lb({ swing: [] })).embeds[0].fields.find((f) => f.name.includes('Swing'));
-  assert.match(swing.value, /come and go/);
-  assert.match(swing.value, /Fills in on its own/);
+  const swing = blockFor(leaderboardPost(lb({ swing: [] })), 'Swing');
+  assert.match(swing, /come and go/);
+  assert.match(swing, /Fills in on its own/);
 });
 
 test('the commander board shows readable names, not raw ids', () => {
-  const p = leaderboardPost(lb(), { nameOf: (id) => (id === '42' ? 'Rook' : 'nobody') });
-  const cmd = p.embeds[0].fields.find((f) => f.name.includes('Commanders'));
-  assert.match(cmd.value, /\*\*Rook\*\*/);
-  assert.match(cmd.value, /\+3/);
-  assert.doesNotMatch(cmd.value, /<@42>/);
+  const cmd = blockFor(leaderboardPost(lb(), { nameOf: (id) => (id === '42' ? 'Rook' : 'nobody') }), 'Commanders');
+  assert.match(cmd, /Rook/);
+  assert.match(cmd, /\+3/);
+  assert.doesNotMatch(cmd, /<@42>/);
 });
 
 test('an empty commander board says nobody has been rated, not "nobody yet"', () => {
-  const cmd = leaderboardPost(lb({ commanders: [] })).embeds[0].fields.find((f) => f.name.includes('Commanders'));
-  assert.match(cmd.value, /commanded and been rated/);
+  assert.match(blockFor(leaderboardPost(lb({ commanders: [] })), 'Commanders'), /commanded and been rated/);
 });
 
 test('nothing played yet reads as an invitation, not an error', () => {
-  const p = leaderboardPost(lb({ players: 0, counted: 0, kills: [], kd: [], ground: [], swing: [], discipline: [], hours: [], commanders: [] }));
-  assert.match(p.embeds[0].description, /Nobody has played yet/);
-  assert.match(p.embeds[0].description, /fills in/);
+  const p = leaderboardPost(lb({
+    players: 0, counted: 0, kills: [], kd: [], ground: [], swing: [],
+    discipline: [], hours: [], commanders: [], starters: [],
+  }));
+  assert.match(said(p), /Nobody has played yet/);
+  assert.match(said(p), /fills in/);
 });
 
 test('it never pings anyone', () => {
@@ -94,23 +213,9 @@ test('it never pings anyone', () => {
 });
 
 test('long times read as hours, short ones as minutes', () => {
-  const t = text(leaderboardPost(lb({ hours: [row('Rook', { minutes: 120 }), row('Vex', { minutes: 30 })] })));
+  const t = said(leaderboardPost(lb({ hours: [row('Rook', { minutes: 120 }), row('Vex', { minutes: 30 })] })));
   assert.match(t, /2h/);
   assert.match(t, /30m/);
-});
-
-test('every field stays inside Discord\'s 1024 character limit', () => {
-  const many = Array.from({ length: 25 }, (_, n) => row(`PlayerWithAVeryLongName${n}`));
-  const p = leaderboardPost(lb({ kills: many, kd: many, ground: many, swing: many, discipline: many, hours: many }));
-  for (const f of p.embeds[0].fields) assert.ok(f.value.length <= 1024, `${f.name} is ${f.value.length}`);
-});
-
-// Every field being legal is not enough: Discord refuses an embed whose parts
-// add up to more than 6000 characters, and refuses it at send time.
-test('the whole embed stays inside Discord\'s 6000 character limit', () => {
-  const many = Array.from({ length: 25 }, (_, n) => row(`PlayerWithAVeryLongName${n}`));
-  const p = leaderboardPost(lb({ kills: many, kd: many, ground: many, swing: many, discipline: many, hours: many }));
-  assert.ok(JSON.stringify(p.embeds[0]).length <= 6000, `embed is ${JSON.stringify(p.embeds[0]).length}`);
 });
 
 // --- the website half -------------------------------------------------------
@@ -120,11 +225,10 @@ test('the whole embed stays inside Discord\'s 6000 character limit', () => {
 test('the website gets every board Discord does, with the same words', () => {
   const web = publicLeaderboard(lb());
   assert.deepEqual(web.boards.map((b) => b.key), BOARDS.map((b) => b.key));
-  const discord = leaderboardPost(lb()).embeds[0].fields;
+  const discord = said(leaderboardPost(lb()));
   for (const b of web.boards) {
-    const field = discord.find((f) => f.name.includes(b.title));
-    assert.ok(field, `${b.title} is missing from the Discord post`);
-    assert.ok(field.value.startsWith(b.note), `${b.title} is explained differently on the website`);
+    assert.ok(discord.includes(b.title.toUpperCase()), `${b.title} is missing from the Discord board`);
+    assert.ok(discord.includes(b.note), `${b.title} is explained differently on the website`);
   }
 });
 

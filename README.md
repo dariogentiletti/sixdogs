@@ -94,7 +94,7 @@ on the team can watch Activities (the wardogs.tech live map); only the commander
 
 **#leaderboard sits in COMMUNITY**, not INFO: it is something to come back for rather than a
 notice you read once, so it belongs with the places people hang around in. It is still read-only.
-The board is one message the bot finds again by its footer in the last 50 messages of the channel,
+The board is one message the bot finds again by its heading in the last 50 messages of the channel,
 so people chatting over it would bury it and end up with two boards.
 
 **Channel posts.** The bot fills `#rules`, `#get-verified`, `#how-to-play` and `#announcements`
@@ -331,6 +331,18 @@ boards be worked out from how the numbers move rather than read off a field:
 | **Commanders** | Their post-match rating, from the section above |
 | **Time on the server** | The people who actually keep it alive |
 | **Got matches going** | How many matches started because they put their name down in `#start-a-match` while the server was quiet |
+
+In Discord it is drawn as a **scoreboard**, not as another announcement card: each board is a
+monospace block with the names padded into a column, the number in the same place every time, and
+a bar made of block characters. That is deliberate. A rendered picture would look better still,
+but the bot runs on Railway with no browser and no fonts, and a board redrawn every 15 minutes
+cannot be a picture committed to the repo. Coloured `ansi` blocks were ruled out too: the colour
+only renders on desktop, and some phones show the raw escape codes instead. A plain code block is
+monospace on every client there is.
+
+The bar sits **after** the number on purpose. A code block does not wrap, it scrolls sideways, and
+a narrow phone only has room for about 25 characters, so something has to be the column that falls
+off the edge. It is the decoration, never the score.
 
 Two of those are worth explaining properly.
 
