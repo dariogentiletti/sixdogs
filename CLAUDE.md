@@ -476,8 +476,15 @@ and core over real HTTP with a real database, and drives the bot's real `Command
 `FactionTracker` and `VerifiedRole`: join -> `/verify` -> a code actually whispered in game and
 read back out of the mock -> `/confirm` -> Verified role -> team role -> commander offer ->
 accept -> commander role -> the server told who is commanding. Only Discord is faked, because
-there is no offline Discord. It also rehearses the role-above-the-bot failure and checks it is
-refused, reported, and does not leave anyone recorded as commander. Run it after touching
+there is no offline Discord. It also rehearses the two failures that actually happen: a role
+above the bot (refused, reported, and nobody left recorded as commander) and a player whose
+Discord DMs are closed.
+
+**The DM goes out before the in-game whisper, on purpose.** Whether it arrived decides what the
+whisper should say: "press Accept in your DMs" is useless to someone who cannot see the DM, and
+an offer that times out because they never saw a button looks exactly like one they ignored.
+`offerWhisper` is pure and tested; the admin-log line says the DM failed and suggests they turn
+on direct messages from server members. Run it after touching
 anything on that path; `npm test` stays fast and Discord-free, this is the deliberate one.
 
 ## Conventions

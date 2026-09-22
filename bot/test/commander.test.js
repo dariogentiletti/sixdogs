@@ -296,3 +296,26 @@ test('someone not in the player list is announced by their Discord name', async 
   assert.equal(w.broadcasts.length, 1, 'still announced');
   assert.match(w.broadcasts[0], /A new Blue commander has been chosen: /);
 });
+
+// ---- what the offer says in game ----
+
+import { offerWhisper } from '../src/commander.js';
+
+// Discord DMs from server members are off by default in some setups, so this
+// is a normal case, not an edge one. An offer that times out because the person
+// never saw the button looks exactly like one they ignored.
+test('the in-game whisper names the way to accept that will actually work', () => {
+  const withDm = offerWhisper({ label: 'Blue', secs: 60, dmSent: true, inVoice: true, voiceChannelName: 'Blue Command (listen)' });
+  assert.match(withDm, /press Accept in your DMs/);
+  assert.doesNotMatch(withDm, /\/accept/);
+
+  const noDm = offerWhisper({ label: 'Blue', secs: 60, dmSent: false, inVoice: true, voiceChannelName: 'Blue Command (listen)' });
+  assert.match(noDm, /type \/accept/);
+  assert.match(noDm, /couldn't send you a DM/);
+  assert.doesNotMatch(noDm, /press Accept/);
+});
+
+test('someone already in the voice channel is not told to join it', () => {
+  assert.doesNotMatch(offerWhisper({ label: 'Red', secs: 60, dmSent: true, inVoice: true, voiceChannelName: 'Red Command (listen)' }), /Then join/);
+  assert.match(offerWhisper({ label: 'Red', secs: 60, dmSent: true, inVoice: false, voiceChannelName: 'Red Command (listen)' }), /Then join "Red Command \(listen\)"/);
+});

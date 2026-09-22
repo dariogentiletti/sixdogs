@@ -45,7 +45,7 @@ const ok = (label, cond, extra = '') => {
 // the failure paths can be checked too.
 // ---------------------------------------------------------------------------
 
-function fakeGuild({ botTop = 100 } = {}) {
+function fakeGuild({ botTop = 100, dmsClosed = false } = {}) {
   const log = [];
   const roles = new Map();
   let nextPosition = 1;
@@ -82,7 +82,11 @@ function fakeGuild({ botTop = 100 } = {}) {
         },
         remove: async (role) => { held.delete(role.id); role.members.delete(id); },
       },
-      send: async () => { /* DM; nothing to assert here */ },
+      // Discord DMs from server members are off by default in some setups, so
+      // a closed DM is a normal case worth rehearsing, not an edge one.
+      send: async () => {
+        if (dmsClosed) throw Object.assign(new Error('Cannot send messages to this user'), { code: 50007 });
+      },
     };
     members.set(id, m);
     return m;
@@ -249,7 +253,33 @@ try {
     said.at(-1)?.message ?? 'nothing broadcast');
 
   // -------------------------------------------------------------------------
-  step('7. The failure everyone hits: a role above the bot');
+  step('7. Someone whose Discord DMs are closed');
+  const w3 = fakeGuild({ dmsClosed: true });
+  const me3 = w3.addMember(ME, NAME);
+  const commanders3 = new CommanderManager({
+    core, config: { commanderAcceptSec: 60, commanderAwaySec: 300, commanderDelaySec: 0, commanderPoolRoleName: 'Commander Pool' },
+    log: w3.logger,
+  });
+  commanders3.attach(w3.guild);
+  commanders3.matchId = state.matchId;
+  const before = (await mockCall('/mock/messages')).filter((m) => m.steamId === STEAM).length;
+  await commanders3.tick(linked, () => 'blue');
+  const afterDm = (await mockCall('/mock/messages')).filter((m) => m.steamId === STEAM);
+  ok('they are still told in game', afterDm.length === before + 1);
+  ok('and told to type /accept, not to press a button they cannot see',
+    /type \/accept/.test(afterDm.at(-1)?.message ?? ''), afterDm.at(-1)?.message ?? '');
+  // Show the line that matched, not the last line written: printing the wrong
+  // one makes a passing check look like a false positive.
+  const dmWarning = w3.log.find((l) => /couldn't DM them/.test(l));
+  ok('an admin is told the DM failed', Boolean(dmWarning),
+    dmWarning?.split('\n').at(-1) ?? 'nothing logged');
+  const stillWorks = await commanders3.accept(ME);
+  ok('/accept still works for them', stillWorks.ok === true, stillWorks.message);
+  ok('and the commander role is given', me3.roles.cache.size > 0);
+  clearTimeout(commanders3.state.blue.offer?.timer);
+
+  // -------------------------------------------------------------------------
+  step('8. The failure everyone hits: a role above the bot');
   const w2 = fakeGuild({ botTop: 1 }); // every role is now above the bot
   const me2 = w2.addMember(ME, NAME);
   const verified2 = new VerifiedRole({ roleName: 'Verified', onError: w2.logger });
@@ -274,7 +304,7 @@ try {
     String(commanders2.state.blue.commanderId));
 
   // -------------------------------------------------------------------------
-  step('8. /healthcheck agrees with what just happened');
+  step('9. /healthcheck agrees with what just happened');
   const healthy = roleHealth({
     required: assignedRoles({ verifiedRoleName: 'Verified', commanderPoolRoleName: 'Commander Pool' }),
     roles: w.roles, botTop: 100, canManageRoles: true,

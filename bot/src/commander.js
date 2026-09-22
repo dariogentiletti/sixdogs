@@ -15,6 +15,23 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { FACTIONS, byKey } from './factions.js';
 
 /**
+ * What the commander offer says IN GAME.
+ *
+ * They are looking at the game, not at Discord, so this is the message that
+ * actually gets read. It has to name the right way to accept: "press Accept in
+ * your DMs" is useless advice to somebody whose DMs are closed, and an offer
+ * that times out because the person never saw a button is indistinguishable
+ * from one they ignored.
+ */
+export function offerWhisper({ label, secs, dmSent, inVoice, voiceChannelName }) {
+  return `You've been picked as ${label} COMMANDER. `
+    + (dmSent
+      ? `Alt-tab to Discord and press Accept in your DMs within ${secs}s.`
+      : `Alt-tab to Discord and type /accept within ${secs}s. (I couldn't send you a DM.)`)
+    + (inVoice ? '' : ` Then join "${voiceChannelName}".`);
+}
+
+/**
  * Pure: who could be offered command of `faction` right now, best group first.
  * @returns {{ tier: 'pool'|'random'|null, candidates: object[] }}
  */
@@ -186,24 +203,31 @@ export class CommanderManager {
 
     const vc = this.voiceChannel(faction);
     const inVoice = vc && this.voiceOf(pick.discordId) === vc.id;
-    // They're looking at the game, not Discord — so whisper in-game first.
-    await this.core.message(pick.steamId,
-      `You've been picked as ${f.label} COMMANDER. Alt-tab to Discord and press Accept in your DMs within ${secs}s.${inVoice ? '' : ` Then join "${f.voiceChannelName}".`}`)
-      .catch((err) => console.warn('[commander] in-game whisper failed:', err.message));
 
+    // The DM goes FIRST, even though they're looking at the game, because
+    // whether it arrived changes what the in-game whisper should tell them to
+    // do. Plenty of people have DMs from server members turned off, which is
+    // Discord's default in some setups: telling those people to press a button
+    // they cannot see is how an offer times out for no reason.
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`cmd:accept:${faction}:${matchId}`).setLabel(`Accept ${f.label} command`).setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(`cmd:decline:${faction}:${matchId}`).setLabel('Not this time').setStyle(ButtonStyle.Secondary),
     );
     const member = await this.guild.members.fetch(pick.discordId).catch(() => null);
-    await member?.send({
+    const dmSent = await member?.send({
       content: `🎖️ You've been picked to command **${f.label}** this match. You have ${secs} seconds.\n`
         + (inVoice ? '' : `Join **${f.voiceChannelName}** after accepting.\n`)
         + `Once you accept you can speak in **${f.voiceChannelName}**; everyone else on ${f.label} hears you.`
         + (tier === 'random' ? `\n_Nobody in the Commander Pool was on ${f.label}, so you were drawn at random. "Not this time" is fine._` : ''),
       components: [row],
-    }).catch(() => { /* DMs closed — /accept still works */ });
-    await this.log(`🎖️ ${f.label}: offered command to <@${pick.discordId}> (${tier === 'pool' ? 'Commander Pool' : 'random — no pool members on this faction'}${inVoice ? '' : ', not in voice yet'}; ${secs}s to accept).`);
+    }).then(() => true, () => false) ?? false;
+
+    await this.core.message(pick.steamId, offerWhisper({
+      label: f.label, secs, dmSent, inVoice, voiceChannelName: f.voiceChannelName,
+    })).catch((err) => console.warn('[commander] in-game whisper failed:', err.message));
+
+    await this.log(`🎖️ ${f.label}: offered command to <@${pick.discordId}> (${tier === 'pool' ? 'Commander Pool' : 'random — no pool members on this faction'}${inVoice ? '' : ', not in voice yet'}; ${secs}s to accept).`
+      + (dmSent ? '' : "\n⚠️ I couldn't DM them, so they can't see the Accept button. They've been told in game to type `/accept` instead. Worth asking them to turn on direct messages from server members."));
   }
 
   /** outcome: accepted | declined | timeout */
