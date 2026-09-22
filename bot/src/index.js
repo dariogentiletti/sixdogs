@@ -66,6 +66,7 @@ let lastCoreError = null;
 let syncing = false;
 let lastCmdSig = null;
 let roleTroubleLogged = false;  // so a broken role list is reported once, not every 5s
+let menuTroubleLogged = false;  // same, for the #roles reaction menu
 let outageSince = null;   // when we lost game data (core or game server unreachable)
 let outageCleared = false;
 
@@ -327,8 +328,18 @@ async function onRoleReaction(reaction, user, adding) {
     if (adding && !member.roles.cache.has(role.id)) await member.roles.add(role, 'SIXDOGS: #roles reaction');
     if (!adding && member.roles.cache.has(role.id)) await member.roles.remove(role, 'SIXDOGS: #roles reaction removed');
     console.log(`[roles] ${member.user.tag} ${adding ? '+' : '-'} ${entry.roleName}`);
+    menuTroubleLogged = false;
   } catch (err) {
     console.warn(`[roles] couldn't update role: ${err.message} (is my role above the class roles?)`);
+    // Same silent failure as the team roles: someone taps an emoji in #roles,
+    // nothing happens, and only the console knows. Latched, because a broken
+    // role list would otherwise log once per tap.
+    if (!menuTroubleLogged) {
+      menuTroubleLogged = true;
+      await log(`❌ I can't hand out the roles in #${config.rolesChannelName}: ${err.message}\n`
+        + "Most likely my own role sits below them. Server Settings -> Roles, drag mine above the class roles, "
+        + 'then run `/healthcheck`.');
+    }
   }
 }
 // Someone linked left the server and came back: give Verified back.

@@ -469,7 +469,16 @@ Two things to know when this comes up again:
 Role failures now reach `#admin-log` rather than the console: the commander grant (which was not
 even wrapped in a try/catch, so it threw mid-grant and left someone thinking they were commander
 with none of the access), the faction sync (latched, so it reports once per outage rather than
-every 5 seconds), and the Verified role.
+every 5 seconds), the `#roles` reaction menu (also latched) and the Verified role.
+
+**`node tools/check-core-loop.mjs` walks the whole loop for real.** It starts the mock game server
+and core over real HTTP with a real database, and drives the bot's real `CommanderManager`,
+`FactionTracker` and `VerifiedRole`: join -> `/verify` -> a code actually whispered in game and
+read back out of the mock -> `/confirm` -> Verified role -> team role -> commander offer ->
+accept -> commander role -> the server told who is commanding. Only Discord is faked, because
+there is no offline Discord. It also rehearses the role-above-the-bot failure and checks it is
+refused, reported, and does not leave anyone recorded as commander. Run it after touching
+anything on that path; `npm test` stays fast and Discord-free, this is the deliberate one.
 
 ## Conventions
 

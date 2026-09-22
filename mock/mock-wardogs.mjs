@@ -5,6 +5,7 @@
 //
 // Control endpoints (no auth, mock only):
 //   GET  /mock/messages                 -> private messages core has sent (read verification codes here)
+//   GET  /mock/broadcasts               -> server-wide announcements core has sent
 //   POST /mock/join     {name, steamId, faction}
 //   POST /mock/leave    {steamId}
 //   POST /mock/faction  {steamId, faction}
@@ -28,6 +29,7 @@ let map = 'Harbor';
 let lighting = 'Day';
 let rotationIndex = 0;
 const messages = [];
+const broadcasts = [];
 const players = new Map();
 
 function add(name, steamId, faction) {
@@ -163,6 +165,7 @@ http.createServer(async (req, res) => {
   if (p.startsWith('/mock/')) {
     const b = req.method === 'POST' && (req.headers['content-type'] ?? '').includes('json') ? await body(req) : {};
     if (p === '/mock/messages') return json(res, 200, messages);
+    if (p === '/mock/broadcasts') return json(res, 200, broadcasts);
     if (p === '/mock/join') { add(b.name, String(b.steamId), b.faction); return json(res, 200, { ok: true }); }
     if (p === '/mock/leave') { players.delete(String(b.steamId)); return json(res, 200, { ok: true }); }
     if (p === '/mock/faction') { const pl = players.get(String(b.steamId)); if (pl) pl.faction = b.faction; return json(res, 200, { ok: !!pl }); }
@@ -213,6 +216,7 @@ http.createServer(async (req, res) => {
   }
   if (req.method === 'POST' && p === '/v1/broadcast') {
     const b = await body(req);
+    broadcasts.push({ message: b.message, at: new Date().toISOString() });
     console.log(`[mock] broadcast: ${b.message}`);
     return json(res, 200, { ok: true, message: 'sent' });
   }

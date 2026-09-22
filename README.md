@@ -322,6 +322,16 @@ Two things to keep to when you write one:
 
 If you change nothing, nothing is posted.
 
+## Checking the core loop
+
+`node tools/check-core-loop.mjs` walks the whole new-player path against a fake game server:
+join, `/verify`, the code arriving in game, `/confirm`, the Verified role, the team role, being
+offered command and taking it. It uses the real code for all of it, so if this passes the loop
+itself works and anything still wrong is in the live setup (roles, permissions, the game server).
+
+It also rehearses the commonest failure, a role positioned above the bot's own, and checks that
+it is refused loudly rather than silently.
+
 ## Settings
 
 Every setting, with its default and what it does, is in **`.env.example`**. On Railway those
