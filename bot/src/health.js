@@ -80,6 +80,42 @@ export function playerHealth({ players = [], members = new Set() } = {}) {
 
 const tick = (ok) => (ok ? '✅' : '❌');
 
+/**
+ * Why core cannot reach the game server, in words that say what to go and do.
+ * The raw error ("GET /v1/capabilities failed: ECONNREFUSED") is exact and
+ * means nothing to the owner; the fix is different for each cause, so a single
+ * "not answering" sends them looking in the wrong place.
+ *
+ * @param {{error?:string|null, code?:string|null}} arg
+ */
+export function explainServerDown({ error, code } = {}) {
+  const c = String(code ?? '');
+  const e = String(error ?? '');
+  const has = (s) => c === s || e.includes(s);
+  if (c === 'auth' || / -> 40[13]:/.test(e)) {
+    return 'The game server turned down the RCON password. If it was changed in the xREALM panel, '
+      + 'put the new one in Railway -> Variables -> `RCON_PASSWORD`.';
+  }
+  if (has('ECONNREFUSED')) {
+    return 'The game machine is up, but nothing is listening on the RCON port. Either the game server '
+      + 'is stopped or restarting, or RCON was switched off or moved to another port (a game update or '
+      + 'a host restart can do that). In the xREALM panel: is the server running, is RCON still enabled, '
+      + 'and is its port the one at the end of `RCON_URL` in Railway?';
+  }
+  if (has('timed out') || has('ETIMEDOUT') || has('EHOSTUNREACH') || has('ENETUNREACH')) {
+    return 'Nothing came back at all. Usually the whole game machine is down, or a firewall is dropping '
+      + 'the connection. Check the server is running in the xREALM panel; if it is, ask xREALM whether '
+      + 'RCON accepts connections from outside.';
+  }
+  if (has('ENOTFOUND') || has('EAI_AGAIN')) {
+    return 'The address in `RCON_URL` does not exist. Check it in Railway -> Variables for a typo.';
+  }
+  if (c === 'database') {
+    return 'The game server answered, but saving what it said failed. That is the database, not the game.';
+  }
+  return 'Check the game server is running in the xREALM panel.';
+}
+
 /** The whole thing as a Discord message. Pure, so the wording is testable. */
 export function healthReport({ core, roles, players, actions, verifiedRoleName = 'Verified' }) {
   const lines = ['**Can a new player actually get set up?**', ''];
@@ -88,9 +124,23 @@ export function healthReport({ core, roles, players, actions, verifiedRoleName =
   lines.push(`${tick(core.serverOk)} **Game server** — ${core.serverOk
     ? `connected, ${players.length} player${players.length === 1 ? '' : 's'} on`
     : "not answering, so /verify can't see anyone"}`);
-  lines.push(`${tick(actions.message)} **Private messages in game** — ${actions.message
-    ? 'supported, so verification codes can be sent'
-    : 'NOT supported by this server build, so /verify cannot work at all'}`);
+  if (core.ok && !core.serverOk) {
+    const since = core.lastSuccessAt ? Date.parse(core.lastSuccessAt) : NaN;
+    lines.push(`  ${explainServerDown({ error: core.serverError, code: core.serverCode })}`);
+    lines.push(`  ${Number.isFinite(since)
+      ? `Last answered <t:${Math.floor(since / 1000)}:R>.`
+      : 'It has not answered since the bot last restarted.'}`
+      + (core.serverError ? ` Exact error: \`${String(core.serverError).slice(0, 160)}\`` : ''));
+  }
+  // Which actions a build has is read off the server itself. Until it has
+  // answered once, "not listed" means "not asked yet", and calling that
+  // "NOT supported" sent the owner after a problem that does not exist.
+  const known = actions.known !== false;
+  lines.push(!known
+    ? "❔ **Private messages in game** — can't check until the game server answers"
+    : `${tick(actions.message)} **Private messages in game** — ${actions.message
+      ? 'supported, so verification codes can be sent'
+      : 'NOT supported by this server build, so /verify cannot work at all'}`);
 
   const broken = roles.filter((r) => !r.ok);
   lines.push('', `${tick(!broken.length)} **Roles the bot hands out** — `
@@ -110,7 +160,7 @@ export function healthReport({ core, roles, players, actions, verifiedRoleName =
       + 'Ask someone to join and run this again.');
   }
 
-  const bad = !core.ok || !core.serverOk || !actions.message || broken.length;
+  const bad = !core.ok || !core.serverOk || (known && !actions.message) || broken.length;
   lines.push('', bad
     ? '**Fix the ❌ lines above and run this again.**'
     : `**Everything a new player needs is working.** Joining, \`/verify\`, the ${verifiedRoleName} role, team roles and commander offers.`);

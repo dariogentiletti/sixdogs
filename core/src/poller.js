@@ -20,6 +20,8 @@ export class Poller {
       lastPollAt: null,
       lastSuccessAt: null,
       lastError: null,
+      // 'ECONNREFUSED', 'timed out', 'auth'... so the answer can say what to fix.
+      lastErrorCode: null,
       status: null,
       players: [],
       matchId: null,
@@ -83,6 +85,7 @@ export class Poller {
       }
       this.state.ok = false;
       this.state.lastError = err.message;
+      this.state.lastErrorCode = err.reason ?? err.code ?? null;
       return;
     }
 
@@ -90,6 +93,7 @@ export class Poller {
       await this.record(status, players, now);
       this.state.ok = true;
       this.state.lastError = null;
+      this.state.lastErrorCode = null;
       this.state.lastSuccessAt = new Date(now).toISOString();
       this.state.status = status;
       this.state.players = players;
@@ -97,6 +101,7 @@ export class Poller {
       this.log.error(`[poller] failed to record poll: ${err.message}`);
       this.state.ok = false;
       this.state.lastError = `database: ${err.message}`;
+      this.state.lastErrorCode = 'database';
       return;
     }
 

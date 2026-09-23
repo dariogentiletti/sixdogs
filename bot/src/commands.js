@@ -384,7 +384,8 @@ export function makeHandlers({ core, commanders, ratings, seeding, events, confi
       }
       let actions = { message: false };
       try {
-        actions = (await core.diagnostics()).actions ?? actions;
+        const diag = await core.diagnostics();
+        actions = { ...(diag.actions ?? actions), known: diag.capabilitiesLoaded !== false };
       } catch { /* covered by the core line */ }
 
       const me = guild.members.me ?? await guild.members.fetchMe().catch(() => null);
@@ -396,7 +397,12 @@ export function makeHandlers({ core, commanders, ratings, seeding, events, confi
       });
 
       await i.editReply(healthReport({
-        core: { ok: !coreError, error: coreError, serverOk: Boolean(state?.ok) },
+        core: {
+          ok: !coreError, error: coreError, serverOk: Boolean(state?.ok),
+          serverError: state?.lastError ?? null,
+          serverCode: state?.lastErrorCode ?? null,
+          lastSuccessAt: state?.lastSuccessAt ?? null,
+        },
         actions,
         roles,
         players: playerHealth({

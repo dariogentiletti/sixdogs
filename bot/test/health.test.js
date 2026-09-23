@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assignedRoles, healthReport, playerHealth, roleHealth } from '../src/health.js';
+import { assignedRoles, explainServerDown, healthReport, playerHealth, roleHealth } from '../src/health.js';
 import { FACTIONS } from '../src/factions.js';
 
 const cfg = { verifiedRoleName: 'Verified', commanderPoolRoleName: 'Commander Pool' };
@@ -117,4 +117,54 @@ test('all clear says so plainly', () => {
   });
   assert.match(out, /Everything a new player needs is working/);
   assert.doesNotMatch(out, /❌/);
+});
+
+// --- the game server not answering ---------------------------------------------
+// The owner's real report: core reachable, game server not answering, and
+// "private messages NOT supported by this server build". The last line was
+// false. Core had never reached the server, so it had never been told which
+// actions exist, and "not asked yet" was printed as "this build can't".
+
+test('before the server has ever answered, private messages are unknown, not unsupported', () => {
+  const out = healthReport({
+    core: { ok: true, serverOk: false, serverError: 'GET /v1/capabilities failed: ECONNREFUSED', serverCode: 'ECONNREFUSED' },
+    actions: { message: false, known: false }, roles: [], players: [],
+  });
+  assert.doesNotMatch(out, /NOT supported/);
+  assert.match(out, /can't check until the game server answers/);
+});
+
+test('a refused connection says the machine is up and RCON is not listening', () => {
+  const out = healthReport({
+    core: { ok: true, serverOk: false, serverError: 'GET /v1/capabilities failed: ECONNREFUSED', serverCode: 'ECONNREFUSED' },
+    actions: { message: false, known: false }, roles: [], players: [],
+  });
+  assert.match(out, /nothing is listening on the RCON port/);
+  assert.match(out, /xREALM/);
+  assert.match(out, /ECONNREFUSED/, 'the exact error is there for anyone who needs it');
+  assert.match(out, /not answered since the bot last restarted/);
+});
+
+test('each cause gets its own fix', () => {
+  assert.match(explainServerDown({ code: 'auth' }), /RCON_PASSWORD/);
+  assert.match(explainServerDown({ error: 'GET /v1/status -> 401: nope' }), /RCON_PASSWORD/);
+  assert.match(explainServerDown({ code: 'timed out' }), /Nothing came back/);
+  assert.match(explainServerDown({ error: 'failed: ENOTFOUND' }), /typo/);
+  assert.match(explainServerDown({}), /xREALM/);
+});
+
+test('when it has answered before, the report says when', () => {
+  const out = healthReport({
+    core: { ok: true, serverOk: false, serverCode: 'timed out', lastSuccessAt: '2026-09-23T10:00:00Z' },
+    actions: { message: true, known: true }, roles: [], players: [],
+  });
+  assert.match(out, /Last answered <t:\d+:R>/);
+});
+
+test('the password is never in the report', () => {
+  const out = healthReport({
+    core: { ok: true, serverOk: false, serverError: 'GET /v1/status -> 401: bad token', serverCode: 'auth' },
+    actions: { message: false, known: false }, roles: [], players: [],
+  });
+  assert.doesNotMatch(out, /Bearer/);
 });

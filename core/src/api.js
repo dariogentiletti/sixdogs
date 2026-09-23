@@ -70,6 +70,7 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       ok: s.ok,
       lastSuccessAt: s.lastSuccessAt,
       lastError: s.lastError,
+      lastErrorCode: s.lastErrorCode ?? null,
       matchId: s.matchId,
       matchStartedAt: s.matchStartedAt,
       matchReason: s.matchReason,
@@ -440,6 +441,12 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       ok: true,
       rconOk: s.ok,
       lastError: s.lastError,
+      lastErrorCode: s.lastErrorCode ?? null,
+      lastSuccessAt: s.lastSuccessAt,
+      // False until the game server has answered once since core started.
+      // Until then every action reads as unsupported, which is not the same
+      // as this build lacking them, and /healthcheck must not say it is.
+      capabilitiesLoaded: rcon.routes !== null,
       apiVersion: rcon.capabilities?.apiVersion ?? null,
       build: rcon.capabilities?.build ?? null,
       serverId: s.serverId,

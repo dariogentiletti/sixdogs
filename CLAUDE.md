@@ -650,6 +650,15 @@ pure, so the interesting cases are tested without a Discord server.
 Written because a friend of the owner joined and got nothing: no code, no team role, no commander
 offer. Every step had failed safely into `console.warn`, which on Railway nobody reads.
 
+**When the game server is down, it says WHY** (`explainServerDown`): a refused connection (machine
+up, RCON not listening: server stopped, or RCON switched off or moved port after an update), a
+timeout (machine down or firewalled), a turned-down password, or an unknown address each get their
+own fix, plus when it last answered and the exact error. Core records the reason even while it is
+still retrying its first `/v1/capabilities` (before the poller starts), and `rcon.js` digs the real
+code out of fetch's `cause`, because the bare message is only ever "fetch failed". Until the server
+has answered once, `capabilitiesLoaded` is false and private messages read as unknown, not "NOT
+supported": that false line is what the owner saw on 2026-09-23 while the server was simply off.
+
 Two things to know when this comes up again:
 
 - **Commander offers only go to LINKED players** (`state.players.filter(p => p.discordId)`). So a

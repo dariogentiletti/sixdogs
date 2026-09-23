@@ -53,8 +53,16 @@ export class RconClient {
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (err) {
-      const why = err.name === 'TimeoutError' ? 'timed out' : err.cause?.code || err.message;
-      throw new RconError(`${method} ${path} failed: ${why}`, { code: 'unreachable' });
+      // fetch hides the real reason in `cause`: a code for a refused or unknown
+      // address, a list of them when a name has several addresses, or only a
+      // message ("bad port") when it refused to try at all.
+      const why = err.name === 'TimeoutError' ? 'timed out'
+        : err.cause?.code || err.cause?.errors?.find((x) => x?.code)?.code || err.cause?.message || err.message;
+      const e = new RconError(`${method} ${path} failed: ${why}`, { code: 'unreachable' });
+      // ECONNREFUSED and a timeout need different fixes (the server is up but
+      // RCON is off, versus nothing there at all), so keep which one it was.
+      e.reason = why;
+      throw e;
     }
     const text = await res.text();
     let json = null;

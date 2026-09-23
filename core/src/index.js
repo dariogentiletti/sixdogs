@@ -10,13 +10,19 @@ const REQUIRED_ROUTES = [
   ['GET', '/v1/players'],
 ];
 
-async function loadCapabilitiesWithRetry(rcon) {
+async function loadCapabilitiesWithRetry(rcon, poller) {
   for (let attempt = 1; ; attempt++) {
     try {
       const caps = await rcon.loadCapabilities();
+      poller.state.lastError = null;
+      poller.state.lastErrorCode = null;
       console.log(`[core] connected to WARDOGS RCON (api ${caps?.apiVersion ?? '?'}, build ${caps?.build ?? '?'})`);
       return caps;
     } catch (err) {
+      // The poller has not started yet, so without this /healthcheck says
+      // "not answering" and has no idea why: the one thing the owner needs.
+      poller.state.lastError = err.message;
+      poller.state.lastErrorCode = err.reason ?? err.code ?? null;
       if (err.code === 'auth') {
         console.error('[core] The game server rejected RCON_PASSWORD. Fix it in your settings: .env, or the variables set by your host, then restart.');
       } else {
@@ -50,7 +56,7 @@ async function main() {
   const api = createApi({ pool, poller, verifier, rcon, config });
   api.listen(config.port, () => console.log(`[core] internal API on :${config.port}`));
 
-  await loadCapabilitiesWithRetry(rcon);
+  await loadCapabilitiesWithRetry(rcon, poller);
   const missing = REQUIRED_ROUTES.filter(([m, p]) => !rcon.has(m, p));
   if (missing.length) {
     console.error(`[core] This server build lacks ${missing.map((r) => r.join(' ')).join(', ')} — polling can't work.`);
