@@ -43,6 +43,21 @@ export const DEFAULT_WINDOW_DAYS = 30;
 export const MIN_MINUTES = 20;
 
 /**
+ * The window a board can honestly claim.
+ *
+ * The boards are built from samples that core deletes after
+ * SAMPLE_RETENTION_DAYS, so asking for more than that does not show more: it
+ * shows the same data under a label that overstates it. That is exactly what
+ * happened — 14 days kept, "last 30 days" printed on every board. The route
+ * returns the window it actually used, and both renderers print that number.
+ */
+export function leaderboardWindow(requested, retentionDays) {
+  const want = Number(requested) > 0 ? Math.floor(Number(requested)) : DEFAULT_WINDOW_DAYS;
+  const kept = Number(retentionDays) > 0 ? Math.floor(Number(retentionDays)) : want;
+  return Math.max(1, Math.min(want, kept, 365));
+}
+
+/**
  * Per-player totals over the window, straight from the samples.
  *
  * One row per player. `scoreGain` only counts increases: a score that drops

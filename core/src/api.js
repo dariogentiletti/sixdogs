@@ -12,7 +12,7 @@ import { seedDecision } from './seeding.js';
 import { NOTICES, eventStage, zonedTimeToUtc } from './events.js';
 import {
   COMMANDERS_SQL, STARTERS_SQL, TOTALS_SQL,
-  boards, commanderStats, playerStats, starterStats,
+  boards, commanderStats, leaderboardWindow, playerStats, starterStats,
 } from './leaderboard.js';
 import { ConfigEditError, explainConfigErrors, getConfigValue, listConfigMembers, setConfigListMember, setConfigValue } from './configedit.js';
 
@@ -782,7 +782,11 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
    * what each number actually means.
    */
   route('GET', '/internal/leaderboard', async (_p, _b, url) => {
-    const days = Math.min(365, Math.max(1, Number(url?.searchParams?.get('days')) || config.leaderboardWindowDays));
+    // Never more than the samples actually kept, or the label would overstate
+    // the data. The window used is returned, and it is what the boards print.
+    const days = leaderboardWindow(
+      Number(url?.searchParams?.get('days')) || config.leaderboardWindowDays,
+      config.sampleRetentionDays);
     const top = Math.min(25, Math.max(1, Number(url?.searchParams?.get('top')) || 5));
     const [{ rows: totals }, { rows: cmd }, { rows: seeded }] = await Promise.all([
       pool.query(TOTALS_SQL, [days]),

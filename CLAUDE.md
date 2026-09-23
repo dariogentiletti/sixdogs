@@ -229,8 +229,14 @@ An event's one important property: **the count is known BEFORE anybody has to be
 Do not add anything that sends people in to find out.
 
 - **A no-go is a feature.** Short list an hour out -> call it off. Calling it off costs nothing;
-  twenty people in a dead lobby costs twenty people. The no-go **pings nobody**: telling people to
-  do nothing is how a ping role gets muted, and then the call-ins stop working too.
+  twenty people in a dead lobby costs twenty people. The no-go **never pings the role**: telling a
+  whole role to do nothing is how it gets muted, and then the call-ins stop working too. It DOES
+  name the people who said yes, because they are the ones about to arrange an evening round it.
+- **Saying yes is a promise from the bot**, and it keeps it: the go and the start ping Match Alerts
+  AND every yes BY NAME (`yesMentions`, capped to fit Discord's 2000 characters and 100 user
+  mentions), and `/event cancel` tells the yes-list too (`cancelMessage`). The first version only
+  pinged the role, so somebody who said yes without holding it heard nothing at all. Announce and
+  remind stay role-only: nobody has committed to anything yet.
 - **The go fires as soon as the target is met**, not at the deadline. People arrange an evening
   around "it's on", not around a number creeping up. It also revives a called-off night if the
   numbers arrive late.
@@ -320,6 +326,9 @@ impossible to chase, because nobody can work out what to do differently about it
   zero — for anyone who never left: with nothing to compare against there is no number. Needs
   `offMinutes >= minMinutes / 2`, so the board is empty until people come and go, and it says on
   itself that it fills in on its own rather than looking broken.
+- The window is clamped to what is KEPT (`leaderboardWindow`): samples used to be pruned at 14
+  days while every board said "last 30 days". `SAMPLE_RETENTION_DAYS` is now 31, and a board
+  asking for more than is kept prints the shorter, true window instead.
 - Only score GAINS count (`GREATEST(score - LAG(score), 0)`): a drop is a reset or a cap, not
   something the players did.
 - `fight` groups by match+player and NOT by faction, so a side-switcher's kills aren't doubled.
@@ -348,8 +357,9 @@ hero already uses `.note` and was quietly making them flex containers.
 ## Channel posts
 
 `content/<channel>.md` -> the bot's post in `#<channel>` (`bot/src/posts.js`), posted or edited
-in place on start and on /setup-server. `{#name}` renders as a channel link. `image: x.jpg`
-attaches a picture from content/ to that card (shown small, avoid for guides); `button: Label |
+in place on start and on /setup-server. `{#name}` renders as a channel link
+(ONLY in content/*.md: a message the bot builds in code must use `<#id>`, see `channelRef` in
+`bot/src/events.js`, or it prints the braces literally). `image: x.jpg` attaches a picture from content/ to that card (shown small, avoid for guides); `button: Label |
 https://...` adds link buttons; `//` lines are notes (ignored); `panel: x.jpg` posts a picture as its own plain message (full
 size; lines above the first card go before it). A post = all the bot's non-menu messages in the
 channel, oldest first; same count -> edit in place, fewer -> delete the extras at the end, more -> delete and repost.

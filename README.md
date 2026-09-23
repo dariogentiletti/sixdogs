@@ -342,11 +342,15 @@ Then the bot runs it by itself:
 1. **It goes up** in `#operations` with **I'm coming / Maybe / Can't make it**.
 2. **The moment enough say yes, it's on** — not at some deadline. People arrange an evening
    around "it's on", not around a number creeping up.
-3. **A day before**, anyone who hasn't answered gets one reminder.
+3. **A day before**, Match Alerts gets one reminder.
 4. **An hour before**, if the list is short, **it is called off.** That is the feature, not a
    failure: calling it off costs nothing, and twenty people in a dead lobby costs you twenty
-   people. The no-go pings nobody — telling people to do nothing is how a ping role gets muted.
-5. **At the time**, Match Alerts gets pinged and everyone goes in together.
+   people. The no-go never pings the whole role (telling people to do nothing is how a ping role
+   gets muted), but everyone who said yes is told by name.
+5. **At the time**, Match Alerts and everyone who said yes get pinged and go in together.
+
+Saying yes means the bot pings you by name when it's confirmed, when it starts, and if it's called
+off, whether or not you hold Match Alerts. `/event cancel` tells the yes-list too.
 
 If the numbers turn up late, a called-off night comes back on by itself.
 

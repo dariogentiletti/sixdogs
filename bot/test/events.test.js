@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { eventBoard, eventMessage, EVENT_FOOTER } from '../src/events.js';
+import { eventBoard, eventMessage, cancelMessage, yesMentions, EVENT_FOOTER } from '../src/events.js';
 
 const START = '2026-10-02T20:00:00Z';
 const ev = (over = {}) => ({
@@ -84,14 +84,68 @@ test('the announcement and the reminder point at the channel with the buttons', 
   }
 });
 
-// Pinging people to tell them there is nothing to do is how a ping role gets
-// turned off, and then the call-ins stop working too.
-test('a no-go pings nobody', () => {
-  const m = eventMessage('nogo', ev({ yes: ['1'] }), { roleId: 'R', channelId: 'C' });
-  assert.ok(!m.content.includes('<@&R>'));
-  assert.deepEqual(m.allowedMentions, { parse: [] });
+// Pinging the whole role to say "nothing is happening" is how a role gets
+// muted. But the people who SAID YES planned their evening around it, and if
+// nobody tells them they turn up at eight to an empty map.
+test('a no-go never pings the role, but tells the people who said yes', () => {
+  const m = eventMessage('nogo', ev({ yes: ['111111111111111111'] }), { roleId: 'R', channelId: 'C' });
+  assert.ok(!m.content.includes('<@&R>'), 'not the role');
+  assert.deepEqual(m.allowedMentions.roles, [], 'and the role cannot be pinged even by accident');
+  assert.match(m.content, /<@111111111111111111>/, 'but the person who said yes, by name');
+  assert.deepEqual(m.allowedMentions.users, ['111111111111111111']);
   assert.match(m.content, /is off/);
   assert.match(m.content, /empty map/, 'and says why, so it does not read as us giving up');
+});
+
+// The button says "you'll be pinged when it's confirmed and when it starts".
+// That has to be true for somebody who never picked Match Alerts in #roles.
+test('"it\'s on" and "starts now" ping everyone who said yes, by name', () => {
+  const yes = ['111111111111111111', '222222222222222222'];
+  for (const kind of ['go', 'start']) {
+    const m = eventMessage(kind, ev({ yes }), { roleId: 'R' });
+    for (const id of yes) assert.match(m.content, new RegExp(`<@${id}>`), `${kind} names ${id}`);
+    assert.deepEqual(m.allowedMentions.users, yes, `${kind} is allowed to ping them`);
+    assert.deepEqual(m.allowedMentions.roles, ['R'], `${kind} still pings the role too`);
+  }
+});
+
+test('announcements and reminders do not name individuals', () => {
+  for (const kind of ['announce', 'remind']) {
+    const m = eventMessage(kind, ev({ yes: ['111111111111111111'] }), { roleId: 'R' });
+    assert.deepEqual(m.allowedMentions.users, [], kind);
+  }
+});
+
+// Discord refuses a message over 2000 characters or 100 user mentions, and a
+// refused "starts now" is the worst possible message to lose.
+test('a big turnout still fits in one message', () => {
+  const many = Array.from({ length: 150 }, (_, n) => String(100000000000000000n + BigInt(n)));
+  const m = eventMessage('start', ev({ yes: many }), { roleId: 'R', serverId: 'ABC-123' });
+  assert.ok(m.content.length <= 2000, `${m.content.length} characters`);
+  assert.ok(m.allowedMentions.users.length <= 100, `${m.allowedMentions.users.length} mentions`);
+  assert.equal(yesMentions([]).text, '');
+});
+
+test('calling it off by hand tells the people who said yes, and nobody else', () => {
+  const m = cancelMessage(ev({ yes: ['111111111111111111'] }), { reason: 'Clashes with a tournament.' });
+  assert.match(m.content, /called off/);
+  assert.match(m.content, /Clashes with a tournament/);
+  assert.match(m.content, /<@111111111111111111>/);
+  assert.deepEqual(m.allowedMentions, { parse: [], users: ['111111111111111111'] });
+});
+
+// These messages are built in code and sent as they are. The {#channel}
+// shorthand only works in content/*.md, so writing it here showed people
+// literal braces.
+test('no message ever shows the raw {#channel} placeholder', () => {
+  const texts = [
+    JSON.stringify(eventBoard(null)),
+    JSON.stringify(eventBoard(null, { seedChannelId: '999' })),
+    ...['announce', 'remind', 'go', 'nogo', 'start'].map((k) => eventMessage(k, ev(), { channelId: 'C' }).content),
+    cancelMessage(ev()).content,
+  ];
+  for (const t of texts) assert.ok(!/\{#/.test(t), t.slice(0, 120));
+  assert.match(JSON.stringify(eventBoard(null, { seedChannelId: '999' })), /<#999>/, 'a real link when the id is known');
 });
 
 test('the start message is the one that tells people how to get in', () => {

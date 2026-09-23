@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { boards, commanderStats, playerStats, starterStats } from '../src/leaderboard.js';
+import { boards, commanderStats, leaderboardWindow, playerStats, starterStats } from '../src/leaderboard.js';
 
 // polls are 5s, so 240 polls = 20 minutes, the minimum a rate board accepts.
 const row = (over = {}) => ({
@@ -135,4 +135,23 @@ test('the starters board does not need any minutes played', () => {
   const b = boards([], [], ss, { minMinutes: 20 });
   assert.equal(b.counted, 0, 'nobody has played at all');
   assert.deepEqual(b.starters.map((s) => s.calls), [3]);
+});
+
+// --- the window has to be one the data actually covers ------------------------
+// Samples were kept 14 days while every board, the website and an announcement
+// said "last 30 days". Asking for more than is kept does not show more; it shows
+// the same data under a label that overstates it.
+
+test('a board never claims a longer window than the samples kept', () => {
+  assert.equal(leaderboardWindow(30, 14), 14, 'the bug: 14 kept, 30 printed');
+  assert.equal(leaderboardWindow(30, 31), 30);
+  assert.equal(leaderboardWindow(7, 31), 7, 'a shorter window is fine');
+});
+
+test('a missing or silly window falls back to something sensible', () => {
+  assert.equal(leaderboardWindow(undefined, 31), 30);
+  assert.equal(leaderboardWindow(0, 31), 30);
+  assert.equal(leaderboardWindow(-5, 31), 30);
+  assert.equal(leaderboardWindow(10000, 10000), 365, 'and never past a year');
+  assert.equal(leaderboardWindow(30, undefined), 30, 'unknown retention does not shrink it to nothing');
 });

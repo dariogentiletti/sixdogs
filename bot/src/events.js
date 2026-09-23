@@ -28,12 +28,23 @@ const when = (iso, style = 'F') => `<t:${Math.floor(Date.parse(iso) / 1000)}:${s
 const namesOf = (ids, nameOf) => ids.map((id) => nameOf(id)).filter(Boolean);
 
 /**
+ * A channel as a clickable link when we know its id, plain text when not.
+ *
+ * Messages built here are sent as they are. The `{#channel}` shorthand is only
+ * expanded for the content/*.md posts, so writing it in code puts literal
+ * braces in front of people.
+ */
+const channelRef = (id, name) => (id ? `<#${id}>` : `#${name}`);
+
+/**
  * The board. Pure, so the wording can be checked without Discord.
  *
  * It shows ONE event — the next one. A list of five dates is a thing to scroll
  * past; one date with a button is a decision.
  */
-export function eventBoard(event, { nameOf = (id) => `<@${id}>`, upcoming = [], serverId = null } = {}) {
+export function eventBoard(event, {
+  nameOf = (id) => `<@${id}>`, upcoming = [], serverId = null, seedChannelId = null,
+} = {}) {
   if (!event) {
     return {
       content: '',
@@ -41,7 +52,7 @@ export function eventBoard(event, { nameOf = (id) => `<@${id}>`, upcoming = [], 
         title: 'No match night on the calendar',
         color: GOLD,
         description: 'When an admin puts one up it appears here, with a button to say you are coming.'
-          + '\n\nIn the meantime, {#start-a-match} is the way to get a game going today.',
+          + `\n\nIn the meantime, ${channelRef(seedChannelId, 'start-a-match')} is the way to get a game going today.`,
         footer: { text: EVENT_FOOTER },
       }],
       components: [],
@@ -107,49 +118,95 @@ export function eventBoard(event, { nameOf = (id) => `<@${id}>`, upcoming = [], 
 }
 
 /**
+ * Mentions for the people who said they are coming, inside a budget.
+ *
+ * Clicking "I'm coming" IS asking to be told, so these people are pinged by
+ * name. The Match Alerts role alone is not enough: plenty of people will say
+ * yes without ever picking that role in #roles, and the button promised them a
+ * ping. Discord allows 100 user mentions per message and 2000 characters in
+ * it, so the list stops short of both.
+ */
+export function yesMentions(ids, { budget = 1200 } = {}) {
+  const out = [];
+  let size = 0;
+  for (const id of ids ?? []) {
+    const tag = `<@${id}>`;
+    if (out.length >= 90 || size + tag.length + 1 > budget) break;
+    out.push(tag);
+    size += tag.length + 1;
+  }
+  return { text: out.join(' '), ids: out.map((t) => t.slice(2, -1)) };
+}
+
+/**
  * The messages that ping people. Separate from the board, because editing a
  * board notifies nobody, and the whole value of an event is that it reaches
  * people while they still have time to change their evening.
+ *
+ * Who hears what:
+ *   announce, remind  the Match Alerts role: news for people who opted in
+ *   go, start         the role AND everyone who said yes, by name
+ *   nogo              ONLY the people who said yes. Pinging the whole role to
+ *                     say "nothing is happening" is how a role gets muted, but
+ *                     the people who planned their evening around it have to
+ *                     hear, or they turn up at eight to an empty map — the one
+ *                     thing all of this exists to prevent.
  */
-export function eventMessage(kind, event, { roleId = null, channelId = null, serverId = null } = {}) {
-  const who = roleId ? `<@&${roleId}> ` : '';
-  const here = channelId ? `<#${channelId}>` : 'the operations channel';
+export function eventMessage(kind, event, {
+  roleId = null, channelId = null, serverId = null, seedChannelId = null,
+} = {}) {
+  const role = roleId ? `<@&${roleId}> ` : '';
+  const here = channelRef(channelId, 'operations');
+  const seed = channelRef(seedChannelId, 'start-a-match');
   const target = event.target ?? 45;
   const yes = (event.yes ?? []).length;
   const join = serverId ? `\nJoin by ID: \`${serverId}\`` : '';
+  const named = ['go', 'start', 'nogo'].includes(kind) ? yesMentions(event.yes) : { text: '', ids: [] };
   const lines = {
     announce: [
-      `${who}**${event.title}** — ${when(event.startsAt)}`,
+      `${role}**${event.title}** — ${when(event.startsAt)}`,
       `We need ${target} to get a match going. Say whether you're coming in ${here}.`,
     ],
     remind: [
-      `${who}**${event.title}** is tomorrow, ${when(event.startsAt, 'R')}.`,
-      `${yes} of ${target} so far. If you haven't said either way, do it in ${here} — `
-        + 'we decide an hour before whether it runs.',
+      `${role}**${event.title}** is tomorrow, ${when(event.startsAt, 'R')}.`,
+      `${yes} of ${target} so far. If you haven't said either way, do it in ${here}. `
+        + 'We decide an hour before whether it runs.',
     ],
     go: [
-      `${who}**${event.title} is ON.** ${yes} of us are coming.`,
-      `${when(event.startsAt)} — put it in your evening. You'll get one more ping when it starts.`,
+      `${role}**${event.title} is ON.** ${yes} of us are coming.`,
+      `${when(event.startsAt)}. Put it in your evening. You'll get one more ping when it starts.`,
     ],
     nogo: [
       `**${event.title} is off.** Only ${yes} of ${target} said they were coming, and below ${target} `
-        + "the match doesn't start — you'd be walking around an empty map.",
-      'Nobody is being called in. Next one goes up soon, and {#start-a-match} still works for tonight.',
+        + "the match doesn't start, so you'd be walking around an empty map.",
+      `Don't go in tonight for this one. The next one goes up soon, and ${seed} still works if enough of you want a game.`,
     ],
     start: [
-      `${who}**${event.title} starts now.** ${yes} of us said we'd be here. Get in.${join}`,
+      `${role}**${event.title} starts now.** ${yes} of us said we'd be here. Get in.${join}`,
     ],
   }[kind] ?? [];
 
   if (!lines.length) return null;
-  // A no-go pings nobody on purpose: "the thing you wanted is not happening" is
-  // not worth a notification, and pinging people to tell them to do nothing is
-  // how a ping role gets turned off.
-  const ping = roleId && kind !== 'nogo';
+  if (named.text) lines.push(named.text);
+  const roles = roleId && kind !== 'nogo' ? [roleId] : [];
   return {
     content: lines.join('\n'),
-    allowedMentions: ping ? { roles: [roleId] } : { parse: [] },
+    allowedMentions: { parse: [], roles, users: named.ids },
   };
+}
+
+/**
+ * What to post when an admin calls an event off by hand. Same rule as a no-go:
+ * the people who said yes are told by name, nobody else is pinged.
+ */
+export function cancelMessage(event, { reason = null, seedChannelId = null } = {}) {
+  const named = yesMentions(event.yes);
+  const lines = [
+    `**${event.title} is called off.**${reason ? ` ${reason}` : ''}`,
+    `Don't go in for this one. ${channelRef(seedChannelId, 'start-a-match')} still works if enough of you want a game.`,
+  ];
+  if (named.text) lines.push(named.text);
+  return { content: lines.join('\n'), allowedMentions: { parse: [], users: named.ids } };
 }
 
 /** Enough of the board to tell whether it needs editing at all. */
@@ -188,6 +245,11 @@ export class MatchNights {
     return this.guild?.roles.cache.find((r) => r.name === this.config.seedPingRoleName) ?? null;
   }
 
+  seedChannelId() {
+    return this.guild?.channels.cache.find(
+      (c) => c.type === ChannelType.GuildText && c.name === this.config.seedChannel)?.id ?? null;
+  }
+
   nameOf(id) {
     return this.guild?.members.cache.get(id)?.displayName ?? null;
   }
@@ -215,6 +277,7 @@ export class MatchNights {
       nameOf: (id) => this.nameOf(id),
       upcoming: events,
       serverId: this.serverId,
+      seedChannelId: this.seedChannelId(),
     });
   }
 
@@ -288,6 +351,7 @@ export class MatchNights {
       roleId: this.pingRole()?.id ?? null,
       channelId: channel?.id ?? null,
       serverId: this.serverId,
+      seedChannelId: this.seedChannelId(),
     });
     if (channel && payload) {
       await channel.send(payload)
@@ -302,6 +366,21 @@ export class MatchNights {
     return r;
   }
 
+  /**
+   * An admin called one off. The people who said yes are told by name, because
+   * a board they are not looking at will not stop them turning up at eight.
+   */
+  async announceCancel(event, reason) {
+    const channel = this.channel();
+    if (!channel) return;
+    await channel.send(cancelMessage(event, { reason, seedChannelId: this.seedChannelId() }))
+      .catch((err) => console.warn(`[events] couldn't post the cancellation: ${err.message}`));
+    await this.findBoard(channel).then((m) => m?.delete()).catch(() => {});
+    this.message = null;
+    this.lastSig = null;
+    await this.refresh();
+  }
+
   /** A board button was pressed. */
   async onButton(i) {
     const [, answer, id] = i.customId.split(':');
@@ -312,7 +391,8 @@ export class MatchNights {
     this.lastSig = signature(payload);
     await i.update(payload);
     const said = {
-      yes: `You're down for **${r.event.title}**. You'll get a ping when it's confirmed, and another when it starts.`,
+      yes: `You're down for **${r.event.title}**. You'll be pinged by name when it's confirmed and again when it starts, `
+        + "or told if it's called off, so you never turn up to an empty server.",
       maybe: `Noted as a maybe for **${r.event.title}**. Maybes don't count towards the ${r.event.target} we need, so switch to **I'm coming** when you know.`,
       no: `Taken off **${r.event.title}**.`,
     }[answer] ?? 'Noted.';

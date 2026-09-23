@@ -330,10 +330,15 @@ export function makeHandlers({ core, commanders, ratings, seeding, events, confi
       }
 
       if (sub === 'cancel') {
-        const r = await core.eventCancel(i.options.getString('id'), i.options.getString('reason') ?? undefined);
-        await events?.refresh();
+        const reason = i.options.getString('reason') ?? undefined;
+        const r = await core.eventCancel(i.options.getString('id'), reason);
+        // Told by name, not just on the board: the people who said yes are the
+        // ones who would otherwise turn up at eight to an empty map.
+        await events?.announceCancel(r.event, reason);
         await log(`📅 ${i.user} called off **${r.event.title}**.`);
-        await i.editReply(`Called off **${r.event.title}**. The board says so and nobody is being pinged.`);
+        const told = r.event.yes?.length ?? 0;
+        await i.editReply(`Called off **${r.event.title}**. `
+          + (told ? `The ${told} who said yes have been told by name.` : 'Nobody had said yes yet, so nobody was pinged.'));
         return;
       }
 

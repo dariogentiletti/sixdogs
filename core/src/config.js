@@ -44,7 +44,12 @@ export const config = {
   slowPollIntervalMs: num('SLOW_POLL_INTERVAL_MS', 10000),
   healthCheckEveryMs: num('HEALTH_CHECK_EVERY_MS', 60000),
   backpressureDepth: num('BACKPRESSURE_QUEUE_DEPTH', 5),
-  sampleRetentionDays: num('SAMPLE_RETENTION_DAYS', 14),
+  // How long the 5-second samples are kept. The leaderboard is built from them,
+  // so this is also the furthest back it can see: it was 14 while every board,
+  // the website and an announcement all said "last 30 days". 31 covers a full
+  // 30-day window, and the leaderboard route caps itself at this number so the
+  // two can never disagree again. See leaderboardWindow in leaderboard.js.
+  sampleRetentionDays: Math.max(1, num('SAMPLE_RETENTION_DAYS', 31)),
   verifyCodeTtlSec: num('VERIFY_CODE_TTL_SEC', 600),
   verifyCodeDigits: num('VERIFY_CODE_DIGITS', 3), // shorter is friendlier to type; see MAX_ATTEMPTS in verify.js
   ratingWindowDays: num('RATING_WINDOW_DAYS', 60),
