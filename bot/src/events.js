@@ -155,7 +155,15 @@ export function eventMessage(kind, event, { roleId = null, channelId = null, ser
 /** Enough of the board to tell whether it needs editing at all. */
 const signature = (payload) => JSON.stringify(payload.embeds);
 
-export class Events {
+/**
+ * The #operations board and the notices, on a beat.
+ *
+ * NOT called `Events`: discord.js exports its own `Events` (the gateway event
+ * names, `Events.ClientReady` and so on) and index.js imports it. Two of them
+ * in one file is a SyntaxError that takes the whole bot down at startup, which
+ * is exactly what it did.
+ */
+export class MatchNights {
   constructor({ core, config, log }) {
     this.core = core;
     this.config = config;

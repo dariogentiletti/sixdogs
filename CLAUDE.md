@@ -672,6 +672,22 @@ an offer that times out because they never saw a button looks exactly like one t
 on direct messages from server members. Run it after touching
 anything on that path; `npm test` stays fast and Discord-free, this is the deliberate one.
 
+## The entry points are not imported by anything, so they are not tested
+
+`bot/src/index.js`, `core/src/index.js` and `run.mjs` are where execution starts, so no test file
+imports them and nothing catches a mistake in them. That is not theoretical: a second
+`import { Events }` was added beside discord.js's own `Events`, which is a SyntaxError. The bot
+died on startup on Railway, took core down with it, and all 210 tests were green throughout.
+
+`bot/test/parses.test.js` now runs `node --check` over every source file, entry points included.
+It catches duplicate declarations, stray brackets and bad imports — anything that fails to parse.
+It cannot catch a run-time fault and is not trying to. Do not delete it, and do not let the
+entry-point list drift (the test asserts those three are in it).
+
+**Never name anything `Events` in the bot.** discord.js exports its own `Events` (the gateway
+names: `Events.ClientReady`, `Events.MessageCreate`) and `index.js` imports it. The match-night
+class is `MatchNights` in `bot/src/events.js` for exactly that reason.
+
 ## Conventions
 
 - Scope each session to one runnable thing and stop there.
