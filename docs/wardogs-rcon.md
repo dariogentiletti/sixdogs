@@ -94,6 +94,17 @@ every write, so they are not worth recording; the section names should be stable
 `/Script/WDGame.WDServerMapRotationSettings` or `/Script/WDRCON.WDRCONSettings`, none of which
 have been read yet. It may simply not be a server setting on this build.
 
+### The other sections, read off the whole file on 2026-09-24
+
+- `[MatchState.Playing.KOTH]`: `ScorePeriod=22`
+- `[/Script/WDGame.WDGameStateSession]`: `bLockOverpopulatedTeamsConfig=true`, `OverpopulatedTeamThresholdConfig=3`
+- `[/Script/WDGame.WDServerMapRotationSettings]`: `bEnabled=True`, `RotationMode=Ordered`, and a
+  `RotationEntries` list of `(Map=..., Experience=..., Lighting=..., ZoneAlternator=...)` over
+  Kavkazi, Europe and NorthAmerica
+- `[/Script/WDGame.WDGameSession]` also has `ServerImageURL` and a `DefaultBannedPlayerIds` list
+
+No section has an AFK, idle or kick-timeout key. There is no such setting on this build.
+
 ### `[/Script/WDRCON.WDRCONSettings]`, read off the xREALM file by the owner, 2026-09-24
 
 ```
