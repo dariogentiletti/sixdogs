@@ -343,42 +343,28 @@ test('the RCON section cannot be edited from here, as a value or a list', async 
     (e) => e.code === 'protected');
 });
 
-// ---- never send a document that leaves RCON without a password ------------
-// The live file read Password="" on 2026-09-24 with RCON refusing everyone.
-// PUT /v1/config replaces the whole document, RCON section included, so a
-// document with an empty password is never sent, whoever emptied it.
+// ---- never send a document that drops RCON's own section --------------------
+// PUT replaces the whole document. The RCON section's `Password=""` is NORMAL on
+// xREALM (the password lives in the host panel; it read empty before the bot
+// ever saved), so an empty password must NOT block a save: that briefly
+// blocked every /settings and /reserved save for nothing.
 
 const withRcon = (lines) => ['[/Script/WDGame.WDGameSession]', 'MaxReservedSlots=6', '',
   '[/Script/WDRCON.WDRCONSettings]', ...lines].join('\r\n');
 
-test('an empty RCON password blocks the save, and says where to fix it', async () => {
-  const { rconPasswordProblem } = await import('../src/configedit.js');
-  const msg = rconPasswordProblem(withRcon(['bEnabled=true', 'Password=""', 'Port=7776']));
-  assert.match(msg, /reads as empty/);
-  assert.match(msg, /xREALM/);
-  assert.ok(rconPasswordProblem(withRcon(['bEnabled=true', 'Password=', 'Port=7776'])), 'bare empty too');
-  assert.ok(rconPasswordProblem(withRcon(['bEnabled=true', 'Port=7776'])), 'missing altogether');
-});
-
-test('a real password or a hash lets the save through', async () => {
-  const { rconPasswordProblem } = await import('../src/configedit.js');
-  assert.equal(rconPasswordProblem(withRcon(['Password="s3cret"', 'Port=7776'])), null);
-  assert.equal(rconPasswordProblem(withRcon(['Password=""', 'PasswordHash=abc123'])), null, 'the hash wins');
+test('the live xREALM shape, with an empty RCON password, can be saved', async () => {
+  const { rconSectionProblem } = await import('../src/configedit.js');
+  assert.equal(rconSectionProblem(withRcon(['bEnabled=true', 'Password=""', 'Port=7776', 'BindAddress=0.0.0.0'])), null);
 });
 
 test('a document with no RCON section at all is never sent', async () => {
-  const { rconPasswordProblem } = await import('../src/configedit.js');
-  assert.match(rconPasswordProblem('[/Script/WDGame.WDGameSession]\nMaxReservedSlots=6\n'), /no RCON section/);
+  const { rconSectionProblem } = await import('../src/configedit.js');
+  assert.match(rconSectionProblem('[/Script/WDGame.WDGameSession]\nMaxReservedSlots=6\n'), /no RCON section/);
 });
 
-test('a password line in ANOTHER section does not count', async () => {
-  const { rconPasswordProblem } = await import('../src/configedit.js');
-  const text = ['[/Script/WDGame.WDGameSession]', 'Password="x"', '[/Script/WDRCON.WDRCONSettings]', 'Password=""'].join('\n');
-  assert.ok(rconPasswordProblem(text));
-});
-
-test('writeConfig itself refuses, whatever route called it', async () => {
+test('writeConfig itself refuses that, whatever route called it', async () => {
   const { RconClient } = await import('../src/rcon.js');
   const rcon = new RconClient({ baseUrl: 'http://127.0.0.1:1', password: 'x' });
-  await assert.rejects(rcon.writeConfig(withRcon(['Password=""']), '1'), (e) => e.code === 'rcon_password');
+  await assert.rejects(rcon.writeConfig('[/Script/WDGame.WDGameSession]\nMaxReservedSlots=6\n', '1'),
+    (e) => e.code === 'rcon_section');
 });

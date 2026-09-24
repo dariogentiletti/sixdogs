@@ -43,44 +43,30 @@ function refuseProtected(section) {
 
 const SECTION = /^\s*\[([^\]]+)\]\s*$/;
 
-const unquote = (v) => String(v ?? '').trim().replace(/^"(.*)"$/, '$1').trim();
-
 /**
- * Would saving this document leave RCON without a password?
+ * Would saving this document drop RCON's own section?
  *
- * PUT /v1/config replaces the WHOLE document, including RCON's own section.
- * On 2026-09-24 the live file read `Password=""` with RCON refusing every
- * connection. Whether the server blanks the password when it hands the
- * document over (so a save writes it back empty) or it was always empty, the
- * rule is the same: a document whose RCON password is empty is never sent.
- * Once the file holds a real one and the server hands it over intact, saves
- * work again on their own; if it hands it over blanked, they stay refused,
- * which is the right answer then too.
+ * PUT /v1/config replaces the WHOLE document. A document handed over without
+ * the RCON section and saved back would remove it, which could switch off the
+ * connection the bot uses. So one without it is never sent.
+ *
+ * An EMPTY `Password=""` in that section is NOT refused, and that was a
+ * mistake for about an hour on 2026-09-24. On xREALM the RCON password is set
+ * in the host's panel, not in this file: the section read `Password=""` on
+ * 2026-09-21, before the bot had saved anything, while the bot was connecting
+ * with a real password. A save writes that line back exactly as it was.
+ * Whether RCON really enforces a password is TESTED instead (authEnforced in
+ * rcon.js, shown by /healthcheck), which beats inferring it from the file.
  *
  * @returns {string|null} why it would, or null when it is safe
  */
-export function rconPasswordProblem(text) {
-  let current = null;
-  let found = false;
-  let password = '';
+export function rconSectionProblem(text) {
   for (const raw of String(text ?? '').split('\n')) {
-    const line = raw.replace(/\r$/, '');
-    const sec = SECTION.exec(line);
-    if (sec) { current = sec[1].trim(); if (isProtectedSection(current)) found = true; continue; }
-    if (!current || !isProtectedSection(current) || isComment(line)) continue;
-    const m = ENTRY.exec(line);
-    if (m && !m[2] && /^password(hash)?$/i.test(m[3].trim()) && unquote(m[5])) password = 'set';
+    const sec = SECTION.exec(raw.replace(/\r$/, ''));
+    if (sec && isProtectedSection(sec[1])) return null;
   }
-  if (!found) {
-    return 'The settings the server handed over have no RCON section. Saving them would replace the whole '
-      + 'document without it, which could switch off the connection the bot uses, so nothing was saved.';
-  }
-  if (!password) {
-    return 'The RCON password in the server\'s settings reads as empty. Saving would write it back empty, '
-      + 'which can leave the server open to anyone or refusing the bot, so nothing was saved. Put the password '
-      + 'into the settings file in the xREALM panel first (the same one as RCON_PASSWORD in Railway).';
-  }
-  return null;
+  return 'The settings the server handed over have no RCON section. Saving them would replace the whole '
+    + 'document without it, which could switch off the connection the bot uses, so nothing was saved.';
 }
 // indent, prefix (! . or none), key, the '=' with its spacing, value.
 // Splitting it this way is what lets the line be rebuilt in its own style

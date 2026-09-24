@@ -142,6 +142,15 @@ export function healthReport({ core, roles, players, actions, verifiedRoleName =
       ? 'supported, so verification codes can be sent'
       : 'NOT supported by this server build, so /verify cannot work at all'}`);
 
+  // A made-up password was let in: RCON is open to anyone who finds the port.
+  const open = core.serverOk && actions.authEnforced === false;
+  if (core.serverOk && typeof actions.authEnforced === 'boolean') {
+    lines.push(open
+      ? '❌ **RCON password** — NOT enforced. A made-up password was let in, so anyone who finds the port can '
+        + 'run your server. Set an RCON password in the xREALM panel, and the same one as `RCON_PASSWORD` in Railway.'
+      : '✅ **RCON password** — enforced, a made-up one is turned down');
+  }
+
   const broken = roles.filter((r) => !r.ok);
   lines.push('', `${tick(!broken.length)} **Roles the bot hands out** — `
     + (broken.length ? `${broken.length} of ${roles.length} are a problem` : `all ${roles.length} fine`));
@@ -160,7 +169,7 @@ export function healthReport({ core, roles, players, actions, verifiedRoleName =
       + 'Ask someone to join and run this again.');
   }
 
-  const bad = !core.ok || !core.serverOk || (known && !actions.message) || broken.length;
+  const bad = !core.ok || !core.serverOk || (known && !actions.message) || open || broken.length;
   lines.push('', bad
     ? '**Fix the ❌ lines above and run this again.**'
     : `**Everything a new player needs is working.** Joining, \`/verify\`, the ${verifiedRoleName} role, team roles and commander offers.`);

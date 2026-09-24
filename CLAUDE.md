@@ -494,14 +494,15 @@ and then nothing in Discord can put it back. It is changed in the xREALM panel. 
 never PRINTS a value whose key looks like a password, hash, secret or token (`isSecretKey` in
 `serverconfig.js`): its output is a Discord message, and the RCON password is the full-access key.
 
-**A document whose RCON password is empty is never sent** (`rconPasswordProblem` in
-`configedit.js`, checked in both write routes AND inside `rcon.writeConfig`, code `rcon_password`).
-PUT replaces the whole document, RCON section included. On 2026-09-24 the live file read
-`Password=""`, with no `BindAddress`, and RCON refused everyone; it is not known whether the
-server blanks the password when handing the document over (so the 2026-09-21 save wrote it back
-empty). The check is data-driven: once the server hands over a real password, saves work; if it
-hands it over blanked, they stay refused, which is right. A document with no RCON section at all
-is refused too. The mock now carries that section; `MOCK_BLANK_RCON_PASSWORD=1` rehearses it.
+**The RCON section's `Password=""` is normal on xREALM**, which sets the RCON password in its own
+panel. It read that way on 2026-09-21 before the bot saved anything. On 2026-09-24 Claude briefly
+took it for damage and made core refuse every save with an empty password, which blocked all of
+`/settings` and `/reserved` for nothing; that was reverted. What IS refused: a document with no
+RCON section at all (`rconSectionProblem`, in both write routes and inside `rcon.writeConfig`),
+since PUT replaces the whole document. Whether RCON enforces a password is TESTED, not read off
+the file: `rcon.authEnforced()` asks once with a made-up password, and `/healthcheck` shows a red
+line if it is let in. The 2026-09-24 outage itself was a missing `BindAddress` (loopback only).
+The mock's file has `Password=""` too; `MOCK_OPEN_RCON=1` makes it accept any password.
 
 The mock serves `PUT /v1/config` and `POST /v1/config/validate` too, including If-Match conflicts
 and a validation rule, so the whole path can be exercised without touching a live server.

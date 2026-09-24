@@ -112,7 +112,7 @@ bEnabled=True
 
 [/Script/WDRCON.WDRCONSettings]
 bEnabled=true
-Password="${process.env.MOCK_BLANK_RCON_PASSWORD === '1' ? '' : (process.env.MOCK_PASSWORD ?? 'test')}"
+Password=""
 Port=7776
 BindAddress=0.0.0.0
 `;
@@ -202,7 +202,8 @@ http.createServer(async (req, res) => {
     return json(res, 404, { error: { code: 'not_found', message: 'no mock route' } });
   }
 
-  if (req.headers.authorization !== `Bearer ${PASSWORD}`) {
+  // MOCK_OPEN_RCON=1: a server that accepts ANY password, for rehearsing /healthcheck's warning.
+  if (process.env.MOCK_OPEN_RCON !== '1' && req.headers.authorization !== `Bearer ${PASSWORD}`) {
     return json(res, 401, { error: { code: 'unauthorized', message: 'bad password' } });
   }
 

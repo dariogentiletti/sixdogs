@@ -168,3 +168,20 @@ test('the password is never in the report', () => {
   });
   assert.doesNotMatch(out, /Bearer/);
 });
+
+// Whether RCON insists on its password is TESTED with a made-up one, because
+// the xREALM file reads Password="" either way and cannot say.
+test('RCON that lets a made-up password in is a red line, with the fix', () => {
+  const out = healthReport({
+    core: { ok: true, serverOk: true }, actions: { message: true, authEnforced: false }, roles: [], players: [],
+  });
+  assert.match(out, /❌ \*\*RCON password\*\* — NOT enforced/);
+  assert.match(out, /Fix the ❌ lines/);
+});
+
+test('an enforced password is a green line, and unknown says nothing', () => {
+  const ok = healthReport({ core: { ok: true, serverOk: true }, actions: { message: true, authEnforced: true }, roles: [], players: [] });
+  assert.match(ok, /✅ \*\*RCON password\*\* — enforced/);
+  const unknown = healthReport({ core: { ok: true, serverOk: true }, actions: { message: true, authEnforced: null }, roles: [], players: [] });
+  assert.doesNotMatch(unknown, /RCON password/);
+});

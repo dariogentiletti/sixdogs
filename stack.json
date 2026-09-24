@@ -61,13 +61,6 @@
   ],
   "pending": [
     {
-      "id": "rcon-password",
-      "what": "Put the RCON password back into the RCON section of the settings file in the xREALM panel (Password=\"...\", the same value as RCON_PASSWORD in Railway), then restart the game server. Until then RCON may be open to anyone once it listens on 0.0.0.0, or refuse the bot.",
-      "blocking": "Everything that talks to the game server: /verify, team roles, commander offers, the live board, seeding, the leaderboard. Also /settings and /reserved saves, which core refuses while the password reads as empty.",
-      "cost": "None",
-      "howTo": "xREALM panel -> the server's settings file -> [/Script/WDRCON.WDRCONSettings] -> Password=\"<the value of RCON_PASSWORD in Railway>\" and BindAddress=0.0.0.0 -> save -> restart the server -> /healthcheck. Never paste the password anywhere else. Then run /settings section:/Script/WDRCON.WDRCONSettings once: if it shows Password as (hidden), the server hands it over intact and saves from Discord work again; if the file later reads empty again after a /settings or /reserved save, the server blanks it and saves must stay off."
-    },
-    {
       "id": "nowhere-to-ask-for-help",
       "what": "An unverified player has nowhere to ask a question and get an answer. #general is open to everyone now, which mostly covers it, but @everyone is denied links and files there and nobody is watching it, so somebody stuck on /verify still has no way to show a screenshot of what went wrong.",
       "blocking": "Not blocking anything, and much smaller than it was before #general opened. It only shows up when somebody is already stuck and gives up quietly.",
@@ -105,7 +98,7 @@
     "2026-09-21: reserved slots can now be given out from Discord. They are an array in the settings document capped by a MaxReservedSlots key in the same section, which is why the read-only route could never deliver the donation page's promise. /reserved grant:@member and revoke:@member do it, dry run first.",
     "2026-09-21: the settings write path works against the LIVE server, not just the mock. MinimumRequiredPlayers changed from 20 to 45 through /settings, the server accepted it, and the change was logged to #admin-log. So matches now start at 45 (three teams of 15) and seeding reads that same number.",
     "2026-09-22: the leaderboard is live in #leaderboard and on sixdogs.gg. Eight boards over 30 days: kills, K:D, stayed alive, ground held, swing, commanders, time on the server and got matches going. Checked end to end against a real database filled by real polling of the mock server, including the seeding credit surviving the call-in that clears the list. Confirmed while building it that the game reports no supply, capture or revive counters, so the strategic boards are worked out from how the objective score moves over the 5-second polls instead.",
-    "2026-09-24: RCON refused every connection (ECONNREFUSED) while the game server was running. The owner read the RCON section of the settings file in xREALM: bEnabled=true, Password=\"\" (EMPTY), Port=7776, and no BindAddress at all, which means RCON listens on loopback only. The owner added BindAddress=0.0.0.0. Whether the empty password was written by the bot's settings save on 2026-09-21 (the server blanking it on the way out) is not known, so core now refuses to save any settings document whose RCON password is empty.",
+    "2026-09-24: RCON refused every connection (ECONNREFUSED) while the game server was running. The RCON section of the settings file had bEnabled=true, Port=7776, an empty Password and NO BindAddress, so RCON listened on loopback only. The owner added BindAddress=0.0.0.0. The empty Password is normal on xREALM: the RCON password is set in the xREALM panel, and the file read the same way on 2026-09-21 before the bot saved anything. /healthcheck now tests with a made-up password that RCON really enforces one.",
     "2026-09-24: the owner pasted the WHOLE settings file. All six sections are read now and none has an AFK, idle or kick-timeout key, so there is no AFK timeout to set on this build. The full key list is in docs/wardogs-rcon.md."
   ],
   "rules": [

@@ -385,7 +385,7 @@ export function makeHandlers({ core, commanders, ratings, seeding, events, confi
       let actions = { message: false };
       try {
         const diag = await core.diagnostics();
-        actions = { ...(diag.actions ?? actions), known: diag.capabilitiesLoaded !== false };
+        actions = { ...(diag.actions ?? actions), known: diag.capabilitiesLoaded !== false, authEnforced: diag.authEnforced };
       } catch { /* covered by the core line */ }
 
       const me = guild.members.me ?? await guild.members.fetchMe().catch(() => null);

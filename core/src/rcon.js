@@ -2,7 +2,8 @@
 // Rules (see CLAUDE.md): plain HTTP, bearer token is the full-access password
 // and is never logged, feature-detect with GET /v1/capabilities.
 
-import { rconPasswordProblem } from './configedit.js';
+import { randomUUID } from 'node:crypto';
+import { rconSectionProblem } from './configedit.js';
 
 export class RconError extends Error {
   constructor(message, { status = 0, code = 'rcon_error' } = {}) {
@@ -80,6 +81,31 @@ export class RconClient {
       throw err;
     }
     return json;
+  }
+
+  /**
+   * Does RCON actually insist on the password? Asks once with a made-up one.
+   *
+   * The settings file on xREALM reads `Password=""` because the host sets the
+   * real one in its panel, so the file cannot answer this. The server can:
+   * a made-up password must be turned down. If it is let in, RCON is open to
+   * anybody who finds the port, which is the whole server.
+   *
+   * @returns {Promise<boolean|null>} true refused, false let in, null unknown
+   */
+  async authEnforced() {
+    try {
+      const res = await fetch(`${this.baseUrl}/v1/capabilities`, {
+        headers: { Authorization: `Bearer not-the-password-${randomUUID()}`, Accept: 'application/json' },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      await res.arrayBuffer().catch(() => {});
+      if (res.status === 401 || res.status === 403) return true;
+      if (res.ok) return false;
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   async loadCapabilities() {
@@ -316,9 +342,9 @@ export class RconClient {
    * written, instead of this quietly undoing their change.
    */
   async writeConfig(text, revision) {
-    // The last line of defence, whatever called it: see rconPasswordProblem.
-    const problem = rconPasswordProblem(text);
-    if (problem) throw new RconError(problem, { status: 400, code: 'rcon_password' });
+    // The last line of defence, whatever called it: see rconSectionProblem.
+    const problem = rconSectionProblem(text);
+    if (problem) throw new RconError(problem, { status: 400, code: 'rcon_section' });
     const info = this.configInfo();
     if (!info.writable) {
       throw new RconError('This server build does not allow its settings to be changed.', { code: 'unsupported' });

@@ -14,7 +14,7 @@ import {
   COMMANDERS_SQL, STARTERS_SQL, TOTALS_SQL,
   boards, commanderStats, leaderboardWindow, playerStats, starterStats,
 } from './leaderboard.js';
-import { ConfigEditError, explainConfigErrors, getConfigValue, listConfigMembers, rconPasswordProblem, setConfigListMember, setConfigValue } from './configedit.js';
+import { ConfigEditError, explainConfigErrors, getConfigValue, listConfigMembers, rconSectionProblem, setConfigListMember, setConfigValue } from './configedit.js';
 
 const MAX_BODY = 16 * 1024;
 
@@ -298,8 +298,8 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       if (err instanceof ConfigEditError) return [400, { error: { code: err.code, message: err.message } }];
       throw err;
     }
-    const guard = rconPasswordProblem(edit.text);
-    if (guard) return [400, { error: { code: 'rcon_password', message: guard } }];
+    const guard = rconSectionProblem(edit.text);
+    if (guard) return [400, { error: { code: 'rcon_section', message: guard } }];
     const base = { ok: true, section, key, from: edit.from, to: value, line: edit.line, revision: doc.revision };
     if (!edit.changed) return { ...base, changed: false, applied: false, message: `${key} is already ${value || '(empty)'}.` };
 
@@ -388,8 +388,8 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       if (err instanceof ConfigEditError) return [400, { error: { code: err.code, message: err.message } }];
       throw err;
     }
-    const guard = rconPasswordProblem(edit.text);
-    if (guard) return [400, { error: { code: 'rcon_password', message: guard } }];
+    const guard = rconSectionProblem(edit.text);
+    if (guard) return [400, { error: { code: 'rcon_section', message: guard } }];
     const base = { ok: true, steamId, action, members: edit.members, max, before: members };
     if (!edit.changed) {
       return { ...base, changed: false, applied: false,
@@ -451,6 +451,9 @@ export function createApi({ pool, poller, verifier, rcon, config, log = console 
       // Until then every action reads as unsupported, which is not the same
       // as this build lacking them, and /healthcheck must not say it is.
       capabilitiesLoaded: rcon.routes !== null,
+      // Tested, not read off the file: see authEnforced. Only asked while the
+      // server is answering, so "unknown" never gets mistaken for "open".
+      authEnforced: s.ok ? await rcon.authEnforced() : null,
       apiVersion: rcon.capabilities?.apiVersion ?? null,
       build: rcon.capabilities?.build ?? null,
       serverId: s.serverId,

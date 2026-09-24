@@ -115,11 +115,15 @@ BindAddress=0.0.0.0      <- NOT in the file; the owner added it on 2026-09-24
 ```
 
 That day RCON refused every connection (ECONNREFUSED) with the game server running. Without
-`BindAddress` RCON listens on loopback only, which refuses anything from Railway. `Password=""`
-is empty, and it is not known whether the server blanks it when it hands the document over (so
-the bot's save on 2026-09-21 wrote it back empty) or it was always supplied some other way. So
-core refuses to save any document whose RCON password is empty (`rconPasswordProblem`), and
-never edits this section at all (`isProtectedSection`).
+`BindAddress` RCON listens on loopback only, which refuses anything from Railway: that was the
+outage, and adding the line was the fix.
+
+`Password=""` is NORMAL here, not damage: xREALM sets the RCON password in its own panel (the
+owner can see it there), and the section read the same three keys on 2026-09-21, before the bot
+had saved anything, while the bot was connecting with a real password. A save writes that line
+back unchanged. Whether RCON really insists on a password is tested by `/healthcheck` with a
+made-up one (`authEnforced`), not inferred from this file. Core never edits this section
+(`isProtectedSection`) and never sends a document without it (`rconSectionProblem`).
 
 Keys in the four unread sections are still unknown. Read them with `/settings section:<name>`
 rather than guessing: `PUT /v1/config` replaces the entire document, so a wrong key name is a
