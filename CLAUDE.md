@@ -494,6 +494,15 @@ and then nothing in Discord can put it back. It is changed in the xREALM panel. 
 never PRINTS a value whose key looks like a password, hash, secret or token (`isSecretKey` in
 `serverconfig.js`): its output is a Discord message, and the RCON password is the full-access key.
 
+**A document whose RCON password is empty is never sent** (`rconPasswordProblem` in
+`configedit.js`, checked in both write routes AND inside `rcon.writeConfig`, code `rcon_password`).
+PUT replaces the whole document, RCON section included. On 2026-09-24 the live file read
+`Password=""`, with no `BindAddress`, and RCON refused everyone; it is not known whether the
+server blanks the password when handing the document over (so the 2026-09-21 save wrote it back
+empty). The check is data-driven: once the server hands over a real password, saves work; if it
+hands it over blanked, they stay refused, which is right. A document with no RCON section at all
+is refused too. The mock now carries that section; `MOCK_BLANK_RCON_PASSWORD=1` rehearses it.
+
 The mock serves `PUT /v1/config` and `POST /v1/config/validate` too, including If-Match conflicts
 and a validation rule, so the whole path can be exercised without touching a live server.
 `MOCK_BAD_CONFIG=1` seeds a document that is ALREADY invalid, which is the only way to rehearse

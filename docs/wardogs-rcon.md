@@ -94,6 +94,22 @@ every write, so they are not worth recording; the section names should be stable
 `/Script/WDGame.WDServerMapRotationSettings` or `/Script/WDRCON.WDRCONSettings`, none of which
 have been read yet. It may simply not be a server setting on this build.
 
+### `[/Script/WDRCON.WDRCONSettings]`, read off the xREALM file by the owner, 2026-09-24
+
+```
+bEnabled=true
+Password=""
+Port=7776
+BindAddress=0.0.0.0      <- NOT in the file; the owner added it on 2026-09-24
+```
+
+That day RCON refused every connection (ECONNREFUSED) with the game server running. Without
+`BindAddress` RCON listens on loopback only, which refuses anything from Railway. `Password=""`
+is empty, and it is not known whether the server blanks it when it hands the document over (so
+the bot's save on 2026-09-21 wrote it back empty) or it was always supplied some other way. So
+core refuses to save any document whose RCON password is empty (`rconPasswordProblem`), and
+never edits this section at all (`isProtectedSection`).
+
 Keys in the four unread sections are still unknown. Read them with `/settings section:<name>`
 rather than guessing: `PUT /v1/config` replaces the entire document, so a wrong key name is a
 broken live server, and `core/src/configedit.js` deliberately refuses to invent a line that isn't

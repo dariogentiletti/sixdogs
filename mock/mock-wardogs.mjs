@@ -109,6 +109,12 @@ bEnabled=True
 .Maps=Harbor
 .Maps=Ridge
 .Maps=Foundry
+
+[/Script/WDRCON.WDRCONSettings]
+bEnabled=true
+Password="${process.env.MOCK_BLANK_RCON_PASSWORD === '1' ? '' : (process.env.MOCK_PASSWORD ?? 'test')}"
+Port=7776
+BindAddress=0.0.0.0
 `;
 let configRevision = 7;
 let configText = process.env.MOCK_BAD_CONFIG === '1'
@@ -331,7 +337,7 @@ http.createServer(async (req, res) => {
       writable: true,
       text: configText,
       sections: ['/Script/WDGame.WDGameSession', 'MatchState.PreMatch.WaitingForPlayers.PlayerCount',
-        '/Script/Wardogs.ServerSettings', '/Script/Wardogs.MapRotation'],
+        '/Script/Wardogs.ServerSettings', '/Script/Wardogs.MapRotation', '/Script/WDRCON.WDRCONSettings'],
       warnings: [],
     });
   }

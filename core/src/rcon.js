@@ -2,6 +2,8 @@
 // Rules (see CLAUDE.md): plain HTTP, bearer token is the full-access password
 // and is never logged, feature-detect with GET /v1/capabilities.
 
+import { rconPasswordProblem } from './configedit.js';
+
 export class RconError extends Error {
   constructor(message, { status = 0, code = 'rcon_error' } = {}) {
     super(message);
@@ -313,7 +315,10 @@ export class RconClient {
    * revision this text was built from, the server answers 412 and nothing is
    * written, instead of this quietly undoing their change.
    */
-  writeConfig(text, revision) {
+  async writeConfig(text, revision) {
+    // The last line of defence, whatever called it: see rconPasswordProblem.
+    const problem = rconPasswordProblem(text);
+    if (problem) throw new RconError(problem, { status: 400, code: 'rcon_password' });
     const info = this.configInfo();
     if (!info.writable) {
       throw new RconError('This server build does not allow its settings to be changed.', { code: 'unsupported' });
