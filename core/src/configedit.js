@@ -25,6 +25,22 @@ export class ConfigEditError extends Error {
   }
 }
 
+/**
+ * The section that configures RCON itself: whether it is on, its port, what it
+ * listens on, its password. Changing any of it from Discord goes through RCON,
+ * and a wrong value disconnects core on the next restart, after which nothing
+ * in Discord can put it back. It is changed in the host's panel or not at all.
+ */
+export const isProtectedSection = (name) => /rcon/i.test(String(name ?? ''));
+
+function refuseProtected(section) {
+  if (isProtectedSection(section)) {
+    throw new ConfigEditError('The RCON settings are how the bot reaches the game server, so they cannot be changed '
+      + 'from Discord: a wrong value would cut the bot off, with no way back from here. Change them in the xREALM panel.',
+    'protected');
+  }
+}
+
 const SECTION = /^\s*\[([^\]]+)\]\s*$/;
 // indent, prefix (! . or none), key, the '=' with its spacing, value.
 // Splitting it this way is what lets the line be rebuilt in its own style
@@ -52,6 +68,7 @@ export function setConfigValue(text, { section, key, value } = {}) {
   if (!section || !key) {
     throw new ConfigEditError('Both a section and a key are needed.', 'bad_request');
   }
+  refuseProtected(section);
 
   const lines = text.split('\n');
   let current = '';
@@ -195,6 +212,7 @@ export function setConfigListMember(text, { section, key, value, action = 'add',
   }
   const wanted = String(value ?? '').trim();
   if (!section || !key) throw new ConfigEditError('Both a section and a key are needed.', 'bad_request');
+  refuseProtected(section);
   if (!wanted) throw new ConfigEditError('There is no value to add or remove.', 'bad_value');
   if (/[\r\n=]/.test(wanted)) {
     throw new ConfigEditError('A list entry cannot contain a line break or an equals sign.', 'bad_value');

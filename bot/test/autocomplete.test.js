@@ -193,3 +193,25 @@ test('a hit says what kind it is, so a list is not mistaken for a value', () => 
   assert.match(hitLine({ section: 'A', key: 'K', value: 'ClearArray', kind: 'clear' }), /a list, built up below/);
   assert.match(hitLine({ section: 'A', key: 'K', value: '765', kind: 'append' }), /\(list entry\) 765/);
 });
+
+// /settings output is a Discord message. The RCON password is the full-access
+// key to the server, and it must never be printed there, whatever section it
+// turns up in.
+test('passwords in the settings document are never shown', async () => {
+  const { renderSection, isSecretKey } = await import('../src/serverconfig.js');
+  const { hitLine } = await import('../src/commands.js');
+  assert.equal(isSecretKey('Password'), true);
+  assert.equal(isSecretKey('PasswordHash'), true);
+  assert.equal(isSecretKey('ServerPassword'), true);
+  assert.equal(isSecretKey('MinimumRequiredPlayers'), false);
+  const out = renderSection({ name: 'x', entries: [
+    { key: 'Password', value: 'hunter2', kind: 'set' },
+    { key: 'Port', value: '7776', kind: 'set' },
+  ] });
+  assert.doesNotMatch(out, /hunter2/);
+  assert.match(out, /Password = \(hidden\)/);
+  assert.match(out, /Port = 7776/);
+  assert.doesNotMatch(hitLine({ section: 'x', key: 'PasswordHash', value: 'abc123', kind: 'set' }), /abc123/);
+  // An empty password is not a secret, and "(hidden)" would imply one is set.
+  assert.match(renderSection({ name: 'x', entries: [{ key: 'ServerPassword', value: '', kind: 'set' }] }), /ServerPassword = $/);
+});

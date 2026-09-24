@@ -329,3 +329,16 @@ test('a value is read from the section asked for, not the first match anywhere',
   assert.equal(getConfigValue(LIST_DOC, { section: '/Script/WDGame.WDGameSession', key: 'DefaultReservedPlayerIds' }),
     null, 'a list is not an ordinary value');
 });
+
+// The RCON section is how core reaches the server at all. Editing it through
+// RCON is sawing off the branch you sit on: it works until the next restart,
+// and then nothing in Discord can undo it.
+test('the RCON section cannot be edited from here, as a value or a list', async () => {
+  const { isProtectedSection, setConfigListMember } = await import('../src/configedit.js');
+  assert.equal(isProtectedSection('/Script/WDRCON.WDRCONSettings'), true);
+  assert.equal(isProtectedSection('/Script/WDGame.WDGameSession'), false);
+  assert.throws(() => setConfigValue(DOC, { section: '/Script/WDRCON.WDRCONSettings', key: 'MaxPlayers', value: '9' }),
+    (e) => e.code === 'protected' && /xREALM/.test(e.message));
+  assert.throws(() => setConfigListMember(DOC, { section: '/Script/WDRCON.WDRCONSettings', key: 'X', value: '1' }),
+    (e) => e.code === 'protected');
+});

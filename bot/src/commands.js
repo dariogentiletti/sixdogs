@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits as P, MessageFlags } from 'discord.js';
 import { FACTIONS, byKey, gameFactionFor } from './factions.js';
 import { runSetup } from './setup.js';
-import { parseConfigText, findSection, summarise, renderSection } from './serverconfig.js';
+import { parseConfigText, findSection, summarise, renderSection, shown } from './serverconfig.js';
 import { syncPosts } from './posts.js';
 import { isMenuMessage } from './rolemenu.js';
 import { assignedRoles, healthReport, playerHealth, roleHealth } from './health.js';
@@ -203,7 +203,7 @@ export function searchConfig(sections, term) {
 
 /** One search hit as a line, saying what kind it is so a list isn't mistaken for a value. */
 export function hitLine(h) {
-  const value = h.kind === 'set' ? h.value
+  const value = h.kind === 'set' ? shown(h)
     : h.kind === 'clear' ? '(a list, built up below)'
       : `(list entry) ${h.value}`;
   return `[${h.section}]\n  ${h.key} = ${value}`;
@@ -747,7 +747,9 @@ export function makeHandlers({ core, commanders, ratings, seeding, events, confi
             : noHits(wanted);
         }
         return i.editReply(`**[${sec.name}]** — ${summarise(sec)}\n\`\`\`ini\n${renderSection(sec)}\n\`\`\`\n`
-          + `Change one with \`/settings section:${sec.name} key:<key> value:<value>\`.`);
+          + (/rcon/i.test(sec.name)
+            ? 'These are how the bot reaches the game server, so they can only be changed in the xREALM panel.'
+            : `Change one with \`/settings section:${sec.name} key:<key> value:<value>\`.`));
       }
 
       const lines = [

@@ -487,6 +487,13 @@ of the dropdown rather than offered broken. Only `kind: 'set'` keys are offered:
 list line has no single value to set and `setConfigValue` refuses it. `rcon.request` sends a string body
 as `text/plain`, since the document is text and not JSON wrapping text.
 
+**The RCON section (`/Script/WDRCON.WDRCONSettings`) is refused** by both `setConfigValue` and
+`setConfigListMember` (`isProtectedSection`, code `protected`). It holds RCON's own on/off, port,
+bind address and password: an edit through RCON takes effect on the next restart and cuts core off,
+and then nothing in Discord can put it back. It is changed in the xREALM panel. And `/settings`
+never PRINTS a value whose key looks like a password, hash, secret or token (`isSecretKey` in
+`serverconfig.js`): its output is a Discord message, and the RCON password is the full-access key.
+
 The mock serves `PUT /v1/config` and `POST /v1/config/validate` too, including If-Match conflicts
 and a validation rule, so the whole path can be exercised without touching a live server.
 `MOCK_BAD_CONFIG=1` seeds a document that is ALREADY invalid, which is the only way to rehearse

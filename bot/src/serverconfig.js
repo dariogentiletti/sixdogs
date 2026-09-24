@@ -39,6 +39,14 @@ export function parseConfigText(text) {
   return sections.filter((s, i) => s.entries.length || (i > 0 && s.name));
 }
 
+/**
+ * A value that must not be printed into Discord. The settings document can
+ * carry the RCON password (the full-access key) and the server's join password;
+ * /settings output is a message, and messages get screenshotted.
+ */
+export const isSecretKey = (key) => /pass(word)?|secret|token|hash/i.test(String(key ?? ''));
+export const shown = (e) => (isSecretKey(e.key) && String(e.value ?? '').trim() ? '(hidden)' : e.value);
+
 /** One section by name, case-insensitively. */
 export function findSection(sections, name) {
   const low = String(name ?? '').trim().toLowerCase();
@@ -61,7 +69,7 @@ export function renderSection(section, limit = 1500) {
   for (const e of section.entries) {
     if (e.kind === 'clear') lines.push(`${e.key} = (list cleared, then built up below)`);
     else if (e.kind === 'append') lines.push(`${e.key} += ${e.value}`);
-    else lines.push(`${e.key} = ${e.value}`);
+    else lines.push(`${e.key} = ${shown(e)}`);
   }
   const out = lines.join('\n');
   return out.length > limit ? `${out.slice(0, limit)}\n… (${lines.length} lines total)` : out;
