@@ -68,13 +68,6 @@
       "howTo": "xREALM panel -> the server's settings file -> [/Script/WDRCON.WDRCONSettings] -> Password=\"<the value of RCON_PASSWORD in Railway>\" and BindAddress=0.0.0.0 -> save -> restart the server -> /healthcheck. Never paste the password anywhere else. Then run /settings section:/Script/WDRCON.WDRCONSettings once: if it shows Password as (hidden), the server hands it over intact and saves from Discord work again; if the file later reads empty again after a /settings or /reserved save, the server blanks it and saves must stay off."
     },
     {
-      "id": "afk-timeout",
-      "what": "Find out whether the game server has an AFK or idle kick timeout, and if so set it to 10 minutes. Seeding actively encourages people to wait in the server, so a short timeout throws out exactly the people it just called in.",
-      "blocking": "No such setting appears in either of the two sections read so far. Four sections have never been looked at, and it may not be a server setting on this build at all.",
-      "cost": "None",
-      "howTo": "/settings find:afk, then idle, kick and timeout. That searches every section at once. If nothing turns up, it is not a setting on this build and the answer is the host's control panel or nothing."
-    },
-    {
       "id": "nowhere-to-ask-for-help",
       "what": "An unverified player has nowhere to ask a question and get an answer. #general is open to everyone now, which mostly covers it, but @everyone is denied links and files there and nobody is watching it, so somebody stuck on /verify still has no way to show a screenshot of what went wrong.",
       "blocking": "Not blocking anything, and much smaller than it was before #general opened. It only shows up when somebody is already stuck and gives up quietly.",
@@ -112,7 +105,8 @@
     "2026-09-21: reserved slots can now be given out from Discord. They are an array in the settings document capped by a MaxReservedSlots key in the same section, which is why the read-only route could never deliver the donation page's promise. /reserved grant:@member and revoke:@member do it, dry run first.",
     "2026-09-21: the settings write path works against the LIVE server, not just the mock. MinimumRequiredPlayers changed from 20 to 45 through /settings, the server accepted it, and the change was logged to #admin-log. So matches now start at 45 (three teams of 15) and seeding reads that same number.",
     "2026-09-22: the leaderboard is live in #leaderboard and on sixdogs.gg. Eight boards over 30 days: kills, K:D, stayed alive, ground held, swing, commanders, time on the server and got matches going. Checked end to end against a real database filled by real polling of the mock server, including the seeding credit surviving the call-in that clears the list. Confirmed while building it that the game reports no supply, capture or revive counters, so the strategic boards are worked out from how the objective score moves over the 5-second polls instead.",
-    "2026-09-24: RCON refused every connection (ECONNREFUSED) while the game server was running. The owner read the RCON section of the settings file in xREALM: bEnabled=true, Password=\"\" (EMPTY), Port=7776, and no BindAddress at all, which means RCON listens on loopback only. The owner added BindAddress=0.0.0.0. Whether the empty password was written by the bot's settings save on 2026-09-21 (the server blanking it on the way out) is not known, so core now refuses to save any settings document whose RCON password is empty."
+    "2026-09-24: RCON refused every connection (ECONNREFUSED) while the game server was running. The owner read the RCON section of the settings file in xREALM: bEnabled=true, Password=\"\" (EMPTY), Port=7776, and no BindAddress at all, which means RCON listens on loopback only. The owner added BindAddress=0.0.0.0. Whether the empty password was written by the bot's settings save on 2026-09-21 (the server blanking it on the way out) is not known, so core now refuses to save any settings document whose RCON password is empty.",
+    "2026-09-24: the owner pasted the WHOLE settings file. All six sections are read now and none has an AFK, idle or kick-timeout key, so there is no AFK timeout to set on this build. Other keys seen: ScorePeriod=22 (MatchState.Playing.KOTH), bLockOverpopulatedTeamsConfig=true and OverpopulatedTeamThresholdConfig=3 (WDGameStateSession), rotation bEnabled=True, RotationMode=Ordered with Kavkazi/Europe/NorthAmerica entries."
   ],
   "rules": [
     "Never move players between teams automatically during a match. The owner has ruled this out: /move stays an admin command only, and no balancing rule may ever call it on its own.",

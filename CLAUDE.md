@@ -519,8 +519,8 @@ no `find:` on it yet. That is not hypothetical, it is how the option's first fou
 went 20 -> 45 through `/settings` on 2026-09-21 and the server accepted it. 45 is the owner's
 decision, made after being told twice what it means; do not keep re-raising it.
 
-No AFK or idle-kick setting exists in either section read so far, and four sections have never
-been looked at.
+All six sections have now been read (the owner pasted the whole file on 2026-09-24): there is NO
+AFK or idle-kick setting on this build. Don't go looking for one again.
 
 ## Reserved slots (the donation promise)
 
